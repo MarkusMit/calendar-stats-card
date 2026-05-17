@@ -1,118 +1,97 @@
-# Tabularizer Agent Guidance
+# CLAUDE.md
 
-## System Prompt
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Agent Persona
 
 Act as an objective, critical analyst.
-Do not praise my ideas, offer compliments, or use polite filler phrases like 'that's a great question!'.
-Skip all social niceties and provide direct, blunt, and evidence-based feedback.
-Take nothing for granted.
+Do not praise ideas, offer compliments, or use polite filler.
+Provide direct, blunt, evidence-based feedback.
 Double-check every fact, remember validated facts.
-If I am wrong, tell me immediately and explain why.
+Correct errors immediately and explain why.
 
+## Project Overview
 
-## Project / Workspace
+**Type**: Home Assistant Lovelace custom card
+**Target HA version**: 2026.5.0+
 
-Creating a Home Assistant (HA) app for tabular display of some statistics data of configurable entities.
-Entities can be configured with optional label override.
+Displays HA entity statistics in dense monthly tables. Entities are user-configured with optional label overrides. One page shows all past months of a year; future months are hidden.
 
-Data should be displayed in tables per month, with a column per day-of-month, and montly summaries in additional columns.
-Entities with `state_class` "measurement" should be depending on their `device_class`, renderend either just with their value (e.g. for "precipitation") or with average, min and max values (e.g. for "temperature").
-Entities with `state_class` "total_increasing" or "increasing" should be rendered with the diff for the day-of-month.
-Monthly summary should show monthly statistics, and a "total" value where feasible. For values like "precipitation" the monthly avg/min/max should only consider days with values > zero.
-The row's label colum should also include the entities unit-of-measurement.
+### Display Logic
 
-Example:
+- Columns: day-of-month (1–N), Summary (min/avg/max), total (where applicable)
+- `measurement` entities: single value per day for scalar types (e.g. precipitation); min/avg/max per day for range types (e.g. temperature)
+- `total_increasing` / `increasing` entities: daily diff
+- Monthly summary min/avg/max; for precipitation-like, exclude zero-value days from avg/min/max
+- Label column includes unit-of-measurement
+- Layout must be dense — no excessive whitespace
 
-| Month         |    1    |   2   | 3 | ... | n-1 | n | Summary | total |
--------------------------------------------------------------------------
-|               |     min |                           |     min |       |
-| temp (°C)     |  avg    |             ...           |  avg    |       |
-|               |     max |                           |     max |       |
--------------------------------------------------------------------------
-|               |         |                           |     min |       |
-| precip (mm)   |  value  |             ...           |  avg    | total |
-|               |         |                           |     max |       |
--------------------------------------------------------------------------
-|               |         |                           |     min |       |
-| PV prod (kWh) |  value  |             ...           |  avg    | total |
-|               |         |                           |     max |       |
--------------------------------------------------------------------------
-| ...
--------------------------------------------------------------------------
+### i18n
 
-One page will show tables for all months of a year, if they are not in the future.
-The layout should be rather dense. No exceeding white spaces.
+Supported from day one: `en`, `de-AT`.
 
-The app will be fully i18n-ed. Languages supported from the start: 'en' and 'de-AT'.
+### Out of Scope (do not implement)
 
-### Possible Future features (OUT-OF-SCOPE!)
+- Color coding for threshold violations
+- Separate min/max rows
+- Manual weather/snowfall input
+- Yearly summary tab
+- Cross-year month comparison
 
-- optional color coding for values exceeding configurable thresholds
-- optional separate table rows for min/max values
-- manual input of daily "weather" condition (sunny, foggy, cloudy, heavy clouds, rain, thunderstorms, ...)
-- manual input of daily snow fall in mm (or inches?)
-- second tab for yearly summaries
-- comparison of same month of different years.
+## Dev Environment
 
-### Dev Environment
+- **Frontend**: Node.js 24.15 in WSL2 — `frontend/` directory, bundles to `frontend/dist/`
+- **Python**: 3.14 in WSL2 — tooling and tests
+- **Encoding**: UTF-8, LF line endings only (enforced via `.gitattributes`)
 
-Home Assistant 2026.5.0 (or newer)
-Python 3.14 (latest stable)  in WSL2
-NodeJs 24.15 (latest stable) in WSL2
+## Build & Test Commands
 
-All files in this project will be encoded in UTF-8.
-Line breaks are linux new-lines only.
+Commands are established per-feature via `/speckit.plan`. Refer to `specs/<NNN>/plan.md` for the active feature's build and test instructions. Until then:
+
+```bash
+# Frontend (WSL2)
+npm install
+npm run build   # bundles to frontend/dist/
+npm test
+npm run lint
+
+# Python tooling (WSL2)
+python -m pytest
+```
 
 ## Core Workflow
-This repository uses Speckit for specification-driven development. Follow this sequence:
 
-1. `/speckit.specify "feature description"` - Create feature specification
-2. `/speckit.clarify` - Clarify requirements (if needed)
-3. `/speckit.plan` - Create technical implementation plan
-4. `/speckit.tasks` - Break down into actionable tasks
-5. `/speckit.implement` - Implement the feature
-6. `/speckit.checklist` - Generate verification checklist
-7. `/speckit.analyze` - Review implementation
+This repository uses Speckit for specification-driven development:
+
+1. `/speckit.specify "feature description"` — create feature spec
+2. `/speckit.clarify` — resolve ambiguities (max 3 questions)
+3. `/speckit.plan` — technical implementation plan
+4. `/speckit.tasks` — actionable task breakdown
+5. `/speckit.implement` — execute tasks
+6. `/speckit.checklist` — verification checklist
+7. `/speckit.analyze` — implementation review
 
 ## Key Directories
-- `.specify/` - Speckit configuration and templates
-- `.specify/memory/constitution.md` - Project constitution
-- `.specify/extensions/` - Workflow extensions (git, etc.)
-- `specs/` - Feature specifications (auto-numbered directories)
-- `.claude/commands/` - Speckit command implementations
+
+- `.specify/` — Speckit configuration and templates
+- `.specify/memory/constitution.md` — project constitution (**fill in via `/speckit.constitution` before first feature**)
+- `.specify/extensions/` — workflow extensions (git hooks, scripts)
+- `specs/` — feature specifications (`specs/<NNN>-<name>/`)
+- `.claude/skills/` — Speckit skill implementations
 
 ## Git Workflow
-- Automatic commits happen before/after each Speckit step via hooks
-- Feature branches are created automatically during `/speckit.specify`
-- Never commit manually during Speckit workflow - hooks handle it
-- Branch naming: automatic or via `GIT_BRANCH_NAME` env var
-- **Always use Conventional Commits format** for commit messages: `type(scope): subject` (e.g. `feat(backfill): add batched write service`, `fix(db): handle NULL last_changed_ts`, `docs(spec): clarify FR-007 job lifetime`). Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Subject ≤72 chars, imperative mood, no trailing period. Use a body for the *why* when non-obvious; mark breaking changes with `!` after the type/scope or a `BREAKING CHANGE:` footer.
+
+- Automatic commits happen before/after each Speckit step via hooks — **never commit manually during Speckit workflow**
+- Feature branches created automatically during `/speckit.specify`; override with `GIT_BRANCH_NAME` env var
+- Spec directory name and git branch name are independent
+- **Conventional Commits format**: `type(scope): subject`
+  - Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+  - Subject ≤72 chars, imperative mood, no trailing period
+  - Breaking changes: `!` after type/scope or `BREAKING CHANGE:` footer
 
 ## Specification Conventions
-- Specifications live in `specs/<NNN>-<feature-name>/spec.md`
-- Focus on WHAT and WHY, not HOW (no implementation details)
-- Max 3 clarification questions per feature
+
+- Specs live in `specs/<NNN>-<feature-name>/spec.md`
+- Focus on WHAT and WHY — no implementation details in specs
 - Success criteria must be measurable and technology-agnostic
-
-## Common Commands
-- Check status: `git status`
-- View current spec: `cat .specify/feature.json`
-- List features: `ls specs/`
-- Re-run last step: repeat the Speckit command
-
-## Template Locations
-- Spec template: `.specify/templates/spec-template.md`
-- Plan template: `.specify/templates/plan-template.md`
-- Tasks template: `.specify/templates/tasks-template.md`
-- Checklist template: `.specify/templates/checklist-template.md`
-
-## Important Notes
-- The spec directory name and git branch name are independent
-- Hooks are configured in `.specify/extensions.yml`
-- Constitution guides all feature development
 - Never put implementation details in specifications
-
-<!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
-<!-- SPECKIT END -->
