@@ -31,7 +31,18 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- [ ] **I. HA-Native Design** — UI approach uses HA design tokens and Lovelace card conventions;
+  any custom styling is justified.
+- [ ] **II. Test-First** — test plan defined for every implementation task; tests written and
+  confirmed failing before implementation code is written.
+- [ ] **III. Density & Data Fidelity** — layout is dense (no decorative whitespace); computation
+  rules for scalar / range / cumulative entities are correctly specified in the design.
+- [ ] **IV. i18n from Day One** — all user-visible strings use the i18n mechanism from their first
+  introduction; no hard-coded display strings.
+- [ ] **V. Simplicity** — no out-of-scope features included; every abstraction has a current
+  concrete need; complexity justified in Complexity Tracking table if present.
+
+*Violations require a row in the Complexity Tracking table below before work proceeds.*
 
 ## Project Structure
 
