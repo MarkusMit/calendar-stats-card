@@ -9,7 +9,7 @@
 
 ### User Story 1 - View Annual Entity Statistics (Priority: P1)
 
-A home automation user opens their HA dashboard and sees the stats card. The card defaults to the current year, displaying dense monthly tables for all completed months plus the current (in-progress) month. The user can see the entire year's data in one scrollable view.
+A home automation user opens a dedicated HA dashboard view (configured as a full-width panel) and sees the Tabularizer card filling the entire screen. The card defaults to the current year, displaying dense monthly tables for all completed months plus the current (in-progress) month. The user can see the entire year's data in one scrollable view.
 
 **Why this priority**: Core value proposition — if this doesn't work, the card serves no purpose.
 
@@ -120,6 +120,8 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 ### Session 2026-05-20
 
 - Q: Should scalar measurement entities (e.g., precipitation) have a monthly total column? → A: Yes — a monthly total column showing the sum of all non-zero daily values for the month.
+- Q: Is the component a Lovelace card or a custom HA panel/dashboard? → A: A Lovelace custom card (`custom:tabularizer-card`) intended for full-width deployment in a Lovelace panel-type view; users set the view `type: panel` so the card fills the entire screen. Standard card architecture applies; no custom sidebar panel registration required.
+- Q: How does vertical overflow work when all 12 monthly tables are shown? → A: The card renders at full content height; vertical scrolling is provided by the native HA dashboard/browser scroll. No internal vertical scrollbar within the card itself. Horizontal scrolling per table (FR-026) is independent and coexists with page-level vertical scroll.
 
 ### Session 2026-05-19 (remaining gaps)
 
@@ -187,6 +189,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 **Layout and localisation**
 
 - **FR-023**: Card layout MUST be dense — no excessive whitespace; maximum data density per screen area.
+- **FR-035**: The card MUST render at full content height with no internal vertical scrollbar; vertical scrolling is delegated to the native HA dashboard page scroll.
 - **FR-026**: Each monthly table MUST support horizontal scrolling to accommodate all day columns (up to 31).
 - **FR-027**: The label column of each monthly table MUST remain sticky (always visible) while the user scrolls the day columns horizontally.
 - **FR-024**: Card MUST support English (`en`) and Austrian German (`de-AT`) for all displayed text.
@@ -222,3 +225,5 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 - All scalar `measurement` entities apply the same zero-exclusion rule for monthly summaries (as used for precipitation). Entities requiring a different aggregation behavior are out of scope.
 - Card configuration is performed via the standard HA Lovelace YAML card editor; a dedicated graphical configuration UI is not in scope for this feature.
 - The card targets HA version 2026.5.0 and later; compatibility with older versions is not guaranteed.
+- The card is designed for full-width deployment: the recommended configuration is a dedicated Lovelace view with `type: panel` so the card fills the entire screen. The card remains a standard Lovelace custom card element (`custom:tabularizer-card`); no custom sidebar panel registration is required. Non-panel views are not explicitly unsupported but the dense multi-table layout is optimised for full screen width.
+- The card renders at full content height (no internal vertical scrollbar). With 12 monthly tables, the page will be tall; vertical scrolling is handled by the HA dashboard's native browser scroll. Per-table horizontal scrolling (FR-026) is independent and coexists with page-level vertical scroll.
