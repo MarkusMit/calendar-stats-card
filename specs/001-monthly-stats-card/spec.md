@@ -122,6 +122,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 - Q: Should scalar measurement entities (e.g., precipitation) have a monthly total column? → A: Yes — a monthly total column showing the sum of all non-zero daily values for the month.
 - Q: Is the component a Lovelace card or a custom HA panel/dashboard? → A: A Lovelace custom card (`custom:tabularizer-card`) intended for full-width deployment in a Lovelace panel-type view; users set the view `type: panel` so the card fills the entire screen. Standard card architecture applies; no custom sidebar panel registration required.
 - Q: How does vertical overflow work when all 12 monthly tables are shown? → A: The card renders at full content height; vertical scrolling is provided by the native HA dashboard/browser scroll. No internal vertical scrollbar within the card itself. Horizontal scrolling per table (FR-026) is independent and coexists with page-level vertical scroll.
+- Q: Which timezone governs the today/past boundary (HA stores statistics in UTC; browsers may be in a different timezone)? → A: The HA server's configured timezone (`hass.config.time_zone`) is authoritative. "Today" and "completed past day" are determined in HA server time, not browser time.
 
 ### Session 2026-05-19 (remaining gaps)
 
@@ -166,7 +167,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 - **FR-015**: For cumulative (`total_increasing` / `total`) entities (e.g., precipitation gauge, electricity meter), each day cell MUST show the daily sum (the accumulated change for that calendar day, as provided by HA's per-day statistics).
 - **FR-016**: For cumulative (`total_increasing` / `total`) entities, the monthly summary min/avg/max MUST exclude days where the daily sum is zero (e.g., no-rain days excluded from precipitation average). The card MUST compute this corrected summary from available daily values, since HA native monthly statistics do not apply this exclusion.
 - **FR-017**: Days without recorded data for an entity MUST be shown as empty cells with no fabricated values.
-- **FR-028**: Today's cell and all future days within the current month MUST always be shown as empty, regardless of any partial statistics that may exist for the current day.
+- **FR-028**: Today's cell and all future days within the current month MUST always be shown as empty, regardless of any partial statistics that may exist for the current day. "Today" is determined using the HA server's configured timezone (`hass.config.time_zone`), not the browser's local timezone.
 - **FR-029**: When a configured entity has no HA long-term statistics, its label cell MUST display a warning indicator; its day cells MUST be empty; other entity rows MUST be unaffected.
 - **FR-030**: For `measurement` state_class entities, a day cell with fewer than 24 hours of recorded statistics MUST display a coverage indicator alongside the min/avg/max value to signal that the figures may be incomplete.
 - **FR-031**: For cumulative entities, a day cell MUST display a coverage indicator when recorded statistics are missing at the start or end of the calendar day, because the daily difference calculation is unreliable in that case.
@@ -218,7 +219,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 - The card defaults to the current year; backward navigation is bounded by the earliest year any configured entity has recorded data (no navigation into years with no data).
 - In the earliest data year, only months from the first month with recorded data onward are shown (mirrors the current-year future-month rule).
 - In fully past years (not earliest, not current), all 12 monthly tables are shown.
-- The current (in-progress) month IS shown; only fully completed past days (strictly before today) display data; today's cell and all future days within the current month appear as empty cells.
+- The current (in-progress) month IS shown; only fully completed past days (strictly before today in HA server time) display data; today's cell and all future days within the current month appear as empty cells. The HA server's configured timezone (`hass.config.time_zone`) is the authoritative clock for all today/past/future determinations.
 - Entity display behavior is determined automatically from HA `state_class` metadata (`measurement`, `total_increasing`, or `total`) — no explicit type configuration is required from the user.
 - All `total_increasing` / `total` entities apply the same zero-exclusion rule for monthly summary min/avg/max. Entities requiring different aggregation behavior are out of scope.
 - Card configuration is performed via the standard HA Lovelace YAML card editor; a dedicated graphical configuration UI is not in scope for this feature.
