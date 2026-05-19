@@ -94,12 +94,13 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 ### Edge Cases
 
 - What happens when an entity has no recorded data for a specific day? → Cell is shown as empty (dash or blank).
-- What happens when a cumulative entity counter resets or rolls over during a day? → Negative daily difference is treated as 0 (anomalous reset, not negative consumption).
+- What happens when a `total_increasing` entity counter resets or rolls over during a day? → Negative daily sum is treated as 0 (anomalous reset, not negative consumption). For `total` entities, negative daily sums are legitimate data (e.g., net energy export) and MUST be shown as-is.
 - What happens on January 1st? → The card defaults to the previous year (all 12 months, complete data). The current year is still reachable via the right arrow but shows only an empty January table.
 - What happens when no entities are configured? → Card displays a localised placeholder message prompting the user to add entities via card configuration; no monthly tables are rendered.
+- What happens when the same entity ID appears more than once in the configuration? → Each entry produces its own row; duplicate entity IDs are permitted and not treated as an error.
 - What happens when a configured entity no longer exists in HA? → Row is still shown with entity ID and an error or unavailable indicator; other entities are unaffected.
 - What happens when a configured entity has no HA long-term statistics enabled? → The entity row is shown with a warning indicator on the label cell; all day cells are empty; other entities are unaffected.
-- What happens when a completed day has partial hourly data for a range entity? → Cell shows available min/avg/max with a coverage indicator.
+- What happens when a completed day has partial hourly data for a `measurement` entity? → Cell shows available min/avg/max with a coverage indicator.
 - What happens when a cumulative entity has a gap at the start or end of a day? → Daily diff is unreliable; cell shows a best-effort value with a coverage indicator.
 - What happens when the monthly total does not equal the sum of the visible daily diff cells? → This is expected; monthly total is HA's authoritative monthly-period cumulative sum and takes precedence. No reconciliation is performed.
 - What happens while statistics data is loading? → A loading spinner is shown over the card; once loaded, tables render. On partial failure, affected cells display `—`; rows/months with successful data remain fully visible.
@@ -123,6 +124,11 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 - Q: Is the component a Lovelace card or a custom HA panel/dashboard? → A: A Lovelace custom card (`custom:tabularizer-card`) intended for full-width deployment in a Lovelace panel-type view; users set the view `type: panel` so the card fills the entire screen. Standard card architecture applies; no custom sidebar panel registration required.
 - Q: How does vertical overflow work when all 12 monthly tables are shown? → A: The card renders at full content height; vertical scrolling is provided by the native HA dashboard/browser scroll. No internal vertical scrollbar within the card itself. Horizontal scrolling per table (FR-026) is independent and coexists with page-level vertical scroll.
 - Q: Which timezone governs the today/past boundary (HA stores statistics in UTC; browsers may be in a different timezone)? → A: The HA server's configured timezone (`hass.config.time_zone`) is authoritative. "Today" and "completed past day" are determined in HA server time, not browser time.
+- Q: For `total` state_class entities, should negative daily sums be shown as-is or treated as 0? → A: Shown as-is — negative values are legitimate for `total` entities (e.g., net energy export). The treat-as-0 rule applies only to `total_increasing` entities, where a negative sum indicates an anomalous counter reset.
+- Q: What visual form should the coverage indicator take for partial-data day cells? → A: A superscript asterisk appended to the cell value (e.g., `18.3*`). No tooltip required.
+- Q: Does the 3-second load target (SC-007) apply to year navigation switches as well as initial card load? → A: Yes — the same 3-second target applies to both initial load and every year navigation switch.
+- Q: If the same entity ID appears more than once in the card configuration, what should the card do? → A: Show both rows — duplicate entity IDs are permitted; each config entry produces its own row (useful e.g. to display the same entity with different label overrides).
+- Q: Is the 10-entity figure in SC-007 a hard enforced limit or a soft performance target? → A: Soft limit only — the card renders any number of configured entities; 10 is the performance-tested ceiling, not an enforced cap. No warning or error is shown when entity count exceeds 10.
 
 ### Session 2026-05-19 (remaining gaps)
 
@@ -133,7 +139,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 
 - Q: What does today's cell show? → A: Empty — only fully completed past days display values; today and future days are always empty.
 - Q: What happens when a configured entity has no HA long-term statistics? → A: The entity row is shown with a warning indicator on the label cell; all day cells are empty; other entities are unaffected.
-- Q: How should completed days with partial hourly coverage be rendered? → A: Range entities (e.g., temperature): show a cell-level coverage indicator when the day has fewer than 24 hours of data (incomplete min/avg/max). Cumulative entities: show a cell-level indicator when gaps fall at the start or end of the day (daily diff is unreliable). Scalar entities: render silently without indicator.
+- Q: How should completed days with partial hourly coverage be rendered? → A: `measurement` entities (e.g., temperature): show a cell-level coverage indicator when the day has fewer than 24 hours of data (incomplete min/avg/max). Cumulative entities: show a cell-level indicator when gaps fall at the start or end of the day (daily sum is unreliable). `total_increasing` / `total` entities with mid-day gaps only: render silently without indicator.
 - Q: Should the monthly summary and total columns be computed from daily cells or sourced from HA's native monthly-period statistics? → A: Use HA's native monthly-period statistics directly; monthly columns are authoritative and independent of the daily cells (may not equal the arithmetic sum of visible daily values).
 
 ## Requirements *(mandatory)*
@@ -164,13 +170,13 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 **Entity-type rendering**
 
 - **FR-014**: For `measurement` state_class entities (e.g., temperature), each day cell MUST show combined min/avg/max within one row; separate min and max rows are not permitted.
-- **FR-015**: For cumulative (`total_increasing` / `total`) entities (e.g., precipitation gauge, electricity meter), each day cell MUST show the daily sum (the accumulated change for that calendar day, as provided by HA's per-day statistics).
+- **FR-015**: For cumulative (`total_increasing` / `total`) entities (e.g., precipitation gauge, electricity meter), each day cell MUST show the daily sum (the accumulated change for that calendar day, as provided by HA's per-day statistics). For `total_increasing` entities, a negative daily sum (counter reset) MUST be displayed as 0. For `total` entities, negative daily sums MUST be displayed as-is, as they represent legitimate values (e.g., net energy export).
 - **FR-016**: For cumulative (`total_increasing` / `total`) entities, the monthly summary min/avg/max MUST exclude days where the daily sum is zero (e.g., no-rain days excluded from precipitation average). The card MUST compute this corrected summary from available daily values, since HA native monthly statistics do not apply this exclusion.
 - **FR-017**: Days without recorded data for an entity MUST be shown as empty cells with no fabricated values.
 - **FR-028**: Today's cell and all future days within the current month MUST always be shown as empty, regardless of any partial statistics that may exist for the current day. "Today" is determined using the HA server's configured timezone (`hass.config.time_zone`), not the browser's local timezone.
 - **FR-029**: When a configured entity has no HA long-term statistics, its label cell MUST display a warning indicator; its day cells MUST be empty; other entity rows MUST be unaffected.
-- **FR-030**: For `measurement` state_class entities, a day cell with fewer than 24 hours of recorded statistics MUST display a coverage indicator alongside the min/avg/max value to signal that the figures may be incomplete.
-- **FR-031**: For cumulative entities, a day cell MUST display a coverage indicator when recorded statistics are missing at the start or end of the calendar day, because the daily difference calculation is unreliable in that case.
+- **FR-030**: For `measurement` state_class entities, a day cell with fewer than 24 hours of recorded statistics MUST display a coverage indicator alongside the min/avg/max value to signal that the figures may be incomplete. The coverage indicator is a superscript asterisk appended to the cell value (e.g., `18.3*`).
+- **FR-031**: For cumulative entities, a day cell MUST display a coverage indicator when recorded statistics are missing at the start or end of the calendar day, because the daily sum calculation is unreliable in that case. The coverage indicator is a superscript asterisk appended to the cell value (e.g., `4.2*`).
 - **FR-032**: For cumulative (`total_increasing` / `total`) entities, gaps in recorded statistics that do not fall at the start or end of the calendar day MUST be rendered silently; no coverage indicator is shown (coverage indicators only apply to day-boundary gaps per FR-031).
 
 **Loading and error states**
@@ -196,7 +202,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 
 ### Key Entities
 
-- **EntityConfig**: A user-specified HA entity ID with an optional label override; the card resolves the entity's measurement type from HA metadata.
+- **EntityConfig**: A user-specified HA entity ID with an optional label override; the card resolves the entity's measurement type from HA metadata. Entity ID uniqueness is not enforced — the same entity ID may appear in multiple EntityConfig entries, each producing its own row.
 - **MonthlyTable**: The data grid for one calendar month — rows are entity configs, columns are days plus label/summary/total columns.
 - **DailyValue**: The statistic(s) recorded for one entity on one calendar day: min/avg/max triple for `measurement` entities; daily sum (accumulated change) for `total_increasing` / `total` entities.
 - **MonthlySummary**: Monthly-period statistics for one entity. `measurement` entities: min, avg, max sourced from HA native monthly statistics (authoritative). `total_increasing` / `total` entities: min, avg, max computed by the card from daily sums with zero-exclusion applied (zero-sum days excluded), plus a total sourced from HA native monthly cumulative sum.
@@ -211,7 +217,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 - **SC-004**: Monthly summary and total statistics are correct: cumulative (`total_increasing` / `total`) entities exclude zero-sum days from avg/min/max in the monthly summary; `measurement` entities include all recorded days; cumulative monthly totals match HA's authoritative monthly figures.
 - **SC-005**: A user can configure 3–10 entities with optional label overrides in under 5 minutes using the standard HA card configuration interface.
 - **SC-006**: The card renders correctly in both English and Austrian German — all text elements are translated with no untranslated strings visible.
-- **SC-007**: All monthly tables load and render within 3 seconds per year-view for configurations of up to 10 entities on a standard HA installation.
+- **SC-007**: All monthly tables load and render within 3 seconds per year-view for configurations of up to 10 entities on a standard HA installation. This target applies to both initial card load and every subsequent year navigation switch. The 10-entity figure is the performance-tested ceiling; the card imposes no hard cap on entity count.
 - **SC-008**: Each monthly table scrolls horizontally to accommodate up to 31 day columns; the entity label column remains visible (sticky) at all times while scrolling so users always know which row they are reading.
 
 ## Assumptions
