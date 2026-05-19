@@ -26,18 +26,18 @@ A home automation user opens a dedicated HA dashboard view (configured as a full
 
 ### User Story 2 - View Dense Daily Statistics per Entity (Priority: P1)
 
-A user examines a monthly table and sees each configured entity displayed as a row. Columns represent each day of the month, followed by a summary. Each entity row renders according to its measurement type — a single value for scalar types, combined min/avg/max for range types, or calculated daily difference for cumulative types. The layout is compact with no wasted whitespace.
+A user examines a monthly table and sees each configured entity displayed as a row. Columns represent each day of the month, followed by a summary. Each entity row renders according to its HA state_class — combined min/avg/max for `measurement` entities, or a daily sum for `total_increasing` / `total` entities. The layout is compact with no wasted whitespace.
 
 **Why this priority**: The core display mechanism — data must render correctly per entity type within the dense layout.
 
-**Independent Test**: Configure one temperature entity and one precipitation entity. Verify temperature shows combined min/avg/max per day cell in a single row; precipitation shows a single daily value. Verify summary column is correct.
+**Independent Test**: Configure one temperature entity (`state_class: measurement`) and one precipitation entity (`state_class: total_increasing`). Verify temperature shows combined min/avg/max per day cell in a single row; precipitation shows a single daily sum. Verify summary column is correct.
 
 **Acceptance Scenarios**:
 
-1. **Given** a temperature entity is configured, **When** viewing a monthly table, **Then** each day cell shows a combined min/avg/max value in a single row (no separate rows for min and max).
-2. **Given** a precipitation entity is configured, **When** viewing a monthly table, **Then** each day cell shows a single daily total value.
-3. **Given** a precipitation entity with many zero-value days, **When** viewing the summary column, **Then** avg/min/max calculations exclude days where the value is zero; the total column shows the sum of non-zero days only.
-4. **Given** an electricity meter entity (cumulative/total_increasing), **When** viewing a monthly table, **Then** each day cell shows the calculated daily consumption (end-of-day minus start-of-day value).
+1. **Given** a temperature entity (`state_class: measurement`) is configured, **When** viewing a monthly table, **Then** each day cell shows a combined min/avg/max value in a single row (no separate rows for min and max).
+2. **Given** a precipitation entity (`state_class: total_increasing`) is configured, **When** viewing a monthly table, **Then** each day cell shows a single daily sum (accumulated total for that day).
+3. **Given** a precipitation entity (`state_class: total_increasing`) with many zero-sum days, **When** viewing the summary column, **Then** avg/min/max calculations exclude days where the daily sum is zero; the total column shows the HA-authoritative monthly cumulative sum.
+4. **Given** an electricity meter entity (`state_class: total_increasing` or `total`), **When** viewing a monthly table, **Then** each day cell shows the daily sum (accumulated change for that calendar day).
 5. **Given** any entity row, **When** visible, **Then** the label column shows the configured label (or HA friendly name if no override) plus the unit of measurement.
 
 ---
@@ -156,23 +156,21 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 
 - **FR-008**: Each monthly table MUST include one column per calendar day of that month (day 1 through last day of the month).
 - **FR-009**: Each monthly table MUST include a label column as the first column, showing the entity's display label and unit of measurement.
-- **FR-010**: Each monthly table MUST include a summary column showing monthly min, avg, and max. For range and cumulative entities, values MUST be sourced from HA's native monthly-period statistics (authoritative). For scalar entities, values MUST be computed by the card from available daily values with zero-exclusion applied (see FR-016), since HA native monthly statistics do not provide zero-exclusion natively.
-- **FR-011**: Each monthly table MUST include a total column for cumulative entities (total_increasing / increasing), sourced from HA's native monthly-period cumulative sum; this value is authoritative and may not equal the arithmetic sum of the visible daily diff cells.
-- **FR-034**: Each monthly table MUST include a total column for scalar measurement entities, showing the sum of all non-zero daily values for that month; days with a zero value MUST be excluded from the sum.
+- **FR-010**: Each monthly table MUST include a summary column showing monthly min, avg, and max. For `measurement` entities, values MUST be sourced from HA's native monthly-period statistics (authoritative). For cumulative (`total_increasing` / `total`) entities, values MUST be computed by the card from available daily sums with zero-exclusion applied (see FR-016), since HA native monthly mean includes zero-sum days.
+- **FR-011**: Each monthly table MUST include a total column for cumulative (`total_increasing` / `total`) entities, sourced from HA's native monthly-period cumulative sum; this value is authoritative and may not equal the arithmetic sum of the visible daily sum cells.
 - **FR-012**: Each configured entity MUST appear as exactly one row in every monthly table.
 
 **Entity-type rendering**
 
-- **FR-013**: For scalar measurement entities (e.g., precipitation), each day cell MUST show a single daily value.
-- **FR-014**: For range measurement entities (e.g., temperature), each day cell MUST show combined min/avg/max within one row; separate min and max rows are not permitted.
-- **FR-015**: For cumulative (total_increasing / increasing) entities, each day cell MUST show the daily difference (end-of-day value minus start-of-day value for that calendar day).
-- **FR-016**: For scalar measurement entities, the monthly summary min/avg/max MUST exclude days where the daily value is zero (e.g., no-rain days excluded from precipitation average). Where HA's native monthly statistics do not apply this exclusion natively, the card MUST compute a corrected summary from the available daily values.
+- **FR-014**: For `measurement` state_class entities (e.g., temperature), each day cell MUST show combined min/avg/max within one row; separate min and max rows are not permitted.
+- **FR-015**: For cumulative (`total_increasing` / `total`) entities (e.g., precipitation gauge, electricity meter), each day cell MUST show the daily sum (the accumulated change for that calendar day, as provided by HA's per-day statistics).
+- **FR-016**: For cumulative (`total_increasing` / `total`) entities, the monthly summary min/avg/max MUST exclude days where the daily sum is zero (e.g., no-rain days excluded from precipitation average). The card MUST compute this corrected summary from available daily values, since HA native monthly statistics do not apply this exclusion.
 - **FR-017**: Days without recorded data for an entity MUST be shown as empty cells with no fabricated values.
 - **FR-028**: Today's cell and all future days within the current month MUST always be shown as empty, regardless of any partial statistics that may exist for the current day.
 - **FR-029**: When a configured entity has no HA long-term statistics, its label cell MUST display a warning indicator; its day cells MUST be empty; other entity rows MUST be unaffected.
-- **FR-030**: For range measurement entities, a day cell with fewer than 24 hours of recorded statistics MUST display a coverage indicator alongside the min/avg/max value to signal that the figures may be incomplete.
+- **FR-030**: For `measurement` state_class entities, a day cell with fewer than 24 hours of recorded statistics MUST display a coverage indicator alongside the min/avg/max value to signal that the figures may be incomplete.
 - **FR-031**: For cumulative entities, a day cell MUST display a coverage indicator when recorded statistics are missing at the start or end of the calendar day, because the daily difference calculation is unreliable in that case.
-- **FR-032**: For scalar measurement entities, partial hourly coverage within a completed day MUST be rendered silently; no coverage indicator is shown.
+- **FR-032**: For cumulative (`total_increasing` / `total`) entities, gaps in recorded statistics that do not fall at the start or end of the calendar day MUST be rendered silently; no coverage indicator is shown (coverage indicators only apply to day-boundary gaps per FR-031).
 
 **Loading and error states**
 
@@ -199,8 +197,8 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 
 - **EntityConfig**: A user-specified HA entity ID with an optional label override; the card resolves the entity's measurement type from HA metadata.
 - **MonthlyTable**: The data grid for one calendar month — rows are entity configs, columns are days plus label/summary/total columns.
-- **DailyValue**: The statistic(s) recorded for one entity on one calendar day: a single value (scalar), min/avg/max triple (range), or computed difference (cumulative).
-- **MonthlySummary**: Monthly-period statistics for one entity. Range and cumulative entities: min, avg, max sourced from HA native monthly statistics (authoritative). Scalar entities: min, avg, max computed by the card from daily values (zero-exclusion applied), plus a total (sum of non-zero daily values). Cumulative entities also include a total sourced from HA native monthly cumulative sum.
+- **DailyValue**: The statistic(s) recorded for one entity on one calendar day: min/avg/max triple for `measurement` entities; daily sum (accumulated change) for `total_increasing` / `total` entities.
+- **MonthlySummary**: Monthly-period statistics for one entity. `measurement` entities: min, avg, max sourced from HA native monthly statistics (authoritative). `total_increasing` / `total` entities: min, avg, max computed by the card from daily sums with zero-exclusion applied (zero-sum days excluded), plus a total sourced from HA native monthly cumulative sum.
 
 ## Success Criteria *(mandatory)*
 
@@ -209,7 +207,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 - **SC-001**: On initial load (any day except January 1st), all months from January through the current month of the current year are visible on a single card. On January 1st, the previous year's 12 monthly tables are shown by default.
 - **SC-002**: Users can navigate to any previous year that has data; fully past years show all 12 monthly tables; the earliest data year shows only months from the first recorded data point onward.
 - **SC-003**: No future month is ever rendered when viewing the current year, regardless of the current date.
-- **SC-004**: Monthly summary and total statistics are correct: scalar measurements exclude zero-value days from avg/min/max and from the monthly total; range measurements include all recorded days; cumulative totals match HA's authoritative monthly figures.
+- **SC-004**: Monthly summary and total statistics are correct: cumulative (`total_increasing` / `total`) entities exclude zero-sum days from avg/min/max in the monthly summary; `measurement` entities include all recorded days; cumulative monthly totals match HA's authoritative monthly figures.
 - **SC-005**: A user can configure 3–10 entities with optional label overrides in under 5 minutes using the standard HA card configuration interface.
 - **SC-006**: The card renders correctly in both English and Austrian German — all text elements are translated with no untranslated strings visible.
 - **SC-007**: All monthly tables load and render within 3 seconds per year-view for configurations of up to 10 entities on a standard HA installation.
@@ -221,8 +219,8 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 - In the earliest data year, only months from the first month with recorded data onward are shown (mirrors the current-year future-month rule).
 - In fully past years (not earliest, not current), all 12 monthly tables are shown.
 - The current (in-progress) month IS shown; only fully completed past days (strictly before today) display data; today's cell and all future days within the current month appear as empty cells.
-- Entity measurement type (scalar, range, cumulative) is determined automatically from HA entity metadata — no explicit type configuration is required from the user.
-- All scalar `measurement` entities apply the same zero-exclusion rule for monthly summaries (as used for precipitation). Entities requiring a different aggregation behavior are out of scope.
+- Entity display behavior is determined automatically from HA `state_class` metadata (`measurement`, `total_increasing`, or `total`) — no explicit type configuration is required from the user.
+- All `total_increasing` / `total` entities apply the same zero-exclusion rule for monthly summary min/avg/max. Entities requiring different aggregation behavior are out of scope.
 - Card configuration is performed via the standard HA Lovelace YAML card editor; a dedicated graphical configuration UI is not in scope for this feature.
 - The card targets HA version 2026.5.0 and later; compatibility with older versions is not guaranteed.
 - The card is designed for full-width deployment: the recommended configuration is a dedicated Lovelace view with `type: panel` so the card fills the entire screen. The card remains a standard Lovelace custom card element (`custom:tabularizer-card`); no custom sidebar panel registration is required. Non-panel views are not explicitly unsupported but the dense multi-table layout is optimised for full screen width.
