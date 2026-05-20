@@ -1,0 +1,27 @@
+{
+  "card": {
+    "no_entities": "Keine Entitäten konfiguriert.",
+    "loading": "Laden…"
+  },
+  "table": {
+    "label": "Entität",
+    "summary": "Zusammenfassung",
+    "total": "Gesamt",
+    "day_header": "Tag"
+  },
+  "nav": {
+    "previous_year": "Vorjahr",
+    "next_year": "Nächstes Jahr"
+  },
+  "warning": {
+    "no_statistics": "Keine Statistiken verfügbar"
+  },
+  "error": {
+    "fetch_failed": "Statistiken konnten nicht geladen werden"
+  },
+  "summary": {
+    "min": "min",
+    "avg": "avg",
+    "max": "max"
+  }
+}
