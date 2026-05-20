@@ -1,0 +1,252 @@
+# Tasks: Monthly Stats Card
+
+**Input**: Design documents from `specs/001-monthly-stats-card/`
+**Branch**: `001-monthly-stats-card`
+**Constitution**: TDD is **NON-NEGOTIABLE** — every implementation task is preceded by a test task that must be written first and confirmed failing before implementation begins.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: Can run in parallel (different files, no blocking dependencies within the phase)
+- **[US#]**: Which user story this task belongs to
+- All commands run in WSL (`bash` tool), from `frontend/`
+
+---
+
+## Phase 1: Setup
+
+**Purpose**: Bootstrap the frontend project — no implementation logic here.
+
+- [ ] T001 Create `frontend/` directory structure: `src/components/`, `src/services/`, `src/localize/`, `src/translations/`, `src/types/`, `tests/unit/services/`, `tests/unit/localize/`, `tests/component/`, `dist/`
+- [ ] T002 Create `frontend/package.json` with all runtime and dev dependencies: `lit@3`, `custom-card-helpers`, `rollup@4`, `@rollup/plugin-typescript`, `@rollup/plugin-node-resolve`, `@rollup/plugin-terser`, `typescript@5.6`, `vitest`, `@vitest/coverage-v8`, `happy-dom`, `@open-wc/testing`, `eslint`, `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`; add npm scripts: `build`, `test`, `test:watch`, `test:coverage`, `lint`
+- [ ] T003 [P] Create `frontend/rollup.config.js`: input `src/tabularizer-card.ts`, output `dist/tabularizer-card.js` as ES module, single minified bundle via `@rollup/plugin-typescript` + `@rollup/plugin-terser`
+- [ ] T004 [P] Create `frontend/tsconfig.json`: `target: ES2022`, `lib: ["ES2023","DOM","DOM.Iterable"]`, `strict: true`, `noUncheckedIndexedAccess: true`, `experimentalDecorators: true`, `useDefineForClassFields: false`, `moduleResolution: bundler`
+- [ ] T005 [P] Create `frontend/vitest.config.ts`: `environment: 'happy-dom'`, `include: ['tests/**/*.test.ts']`, `coverage.provider: 'v8'`, `setupFiles` importing `@open-wc/testing`
+
+**Checkpoint**: `npm install` runs clean; `npm run build` produces `dist/tabularizer-card.js` (empty entry file); `npm test` runs (zero tests pass/fail)
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: Core infrastructure and domain types that all user stories depend on.
+
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete.
+
+- [ ] T006 Define all TypeScript types in `frontend/src/types/`: `card-config.ts` (EntityConfig, CardConfig); `statistics.ts` (EntityMetadata, MeasurementDailyValue, CumulativeDailyValue, EmptyDailyValue, DailyValue union, MonthlySummary, ViewState, YearStatistics — exact shapes from `data-model.md`); `ha-types.ts` (HomeAssistant interface shim covering `config.version`, `config.time_zone`, `states`, `connection.sendMessagePromise`, `selectedLanguage`, `language`)
+- [ ] T007 [P] Write failing unit tests for `localize()` in `frontend/tests/unit/localize/localize.test.ts`: key lookup returns correct string for `en`; key lookup returns correct string for `de-AT`; unknown language falls back to `en`; nested key path (e.g. `'table.summary'`) resolves correctly; missing key returns the key string itself
+- [ ] T008 [P] Implement `frontend/src/localize/localize.ts`: nested JSON key traversal, language fallback to `en`; create skeleton `frontend/src/translations/en.json` and `frontend/src/translations/de-AT.json` with all keys from research.md §6 (values can be placeholders — filled in Phase 7)
+- [ ] T009 [P] Write failing unit tests for `data-transform.ts` in `frontend/tests/unit/services/data-transform.test.ts`: daily delta from consecutive `sum` values; first-day delta uses `sum[0]` directly; negative delta for `total_increasing` → 0; negative delta for `total` → preserved as-is; today (HA server timezone) → `EmptyDailyValue`; future day → `EmptyDailyValue`; MonthlySummary for measurement → passes through HA monthly values; MonthlySummary for `device_class: precipitation` → zero-sum days excluded from min/mean/max; MonthlySummary for energy → zero-sum days included; monthly total = `monthlySum[M] − monthlySum[M-1]`; first tracked month total = `monthlySum[0]`; `partialCoverage: true` when hourly count < 24 for measurement; `partialCoverage: true` when first or last hour missing for cumulative; `partialCoverage: false` when hourly data unavailable (silent)
+- [ ] T010 [P] Write failing unit tests for `statistics-service.ts` in `frontend/tests/unit/services/statistics-service.test.ts`: sends `recorder/statistics_during_period` with `period:'day'` for all entity IDs batched; sends same command with `period:'month'`; sends same with `period:'hour'`; sends `recorder/list_statistic_ids`; on HA < 2026.11 uses `has_mean` param; on HA ≥ 2026.11 uses `mean_type` param; rejects with error on WS failure
+- [ ] T011 Implement `frontend/src/services/statistics-service.ts`: `hass.connection.sendMessagePromise` wrappers for all four WS commands; `hass.config.version` parsing (`"YYYY.MM.PATCH"` → `[number, number, number]`) for has_mean/mean_type branching; batch all entity IDs into one request per period type; return typed response objects
+- [ ] T012 Implement `frontend/src/services/data-transform.ts`: raw HA daily-period stats → `DailyValue[]` (delta computation, today/future → `EmptyDailyValue` using `Intl.DateTimeFormat` in `hass.config.time_zone`, coverage from hourly stats); raw HA monthly-period stats → `MonthlySummary[]` (measurement: pass-through; cumulative: card-computed with precipitation zero-exclusion; monthly total as `sum` delta)
+
+**Checkpoint**: `npm test` passes all unit tests in `tests/unit/`
+
+---
+
+## Phase 3: User Story 1 — View Annual Entity Statistics (Priority: P1) 🎯 MVP
+
+**Goal**: Card loads and renders monthly tables for all visible months; loading overlay shown during fetch; empty cells for future/today.
+
+**Independent Test**: Configure card with one `measurement` entity; open dashboard; verify monthly tables appear for all months January through current month of the current year; future months absent; loading spinner shown briefly then replaced by tables.
+
+> **TDD**: Write and confirm test FAILS before implementing each component.
+
+- [ ] T013 [P] [US1] Write failing component test for `loading-overlay.ts` in `frontend/tests/component/loading-overlay.test.ts`: renders spinner element when `visible=true`; renders nothing (or hidden) when `visible=false`; uses `--primary-text-color` for spinner colour
+- [ ] T014 [P] [US1] Write failing component test for `monthly-table.ts` structure in `frontend/tests/component/monthly-table.test.ts`: renders month name in header; renders correct number of day columns for the month (28/29/30/31); renders a label column as first column; renders a summary column after day columns; label column has `position: sticky; left: 0` style; table container has `overflow-x: auto`; entity row with all-empty DailyValues renders empty cells
+- [ ] T015 [P] [US1] Write failing component test for `tabularizer-card.ts` year/month logic in `frontend/tests/component/tabularizer-card.test.ts`: defaults to current year on non-Jan-1 date; defaults to previous year when today is Jan 1 (both determined via `hass.config.time_zone`); shows monthly tables from Jan through current month for current year; shows 12 monthly tables for a fully past year; renders loading overlay while statistics are being fetched; no tables rendered during loading state
+- [ ] T016 [US1] Implement `frontend/src/components/loading-overlay.ts`: LitElement; `visible: boolean` property; spinner element (CSS animation) positioned as overlay; HA design tokens (`--primary-text-color`, `--card-background-color` at 80% opacity)
+- [ ] T017 [US1] Implement `frontend/src/components/monthly-table.ts` structure: LitElement; properties: `month: number`, `year: number`, `entityConfigs: EntityConfig[]`, `dailyValues: Map<string, DailyValue>`, `monthlySummaries: Map<string, MonthlySummary>`, `entityMetadata: Map<string, EntityMetadata>`, `lang: string`; render month header row (month name via `Intl.DateTimeFormat`); render entity rows with: label column (`position: sticky; left: 0; z-index: 1`), N day columns (correct count per month/year), summary column header; empty cells render as blank; CSS Grid layout, 4px cell padding, zero decorative gap; `overflow-x: auto` on table container
+- [ ] T018 [US1] Implement `frontend/src/tabularizer-card.ts` core: LitElement with `@customElement('tabularizer-card')`; `setConfig(config)` — validates `entities` is array, throws on invalid shape; `set hass(hass)` — stores ref, triggers statistics fetch on first call, re-reads entity friendly names on subsequent calls; year defaulting logic (today via `Intl.DateTimeFormat([], {timeZone: hass.config.time_zone})` — current year unless Jan 1 → prev year); visible months calculation (current year: Jan–current month; past year: all 12; earliest year: first-month-with-data onward); fetch via `statistics-service` then `data-transform`; render `<ha-card>` containing `<loading-overlay>` + one `<monthly-table>` per visible month; `getCardSize()` returns visible month count; `window.customCards` registration
+
+**Checkpoint**: US1 acceptance scenario 1–4 verifiable manually; unit + component tests pass
+
+---
+
+## Phase 4: User Story 2 — View Dense Daily Statistics per Entity (Priority: P1)
+
+**Goal**: Each entity row renders correct cell content based on `state_class` and `device_class`; summary and total columns correct; error states handled gracefully.
+
+**Independent Test**: Configure one temperature (`measurement`) and one precipitation (`total_increasing`, `device_class: precipitation`) entity; verify temperature shows min/avg/max per day cell; precipitation shows daily sum; precipitation monthly summary excludes zero-sum days; temperature has no total column.
+
+> **TDD**: Write and confirm test FAILS before implementing each rendering feature.
+
+- [ ] T019 [P] [US2] Write failing component tests for measurement rendering in `frontend/tests/component/monthly-table.test.ts`: `MeasurementDailyValue` → day cell shows `min/avg/max` combined in one row; `partialCoverage: true` → asterisk `*` appended to cell value; `partialCoverage: false` → no asterisk; no separate min/max rows rendered
+- [ ] T020 [P] [US2] Write failing component tests for cumulative rendering in `frontend/tests/component/monthly-table.test.ts`: `CumulativeDailyValue` → day cell shows single `sum` value; `sum < 0` for `total_increasing` → cell shows `0`; `sum < 0` for `total` → cell shows negative value as-is; `partialCoverage: true` → asterisk; EmptyDailyValue → blank cell
+- [ ] T021 [P] [US2] Write failing component tests for summary column in `frontend/tests/component/monthly-table.test.ts`: measurement entity → summary shows `MonthlySummary.min / .mean / .max` from HA directly; precipitation entity → summary shows card-computed values excluding zero-sum days (not from HA monthly mean); energy entity → summary includes zero-sum days
+- [ ] T022 [P] [US2] Write failing component tests for total column in `frontend/tests/component/monthly-table.test.ts`: cumulative entity (`total_increasing` or `total`) → total column rendered with `MonthlySummary.total` value; measurement entity → no total column rendered (column absent from DOM)
+- [ ] T023 [US2] Implement measurement entity row rendering in `frontend/src/components/monthly-table.ts`: detect entity kind from `EntityMetadata.stateClass === 'measurement'`; render `min / avg / max` combined in one `<td>` per day (e.g. `"18.3 / 22.1 / 26.5"`); append superscript `*` when `partialCoverage: true`
+- [ ] T024 [US2] Implement cumulative entity row rendering in `frontend/src/components/monthly-table.ts`: detect kind from `stateClass` in `['total_increasing', 'total']`; render single `sum` value per day cell; enforce zero-floor only for `total_increasing` (negative → `0`); `total` entities render negative as-is; append superscript `*` when `partialCoverage: true`; `EmptyDailyValue` → render empty cell
+- [ ] T025 [US2] Implement summary column rendering in `frontend/src/components/monthly-table.ts`: measurement → render `MonthlySummary.min` / `.mean` / `.max` (authoritative from HA monthly stats, no card recomputation); cumulative → render card-computed min/mean/max from `MonthlySummary` (already computed in `data-transform.ts`); label rows: "min", "avg", "max" via `localize()`
+- [ ] T026 [US2] Implement total column rendering in `frontend/src/components/monthly-table.ts`: cumulative entities only (skip for measurement); render `MonthlySummary.total`; column header via `localize('table.total')`; total column absent from DOM for measurement entity rows
+- [ ] T027 [P] [US2] Write failing component tests for entity error states in `frontend/tests/component/monthly-table.test.ts`: `EntityMetadata.hasStatistics: false` → label cell shows warning indicator (⚠ or equivalent), all day cells empty; fetch error (`DailyValue` fetch fails for one entity) → that entity's cells show `—`; other entity rows are unaffected and render normally
+- [ ] T028 [US2] Implement entity error states in `frontend/src/components/monthly-table.ts` and `frontend/src/tabularizer-card.ts`: `hasStatistics: false` → warning indicator on label cell, empty day cells (FR-029); statistics fetch failure per entity → store error state in `ViewState`; render `—` in affected cells (FR-019); partial failure leaves successful entities intact
+
+**Checkpoint**: US2 acceptance scenarios 1–5 verifiable; all T019–T028 tests pass
+
+---
+
+## Phase 5: User Story 3 — Navigate Between Years (Priority: P2)
+
+**Goal**: Year navigator allows stepping back to previous years; left arrow disabled at earliest data year; right arrow disabled at current year; correct month visibility per year type.
+
+**Independent Test**: With HA history spanning 2+ years, navigate to previous year via left arrow; verify all 12 monthly tables appear; navigate back to current year; verify only Jan–current month shown; right arrow disabled on current year.
+
+> **TDD**: Write and confirm test FAILS before implementing navigator.
+
+- [ ] T029 [P] [US3] Write failing component test for `year-navigator.ts` in `frontend/tests/component/year-navigator.test.ts`: renders `‹`, year label, `›` in correct layout; left arrow click emits custom event `tabularizer-prev-year`; right arrow click emits `tabularizer-next-year`; `atEarliestYear: true` → left arrow has `disabled` attribute; `atCurrentYear: true` → right arrow has `disabled` attribute; neither disabled for mid-range year; year label displays the passed `year` number
+- [ ] T030 [P] [US3] Write failing integration tests for year navigation in `frontend/tests/component/tabularizer-card.test.ts`: navigating to prev year triggers statistics fetch for new year; prev year (fully past) renders 12 monthly tables; current year renders Jan–current month tables; earliest data year renders only months from first-data-month onward; left arrow disabled when `selectedYear === earliestDataYear`; right arrow disabled when `selectedYear === currentYear`; `<3s` fetch not enforced in tests but year change triggers re-render
+- [ ] T031 [US3] Implement `frontend/src/components/year-navigator.ts`: LitElement; properties: `year: number`, `atCurrentYear: boolean`, `atEarliestYear: boolean`; renders `‹ YYYY ›` layout; left/right `<button>` elements; `disabled` attribute applied when at boundary; dispatches `new CustomEvent('tabularizer-prev-year')` and `new CustomEvent('tabularizer-next-year')` on click; uses HA design tokens for button styling
+- [ ] T032 [US3] Implement year navigation in `frontend/src/tabularizer-card.ts`: integrate `<year-navigator>` in render output above monthly tables; listen for `tabularizer-prev-year` / `tabularizer-next-year` events; update `selectedYear` (clamped to `[earliestDataYear, currentYear]`); detect `earliestDataYear` from `recorder/statistics_during_period` earliest entry across all configured entities; refetch statistics for new year on navigation; recompute visible months for selected year; update `<year-navigator>` props (`atCurrentYear`, `atEarliestYear`)
+
+**Checkpoint**: US3 acceptance scenarios 1–5 verifiable; T029–T032 tests pass
+
+---
+
+## Phase 6: User Story 4 — Configure Entities and Label Overrides (Priority: P2)
+
+**Goal**: Label override applies correctly; HA friendly name used as fallback; unit appended; empty config shows placeholder; duplicate entity IDs each produce their own row.
+
+**Independent Test**: Edit card YAML with 3 entities (2 with label overrides, 1 without); verify overridden labels displayed; verify fallback to HA friendly name; verify unit of measurement appended to each label.
+
+> **TDD**: Write and confirm test FAILS before implementing label logic.
+
+- [ ] T033 [P] [US4] Write failing component tests for configuration behaviour in `frontend/tests/component/tabularizer-card.test.ts`: `config.label` set → label column shows override (not HA friendly name); `config.label` absent → label column shows `hass.states[id].attributes.friendly_name`; `unitOfMeasurement` from `EntityMetadata` appended to label in label column; `config.entities = []` → no monthly tables rendered, localised no-entities placeholder message visible; two entries with same entity ID → two separate rows in each monthly table
+- [ ] T034 [US4] Implement label resolution in `frontend/src/tabularizer-card.ts`: resolve display label as `entityConfig.label ?? entityMetadata.friendlyName ?? entityConfig.entity`; append `entityMetadata.unitOfMeasurement` (e.g. `" [°C]"`) to the label passed to `monthly-table.ts` (FR-009, FR-021, FR-022); pass resolved labels per `EntityConfig` entry (not per unique entity ID — duplicates each get their own label)
+- [ ] T035 [US4] Implement no-entities placeholder in `frontend/src/tabularizer-card.ts`: when `config.entities` is empty array render `<p class="no-entities">` with `localize('card.no_entities', lang)` message; no `<monthly-table>` elements rendered; placeholder styled with `--secondary-text-color` (FR-033)
+
+**Checkpoint**: US4 acceptance scenarios 1–3 verifiable; T033–T035 tests pass
+
+---
+
+## Phase 7: User Story 5 — Localized Display (Priority: P3)
+
+**Goal**: All UI text renders in the active HA locale (`en` or `de-AT`); locale auto-detected from `hass`; no hard-coded display strings anywhere.
+
+**Independent Test**: Set HA language to `de-AT`; load card; verify month names show "Jänner", "Februar"/"Feber", …, "Dezember" and all UI labels are in German. Switch to `en`; verify English throughout.
+
+> **TDD**: Write and confirm test FAILS before wiring locale.
+
+- [ ] T036 [P] [US5] Write failing component tests for localised display in `frontend/tests/component/tabularizer-card.test.ts`: `hass.selectedLanguage = 'de-AT'` → month names in Austrian German (January = "Jänner" via `Intl.DateTimeFormat('de-AT')`); `hass.language = 'en'` → English month names and UI strings; `localize()` called with `'de-AT'` produces German UI strings; no hard-coded English string visible in rendered output when locale is `de-AT`
+- [ ] T037 [P] [US5] Fill complete translation keys in `frontend/src/translations/en.json` and `frontend/src/translations/de-AT.json`: all keys from `localize.ts` skeleton (`card.no_entities`, `card.loading`, `table.label`, `table.summary`, `table.total`, `table.day_header`, `nav.previous_year`, `nav.next_year`, `warning.no_statistics`, `error.fetch_failed`, `summary.min`, `summary.avg`, `summary.max`); Austrian German values must use official forms ("Jänner" handled by `Intl`; other labels use standard Austrian German)
+- [ ] T038 [US5] Wire locale detection throughout all components in `frontend/src/`: `tabularizer-card.ts` computes `lang = hass.selectedLanguage ?? hass.language ?? 'en'` and passes to all child components as `lang` property; `monthly-table.ts` uses `localize(key, lang)` for all column headers, summary row labels, warning text; uses `Intl.DateTimeFormat(lang, {month:'long'})` for month header name; uses `Intl.NumberFormat(lang, {maximumFractionDigits:1})` for cell values; `year-navigator.ts` uses `localize(key, lang)` for aria-labels; `loading-overlay.ts` uses `localize('card.loading', lang)` for accessible label
+- [ ] T039 [US5] Verify `de-AT` `Intl` behaviour in `frontend/tests/unit/localize/localize.test.ts` (or a dedicated test): confirm `new Intl.DateTimeFormat('de-AT', {month:'long'}).format(new Date(2026,0))` returns `'Jänner'` under happy-dom; confirm all 12 Austrian month names are correct; confirm `Intl.NumberFormat('de-AT').format(1234.5)` uses comma decimal separator
+
+**Checkpoint**: US5 acceptance scenarios 1–2 verifiable; T036–T039 tests pass
+
+---
+
+## Phase 8: Polish & Cross-Cutting Concerns
+
+**Purpose**: Final validation, i18n audit, build verification.
+
+- [ ] T040 [P] Audit all `render()` methods in `frontend/src/` for hard-coded display strings: search for string literals that are user-visible but not routed through `localize()` or `Intl`; fix any found; no new tests required (covered by existing i18n tests)
+- [ ] T041 [P] Run full test suite in WSL (`npm test`) and confirm all 43+ tests pass; run `npm run test:coverage`; verify branch coverage ≥ 80% for `data-transform.ts` and `statistics-service.ts` (critical computation paths)
+- [ ] T042 Run build in WSL (`npm run build`); confirm `frontend/dist/tabularizer-card.js` exists as a single ES module (starts with `import` or is self-contained); confirm no unresolved `import` statements remain in bundle; confirm `window.customCards` registration present in output
+- [ ] T043 End-to-end smoke test per `specs/001-monthly-stats-card/quickstart.md`: deploy `tabularizer-card.js` to HA 2026.5 test instance; configure 3 entities (`measurement`, `total_increasing` precipitation, `total_increasing` energy); manually verify: monthly tables visible for current year Jan–current month; year navigation ‹ › works; loading spinner shown on nav; German locale shows "Jänner"; label overrides apply; no-entities placeholder visible when config is empty
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Setup (Phase 1)**: No dependencies — start immediately
+- **Foundational (Phase 2)**: Depends on Phase 1 completion — **BLOCKS all user stories**
+- **US1 (Phase 3)**: Depends on Phase 2 — MUST complete before US2 (monthly-table structure needed)
+- **US2 (Phase 4)**: Depends on US1 (adds rendering to existing monthly-table structure)
+- **US3 (Phase 5)**: Depends on Phase 2 — can start in parallel with US1/US2 (different component)
+- **US4 (Phase 6)**: Depends on Phase 3 (extends tabularizer-card.ts from US1)
+- **US5 (Phase 7)**: Depends on Phase 2 (i18n skeleton) — translation fill (T037) can start anytime after T008
+- **Polish (Phase 8)**: Depends on all user stories complete
+
+### Story Dependencies Summary
+
+```
+Phase 1 (Setup)
+  └── Phase 2 (Foundational)
+        ├── Phase 3 (US1) ──── Phase 4 (US2)
+        │                          └── Phase 6 (US4)
+        ├── Phase 5 (US3) [independent of US1/US2 component-wise]
+        └── Phase 7 (US5) [translation fill T037 can run alongside Phase 3+]
+              └── Phase 8 (Polish)
+```
+
+### Within Each Phase
+
+1. Tests written and **confirmed FAILING**
+2. Implementation written until tests pass
+3. Red-Green-Refactor: clean up implementation once green
+4. Run `npm test` before moving to next task
+
+### Parallel Opportunities Within Phases
+
+**Phase 2**: T007, T009, T010 can all run in parallel (different files); T011 after T010 passes; T012 after T009 passes; T008 after T007 passes
+
+**Phase 3**: T013, T014, T015 can run in parallel (different test files); T016 after T013; T017 after T014; T018 after T015
+
+**Phase 4**: T019, T020, T021, T022, T027 can run in parallel (all add to monthly-table tests); implementations T023–T026 sequential within the file; T028 after T027
+
+**Phase 5**: T029, T030 in parallel; T031 after T029; T032 after T030
+
+---
+
+## Parallel Example: Phase 2 (Foundational)
+
+```
+Parallel batch 1:
+  T007 — write failing localize tests
+  T009 — write failing data-transform tests
+  T010 — write failing statistics-service tests
+
+After batch 1 completes:
+  T008 — implement localize (T007 → green)
+  T011 — implement statistics-service (T010 → green)
+  T012 — implement data-transform (T009 → green)
+```
+
+## Parallel Example: Phase 4 (US2)
+
+```
+Parallel batch — all write failing tests:
+  T019 — measurement rendering tests
+  T020 — cumulative rendering tests
+  T021 — summary column tests
+  T022 — total column tests
+  T027 — error state tests
+
+Sequential implementation (same file, monthly-table.ts):
+  T023 → T024 → T025 → T026 → T028
+```
+
+---
+
+## Implementation Strategy
+
+### MVP First (US1 + US2 only)
+
+1. Complete Phase 1: Setup
+2. Complete Phase 2: Foundational (**cannot skip**)
+3. Complete Phase 3: US1 → deploy, verify monthly tables appear
+4. Complete Phase 4: US2 → deploy, verify correct cell content
+5. **STOP and VALIDATE**: one temperature + one precipitation entity renders correctly
+
+### Incremental Delivery
+
+1. Setup + Foundational → types and services ready
+2. US1 → card loads, tables visible (MVP structure)
+3. US2 → cells show correct data per entity type (MVP complete)
+4. US3 → year navigation added
+5. US4 → label overrides refined
+6. US5 → full i18n
+
+---
+
+## Notes
+
+- `[P]` tasks: different files, no blocking same-phase dependencies
+- `[US#]` maps task to user story for traceability
+- All node/npm commands in WSL via `bash` tool
+- Conventional Commits for any manual commits: `type(scope): subject`
+- TDD is the only accepted workflow: Red → Green → Refactor, no exceptions
+- Test counts: Phase 2 ≈ 18 tests; Phase 3 ≈ 9 tests; Phase 4 ≈ 16 tests; Phase 5 ≈ 10 tests; Phase 6 ≈ 6 tests; Phase 7 ≈ 8 tests
