@@ -46,17 +46,19 @@ Supported from day one: `en`, `de-AT`.
 
 ## Build & Test Commands
 
-Commands are established per-feature via `/speckit.plan`. Refer to `specs/<NNN>/plan.md` for the active feature's build and test instructions. Until then:
+<!-- SPECKIT START -->
+Active feature plan: [specs/001-monthly-stats-card/plan.md](../specs/001-monthly-stats-card/plan.md)
+<!-- SPECKIT END -->
+
+All commands run in WSL2, from the `frontend/` directory:
 
 ```bash
-# Frontend (WSL2)
-npm install
-npm run build   # bundles to frontend/dist/
-npm test
+npm install          # install dependencies
+npm run build        # bundle → frontend/dist/tabularizer-card.js
+npm test             # Vitest (write failing tests first — TDD)
+npm run test:watch   # watch mode
+npm run test:coverage
 npm run lint
-
-# Python tooling (WSL2)
-python -m pytest
 ```
 
 ## Core Workflow

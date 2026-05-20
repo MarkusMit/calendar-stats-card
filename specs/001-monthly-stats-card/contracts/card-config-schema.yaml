@@ -1,0 +1,51 @@
+# Tabularizer Card — YAML Configuration Schema
+# Lovelace card type: custom:tabularizer-card
+#
+# Minimal example:
+#   type: custom:tabularizer-card
+#   entities:
+#     - entity: sensor.outdoor_temperature
+#       label: "Temperature"
+#     - entity: sensor.precipitation_gauge
+
+type:
+  description: REQUIRED. Must be the literal string "custom:tabularizer-card".
+  type: string
+  const: custom:tabularizer-card
+
+entities:
+  description: |
+    REQUIRED. Ordered list of HA entities to display as rows.
+    - Order is preserved in the rendered table.
+    - Duplicate entity IDs are permitted; each entry produces its own row (FR-033 exemption).
+    - An empty list renders the no-entities placeholder message (FR-033).
+  type: array
+  items:
+    type: object
+    required:
+      - entity
+    additionalProperties: false
+    properties:
+      entity:
+        description: |
+          REQUIRED. Home Assistant entity ID.
+          The entity must have long-term statistics enabled (requires a state_class attribute).
+          Supported state_class values: measurement, total_increasing, total.
+          If the entity lacks statistics, a warning indicator appears on its label cell (FR-029).
+        type: string
+        pattern: "^[a-z_]+\\.[a-z0-9_]+$"
+        examples:
+          - sensor.outdoor_temperature
+          - sensor.precipitation_gauge
+          - sensor.daily_energy_consumption
+      label:
+        description: |
+          OPTIONAL. Display label shown in the entity label column.
+          Overrides the entity's HA friendly name.
+          When omitted, the entity's HA friendly name is used (FR-022).
+          The unit of measurement is always appended automatically from entity metadata.
+        type: string
+        examples:
+          - "Außentemperatur"
+          - "Niederschlag"
+          - "Stromverbrauch"
