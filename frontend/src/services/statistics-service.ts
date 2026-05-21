@@ -26,15 +26,6 @@ export type StatisticsMetadataResult = {
   earliestMonth: number;
 };
 
-function parseVersion(version: string): [number, number, number] {
-  const parts = version.split('.').map(Number);
-  return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
-}
-
-function isGE2026_11(version: string): boolean {
-  const [major, minor] = parseVersion(version);
-  return major > 2026 || (major === 2026 && minor >= 11);
-}
 
 export class StatisticsService {
   async fetchDailyStats(
@@ -43,21 +34,14 @@ export class StatisticsService {
     startTime: string,
     endTime: string,
   ): Promise<RawStats> {
-    const useNewApi = isGE2026_11(hass.config.version);
-    const msg: Record<string, unknown> = {
+    return hass.connection.sendMessagePromise<RawStats>({
       type: 'recorder/statistics_during_period',
       start_time: startTime,
       end_time: endTime,
       statistic_ids: entityIds,
       period: 'day',
       types: ['mean', 'min', 'max', 'sum'],
-    };
-    if (useNewApi) {
-      msg['mean_type'] = 1;
-    } else {
-      msg['has_mean'] = true;
-    }
-    return hass.connection.sendMessagePromise<RawStats>(msg);
+    });
   }
 
   async fetchMonthlyStats(

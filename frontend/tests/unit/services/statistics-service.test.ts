@@ -83,28 +83,16 @@ describe('StatisticsService.getStatisticsMetadata', () => {
   });
 });
 
-describe('StatisticsService — mean_type vs has_mean', () => {
-  it('uses has_mean param on HA < 2026.11', async () => {
+describe('StatisticsService — fetchDailyStats request shape', () => {
+  it('sends types array without has_mean or mean_type', async () => {
     const send = vi.fn().mockResolvedValue({});
     const hass = makeHass('2026.5.0', send);
     const svc = new StatisticsService();
     await svc.fetchDailyStats(hass, ENTITY_IDS, START, END);
     const call = send.mock.calls[0]?.[0] as Record<string, unknown>;
-    expect(Object.prototype.hasOwnProperty.call(call, 'has_mean') || Object.prototype.hasOwnProperty.call(call, 'mean_type')).toBe(true);
-    // On 2026.5 should use has_mean (legacy), not mean_type
-    if (Object.prototype.hasOwnProperty.call(call, 'mean_type')) {
-      // mean_type should not be present on HA < 2026.11
-      expect(call['mean_type']).toBeUndefined();
-    }
-  });
-
-  it('uses mean_type param on HA >= 2026.11', async () => {
-    const send = vi.fn().mockResolvedValue({});
-    const hass = makeHass('2026.11.0', send);
-    const svc = new StatisticsService();
-    await svc.fetchDailyStats(hass, ENTITY_IDS, START, END);
-    const call = send.mock.calls[0]?.[0] as Record<string, unknown>;
-    expect(Object.prototype.hasOwnProperty.call(call, 'mean_type')).toBe(true);
+    expect(call['types']).toEqual(['mean', 'min', 'max', 'sum']);
+    expect(Object.prototype.hasOwnProperty.call(call, 'has_mean')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(call, 'mean_type')).toBe(false);
   });
 });
 
