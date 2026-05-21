@@ -7,7 +7,7 @@ import { StatisticsService } from './services/statistics-service';
 import { transformDailyStats, transformMonthlyStats } from './services/data-transform';
 import { localize } from './localize/localize';
 import './components/loading-overlay';
-import './components/monthly-table';
+import './components/year-table';
 import './components/year-navigator';
 
 @customElement('tabularizer-card')
@@ -232,20 +232,16 @@ export class TabularzerCard extends LitElement {
           ? html`<p class="no-entities">${localize('card.no_entities', lang)}</p>`
           : ''}
         ${!isLoading && config && config.entities.length > 0
-          ? this._visibleMonths(selectedYear).map(
-              (month) => html`
-                <monthly-table
-                  .month=${month}
-                  .year=${selectedYear}
-                  .entityConfigs=${config.entities}
-                  .dailyValues=${yearStats?.dailyValues ?? new Map()}
-                  .monthlySummaries=${yearStats?.monthlySummaries ?? new Map()}
-                  .entityMetadata=${yearStats?.entityMetadata ?? new Map()}
-                  .entityErrors=${this._viewState.entityErrors}
-                  .lang=${lang}
-                ></monthly-table>
-              `,
-            )
+          ? html`<year-table
+              .year=${selectedYear}
+              .visibleMonths=${this._visibleMonths(selectedYear)}
+              .entityConfigs=${config.entities}
+              .dailyValues=${yearStats?.dailyValues ?? new Map()}
+              .monthlySummaries=${yearStats?.monthlySummaries ?? new Map()}
+              .entityMetadata=${yearStats?.entityMetadata ?? new Map()}
+              .entityErrors=${this._viewState.entityErrors}
+              .lang=${lang}
+            ></year-table>`
           : ''}
       </ha-card>
     `;

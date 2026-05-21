@@ -50,10 +50,13 @@ describe('TabularzerCard — year/month logic', () => {
     await vi.waitFor(
       async () => {
         await el.updateComplete;
-        const tables = el.shadowRoot!.querySelectorAll('monthly-table');
+        const yearTable = el.shadowRoot!.querySelector('year-table');
+        if (!yearTable?.shadowRoot) throw new Error('year-table shadow root not ready');
+        await (yearTable as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
+        const monthRows = yearTable.shadowRoot.querySelectorAll('tr.month-header-row');
         const currentMonth = new Date().getMonth() + 1;
-        expect(tables.length).toBeGreaterThanOrEqual(1);
-        expect(tables.length).toBeLessThanOrEqual(currentMonth);
+        expect(monthRows.length).toBeGreaterThanOrEqual(1);
+        expect(monthRows.length).toBeLessThanOrEqual(currentMonth);
       },
       { timeout: 3000 },
     );
@@ -69,12 +72,12 @@ describe('TabularzerCard — year/month logic', () => {
     expect(overlay?.visible).toBe(true);
   });
 
-  it('no monthly tables rendered during initial loading', async () => {
+  it('no year-table rendered during initial loading', async () => {
     const never = new Promise<unknown>(() => {});
     const el = await createCard(CONFIG, makeHass({
       connection: { sendMessagePromise: vi.fn().mockReturnValue(never) },
     }));
-    const tables = el.shadowRoot!.querySelectorAll('monthly-table');
+    const tables = el.shadowRoot!.querySelectorAll('year-table');
     expect(tables.length).toBe(0);
   });
 });
@@ -85,9 +88,9 @@ describe('TabularzerCard — localized display (T036)', () => {
     let root: ShadowRoot | null = null;
     await vi.waitFor(async () => {
       await card.updateComplete;
-      const table = card.shadowRoot!.querySelector('monthly-table');
-      if (!table) throw new Error('no monthly-table');
-      if (!table.shadowRoot) throw new Error('monthly-table shadow root not ready');
+      const table = card.shadowRoot!.querySelector('year-table');
+      if (!table) throw new Error('no year-table');
+      if (!table.shadowRoot) throw new Error('year-table shadow root not ready');
       await (table as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
       root = table.shadowRoot;
     }, { timeout: 3000 });
@@ -148,9 +151,9 @@ describe('TabularzerCard — label configuration (T033)', () => {
     let root: ShadowRoot | null = null;
     await vi.waitFor(async () => {
       await card.updateComplete;
-      const table = card.shadowRoot!.querySelector('monthly-table');
-      if (!table) throw new Error('no monthly-table');
-      if (!table.shadowRoot) throw new Error('monthly-table shadow root not ready');
+      const table = card.shadowRoot!.querySelector('year-table');
+      if (!table) throw new Error('no year-table');
+      if (!table.shadowRoot) throw new Error('year-table shadow root not ready');
       await (table as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
       root = table.shadowRoot;
     }, { timeout: 3000 });
@@ -194,7 +197,7 @@ describe('TabularzerCard — label configuration (T033)', () => {
     expect(labelCell?.textContent).toContain('°C');
   });
 
-  it('empty entities → no-entities placeholder shown, no monthly-table', async () => {
+  it('empty entities → no-entities placeholder shown, no year-table', async () => {
     const config = { type: 'custom:tabularizer-card', entities: [] };
     const el = await createCard(config, makeHass());
     await vi.waitFor(async () => {
@@ -202,19 +205,21 @@ describe('TabularzerCard — label configuration (T033)', () => {
       const placeholder = el.shadowRoot!.querySelector('.no-entities');
       if (!placeholder) throw new Error('placeholder not found');
     }, { timeout: 3000 });
-    const tables = el.shadowRoot!.querySelectorAll('monthly-table');
+    const tables = el.shadowRoot!.querySelectorAll('year-table');
     expect(tables.length).toBe(0);
   });
 
-  it('duplicate entity IDs → two rows in monthly-table', async () => {
+  it('duplicate entity IDs → both labels rendered in year-table', async () => {
     const config = { type: 'custom:tabularizer-card', entities: [
       { entity: 'sensor.temp', label: 'Row A' },
       { entity: 'sensor.temp', label: 'Row B' },
     ] };
     const el = await createCard(config, makeHass());
     const tableRoot = await getFirstTableRoot(el);
-    const rows = tableRoot.querySelectorAll('tbody tr');
-    expect(rows.length).toBe(2);
+    const labelCells = tableRoot.querySelectorAll('td.label-column');
+    const texts = Array.from(labelCells).map((c) => c.textContent ?? '');
+    expect(texts.some((t) => t.includes('Row A'))).toBe(true);
+    expect(texts.some((t) => t.includes('Row B'))).toBe(true);
   });
 });
 
@@ -258,7 +263,7 @@ describe('TabularzerCard — year navigation (T030)', () => {
     }, { timeout: 3000 });
   });
 
-  it('fully past year shows 12 monthly tables', async () => {
+  it('fully past year shows 12 month sections', async () => {
     const currentYear = new Date().getFullYear();
     const earliestStart = new Date(currentYear - 1, 0, 1).getTime();
     const sendMsg = vi.fn()
@@ -273,8 +278,11 @@ describe('TabularzerCard — year navigation (T030)', () => {
     nav.dispatchEvent(new CustomEvent('tabularizer-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const tables = el.shadowRoot!.querySelectorAll('monthly-table');
-      expect(tables.length).toBe(12);
+      const yearTable = el.shadowRoot!.querySelector('year-table');
+      if (!yearTable?.shadowRoot) throw new Error('year-table not ready');
+      await (yearTable as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
+      const monthRows = yearTable.shadowRoot.querySelectorAll('tr.month-header-row');
+      expect(monthRows.length).toBe(12);
     }, { timeout: 3000 });
   });
 
@@ -293,9 +301,12 @@ describe('TabularzerCard — year navigation (T030)', () => {
     nav.dispatchEvent(new CustomEvent('tabularizer-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const tables = el.shadowRoot!.querySelectorAll('monthly-table');
-      // June=month 6, months 6–12 = 7 tables
-      expect(tables.length).toBe(7);
+      const yearTable = el.shadowRoot!.querySelector('year-table');
+      if (!yearTable?.shadowRoot) throw new Error('year-table not ready');
+      await (yearTable as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
+      const monthRows = yearTable.shadowRoot.querySelectorAll('tr.month-header-row');
+      // June=month 6, months 6–12 = 7 sections
+      expect(monthRows.length).toBe(7);
     }, { timeout: 3000 });
   });
 

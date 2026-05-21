@@ -4,10 +4,12 @@ import type { EntityConfig } from '../types/card-config';
 import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
 
-@customElement('monthly-table')
-export class MonthlyTable extends LitElement {
-  @property({ type: Number }) month = 1;
+const TOTAL_DAYS = 31;
+
+@customElement('year-table')
+export class YearTable extends LitElement {
   @property({ type: Number }) year = 2025;
+  @property({ attribute: false }) visibleMonths: number[] = [];
   @property({ attribute: false }) entityConfigs: EntityConfig[] = [];
   @property({ attribute: false }) dailyValues: Map<string, DailyValue> = new Map();
   @property({ attribute: false }) monthlySummaries: Map<string, MonthlySummary> = new Map();
@@ -30,6 +32,9 @@ export class MonthlyTable extends LitElement {
     th, td {
       padding: 1px 3px;
     }
+    tbody tr {
+      border-bottom: 1px solid var(--divider-color, #e0e0e0);
+    }
     td.data-cell {
       padding: 1px 3px;
       color: var(--primary-text-color);
@@ -37,9 +42,10 @@ export class MonthlyTable extends LitElement {
       min-width: 20px;
     }
     td.data-cell.has-data {
-      border: 1px solid var(--divider-color, #ccc);
+      border-left: 1px solid var(--divider-color, #ccc);
+      border-right: 1px solid var(--divider-color, #ccc);
     }
-    td.pad-cell {
+    td.pad-cell, th.pad-cell {
       min-width: 20px;
       padding: 1px 3px;
       background: var(--secondary-background-color, #f5f5f5);
@@ -54,12 +60,29 @@ export class MonthlyTable extends LitElement {
       white-space: nowrap;
       padding: 1px 6px 1px 4px;
       border-right: 1px solid var(--divider-color, #ccc);
+      vertical-align: top;
     }
-    .month-header {
+    .month-header-row th {
       font-weight: bold;
-      padding: 4px 4px 2px;
+      padding: 4px 6px;
       color: var(--primary-text-color);
-      font-size: 1.1em;
+      text-align: left;
+      position: sticky;
+      left: 0;
+      background: var(--secondary-background-color, #f0f0f0);
+      border-top: 2px solid var(--divider-color, #ccc);
+      border-bottom: 1px solid var(--divider-color, #ccc);
+    }
+    .col-header th {
+      text-align: center;
+      padding: 1px 3px;
+      color: var(--secondary-text-color);
+      font-size: 0.9em;
+      border-bottom: 2px solid var(--divider-color, #ccc);
+    }
+    .col-header .label-column {
+      font-size: 1em;
+      font-weight: normal;
     }
     .summary-column {
       color: var(--secondary-text-color);
@@ -67,52 +90,51 @@ export class MonthlyTable extends LitElement {
       text-align: right;
       padding: 1px 3px;
     }
-    .day-cell-header {
-      text-align: center;
-      padding: 1px 3px;
-      color: var(--secondary-text-color);
-      font-size: 0.9em;
-    }
   `;
 
-  private daysInMonth(): number {
-    return new Date(this.year, this.month, 0).getDate();
+  private daysInMonth(month: number): number {
+    return new Date(this.year, month, 0).getDate();
   }
 
-  private monthName(): string {
+  private dateStr(month: number, day: number): string {
+    return `${this.year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  private monthName(month: number): string {
     return new Intl.DateTimeFormat(this.lang, { month: 'long' }).format(
-      new Date(this.year, this.month - 1, 1),
+      new Date(this.year, month - 1, 1),
     );
   }
 
-  private dateStr(day: number): string {
-    return `${this.year}-${String(this.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  private hasCumulative(): boolean {
+    return this.entityConfigs.some((cfg) => {
+      const meta = this.entityMetadata.get(cfg.entity);
+      return meta && meta.stateClass !== 'measurement';
+    });
   }
 
-  private renderEntityRow(cfg: EntityConfig) {
+  private renderEntityRows(cfg: EntityConfig, month: number, days: number, nf: Intl.NumberFormat) {
     const meta = this.entityMetadata.get(cfg.entity);
-    const days = this.daysInMonth();
     const label = cfg.label ?? meta?.friendlyName ?? cfg.entity;
     const unit = meta?.unitOfMeasurement ? ` [${meta.unitOfMeasurement}]` : '';
     const hasStats = meta?.hasStatistics ?? true;
     const hasError = this.entityErrors.has(cfg.entity);
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: 1 });
     const isMeasurement = meta?.stateClass === 'measurement';
-    const summaryKey = `${cfg.entity}::${this.year}-${this.month}`;
+    const summaryKey = `${cfg.entity}::${this.year}-${month}`;
     const summary = this.monthlySummaries.get(summaryKey);
 
     if (isMeasurement && !hasError) {
       const minCells = [];
       const meanCells = [];
       const maxCells = [];
-      for (let d = 1; d <= 31; d++) {
+      for (let d = 1; d <= TOTAL_DAYS; d++) {
         if (d > days) {
           minCells.push(html`<td class="pad-cell"></td>`);
           meanCells.push(html`<td class="pad-cell"></td>`);
           maxCells.push(html`<td class="pad-cell"></td>`);
           continue;
         }
-        const key = `${cfg.entity}::${this.dateStr(d)}`;
+        const key = `${cfg.entity}::${this.dateStr(month, d)}`;
         const val = this.dailyValues.get(key);
         if (val?.kind === 'measurement') {
           const pc = val.partialCoverage ? '*' : '';
@@ -144,12 +166,12 @@ export class MonthlyTable extends LitElement {
 
     // Cumulative entity — single row
     const dayCells = [];
-    for (let d = 1; d <= 31; d++) {
+    for (let d = 1; d <= TOTAL_DAYS; d++) {
       if (d > days) {
         dayCells.push(html`<td class="pad-cell"></td>`);
         continue;
       }
-      const key = `${cfg.entity}::${this.dateStr(d)}`;
+      const key = `${cfg.entity}::${this.dateStr(month, d)}`;
       const val = this.dailyValues.get(key);
       let cellContent = '';
       if (hasError) {
@@ -176,34 +198,36 @@ export class MonthlyTable extends LitElement {
   }
 
   render() {
-    const days = this.daysInMonth();
-    const dayHeaders = [];
-    for (let d = 1; d <= 31; d++) {
-      if (d > days) {
-        dayHeaders.push(html`<th class="pad-cell"></th>`);
-      } else {
-        dayHeaders.push(html`<th class="day-cell-header">${d}</th>`);
-      }
-    }
+    const hasCumulative = this.hasCumulative();
+    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: 1 });
 
-    const hasCumulative = this.entityConfigs.some((cfg) => {
-      const meta = this.entityMetadata.get(cfg.entity);
-      return meta && meta.stateClass !== 'measurement';
-    });
+    const dayHeaders = [];
+    for (let d = 1; d <= TOTAL_DAYS; d++) {
+      dayHeaders.push(html`<th>${d}</th>`);
+    }
 
     return html`
       <div class="table-container">
         <table>
           <thead>
-            <tr>
-              <th class="label-column month-header" colspan="1">${this.monthName()}</th>
+            <tr class="col-header">
+              <th class="label-column"></th>
               ${dayHeaders}
               <th class="summary-column">${localize('table.summary', this.lang)}</th>
               ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
             </tr>
           </thead>
           <tbody>
-            ${this.entityConfigs.map((cfg) => this.renderEntityRow(cfg))}
+            ${this.visibleMonths.map((month) => {
+              const days = this.daysInMonth(month);
+              const totalCols = 1 + TOTAL_DAYS + 1 + (hasCumulative ? 1 : 0);
+              return html`
+                <tr class="month-header-row">
+                  <th colspan="${totalCols}">${this.monthName(month)}</th>
+                </tr>
+                ${this.entityConfigs.map((cfg) => this.renderEntityRows(cfg, month, days, nf))}
+              `;
+            })}
           </tbody>
         </table>
       </div>
@@ -213,6 +237,6 @@ export class MonthlyTable extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'monthly-table': MonthlyTable;
+    'year-table': YearTable;
   }
 }

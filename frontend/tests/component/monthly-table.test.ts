@@ -171,15 +171,17 @@ async function renderSingleEntity(entity: string, meta: EntityMetadata, dailyVal
 
 // T019: measurement rendering
 describe('MonthlyTable — measurement rendering (T019)', () => {
-  it('MeasurementDailyValue → day cell shows min/avg/max combined', async () => {
+  it('MeasurementDailyValue → separate rows show min, mean, max', async () => {
     const dayVal: MeasurementDailyValue = { kind: 'measurement', entityId: ENTITY_ID, date: '2025-01-05', min: 10, mean: 20, max: 30, partialCoverage: false };
     const dailyValues = new Map<string, DailyValue>([['sensor.temp::2025-01-05', dayVal]]);
     const el = await renderSingleEntity(ENTITY_ID, tempMeta, dailyValues);
-    const cells = el.shadowRoot!.querySelectorAll('td.data-cell');
-    const day5 = cells[4]; // 0-indexed, day 5
-    expect(day5?.textContent).toContain('10');
-    expect(day5?.textContent).toContain('20');
-    expect(day5?.textContent).toContain('30');
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    const minCell = rows[0]!.querySelectorAll('td.data-cell')[4]; // day 5, row 0 = min
+    const meanCell = rows[1]!.querySelectorAll('td.data-cell')[4]; // day 5, row 1 = mean
+    const maxCell = rows[2]!.querySelectorAll('td.data-cell')[4]; // day 5, row 2 = max
+    expect(minCell?.textContent?.trim()).toBe('10');
+    expect(meanCell?.textContent?.trim()).toBe('20');
+    expect(maxCell?.textContent?.trim()).toBe('30');
   });
 
   it('partialCoverage: true → asterisk appended to cell value', async () => {
@@ -198,10 +200,10 @@ describe('MonthlyTable — measurement rendering (T019)', () => {
     expect(day5?.textContent).not.toContain('*');
   });
 
-  it('no separate min/max rows rendered', async () => {
+  it('measurement entity renders 3 rows (min, mean, max)', async () => {
     const el = await renderSingleEntity(ENTITY_ID, tempMeta);
     const rows = el.shadowRoot!.querySelectorAll('tbody tr');
-    expect(rows.length).toBe(1); // one row per entity, not three
+    expect(rows.length).toBe(3);
   });
 });
 
@@ -234,13 +236,16 @@ describe('MonthlyTable — cumulative rendering (T020)', () => {
 
 // T021: summary column
 describe('MonthlyTable — summary column (T021)', () => {
-  it('measurement entity → summary shows MonthlySummary min/mean/max from HA', async () => {
+  it('measurement entity → 3 summary cells show min, mean, max separately', async () => {
     const summary: MonthlySummary = { entityId: ENTITY_ID, year: 2025, month: 1, min: 5, mean: 18, max: 30, total: null };
     const el = await renderSingleEntity(ENTITY_ID, tempMeta, new Map(), new Map([[`${ENTITY_ID}::2025-1`, summary]]));
-    const summaryCell = el.shadowRoot!.querySelector('td.summary-column');
-    expect(summaryCell?.textContent).toContain('5');
-    expect(summaryCell?.textContent).toContain('18');
-    expect(summaryCell?.textContent).toContain('30');
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    const minSummary = rows[0]!.querySelector('td.summary-column');
+    const meanSummary = rows[1]!.querySelector('td.summary-column');
+    const maxSummary = rows[2]!.querySelector('td.summary-column');
+    expect(minSummary?.textContent?.trim()).toBe('5');
+    expect(meanSummary?.textContent?.trim()).toBe('18');
+    expect(maxSummary?.textContent?.trim()).toBe('30');
   });
 });
 
