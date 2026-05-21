@@ -11,6 +11,9 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src tests"
   },
+  "overrides": {
+    "test-exclude": "^8.0.0"
+  },
   "devDependencies": {
     "@open-wc/testing": "^4.0.0",
     "@rollup/plugin-json": "^6.1.0",

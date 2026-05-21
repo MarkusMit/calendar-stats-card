@@ -17,6 +17,7 @@ export default {
       tsconfig: './tsconfig.json',
       declaration: false,
       declarationMap: false,
+      sourceMap: false,
     }),
     terser(),
   ],
