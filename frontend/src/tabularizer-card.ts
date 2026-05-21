@@ -167,7 +167,7 @@ export class TabularzerCard extends LitElement {
       newByYear.set(year, yearStats);
 
       this._viewState = { ...this._viewState, isLoading: false, statisticsByYear: newByYear };
-    } catch (_err) {
+    } catch {
       if (token !== this._fetchAbortFlag) return;
       this._viewState = {
         ...this._viewState,

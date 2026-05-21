@@ -151,14 +151,6 @@ const energyMeta: EntityMetadata = {
   hasStatistics: true,
 };
 
-const totalMeta: EntityMetadata = {
-  entityId: 'sensor.net',
-  stateClass: 'total',
-  deviceClass: 'energy',
-  unitOfMeasurement: 'kWh',
-  friendlyName: 'Net',
-  hasStatistics: true,
-};
 
 async function renderSingleEntity(entity: string, meta: EntityMetadata, dailyValues: Map<string, DailyValue> = new Map(), monthlySummaries: Map<string, MonthlySummary> = new Map()) {
   const el = new MonthlyTable();

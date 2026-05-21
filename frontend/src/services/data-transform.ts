@@ -6,7 +6,7 @@ import type {
   EntityMetadata,
   MonthlySummary,
 } from '../types/statistics';
-import type { RawStats, RawStatEntry } from './statistics-service';
+import type { RawStats } from './statistics-service';
 
 function dateStringInTz(timestampMs: number, timeZone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
