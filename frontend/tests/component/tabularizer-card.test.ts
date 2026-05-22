@@ -97,8 +97,8 @@ describe('TabularzerCard — localized display (T036)', () => {
     return root!;
   }
 
-  it('hass.selectedLanguage=de-AT → summary column header is German', async () => {
-    const el = await createCard(CONFIG, makeHass({ selectedLanguage: 'de-AT', language: 'de' }));
+  it('hass.selectedLanguage=de → summary column header is German', async () => {
+    const el = await createCard(CONFIG, makeHass({ selectedLanguage: 'de', language: 'de' }));
     const tableRoot = await getFirstTableRoot(el);
     const summaryHeader = tableRoot.querySelector('th.summary-column');
     expect(summaryHeader?.textContent).toContain('Zusammenfassung');
@@ -111,9 +111,9 @@ describe('TabularzerCard — localized display (T036)', () => {
     expect(summaryHeader?.textContent).toContain('Summary');
   });
 
-  it('no-entities placeholder uses de-AT text', async () => {
+  it('no-entities placeholder uses de text', async () => {
     const config = { type: 'custom:tabularizer-card', entities: [] };
-    const el = await createCard(config, makeHass({ selectedLanguage: 'de-AT', language: 'de' }));
+    const el = await createCard(config, makeHass({ selectedLanguage: 'de', language: 'de' }));
     await vi.waitFor(async () => {
       await el.updateComplete;
       const ph = el.shadowRoot!.querySelector('.no-entities');
@@ -123,7 +123,7 @@ describe('TabularzerCard — localized display (T036)', () => {
   });
 
   it('year-navigator prev button has lang-aware aria-label', async () => {
-    const el = await createCard(CONFIG, makeHass({ selectedLanguage: 'de-AT', language: 'de' }));
+    const el = await createCard(CONFIG, makeHass({ selectedLanguage: 'de', language: 'de' }));
     await vi.waitFor(async () => {
       await el.updateComplete;
       const nav = el.shadowRoot!.querySelector('year-navigator');
@@ -134,7 +134,7 @@ describe('TabularzerCard — localized display (T036)', () => {
   });
 
   it('year-navigator next button has lang-aware aria-label', async () => {
-    const el = await createCard(CONFIG, makeHass({ selectedLanguage: 'de-AT', language: 'de' }));
+    const el = await createCard(CONFIG, makeHass({ selectedLanguage: 'de', language: 'de' }));
     await vi.waitFor(async () => {
       await el.updateComplete;
       const nav = el.shadowRoot!.querySelector('year-navigator');

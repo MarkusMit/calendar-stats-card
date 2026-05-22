@@ -1,11 +1,11 @@
 import en from '../translations/en.json';
-import deAT from '../translations/de-AT.json';
+import de from '../translations/de.json';
 
 type TranslationDict = Record<string, unknown>;
 
 const translations: Record<string, TranslationDict> = {
   en,
-  'de-AT': deAT,
+  de,
 };
 
 export function localize(key: string, language: string): string {
