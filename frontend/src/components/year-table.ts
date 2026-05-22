@@ -239,19 +239,11 @@ export class YearTable extends LitElement {
     return html`
       <div class="table-container">
         <table>
-          <thead>
-            <tr class="col-header">
-              <th class="label-column"></th>
-              ${dayHeaders}
-              <th class="summary-column">${localize('table.summary', this.lang)}</th>
-              ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
-            </tr>
-          </thead>
           <tbody>
             ${this.visibleMonths.map((month, i) => {
               const days = this.daysInMonth(month);
               const totalCols = 1 + TOTAL_DAYS + 1 + (hasCumulative ? 1 : 0);
-              const showDayNumbers = i > 0 && i % 3 === 0;
+              const showDayNumbers = i % 3 === 0;
               return html`
                 <tr class="month-header-row">
                   ${showDayNumbers ? html`
