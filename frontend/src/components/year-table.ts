@@ -63,15 +63,23 @@ export class YearTable extends LitElement {
       vertical-align: top;
     }
     .month-header-row th {
-      font-weight: bold;
-      padding: 4px 6px;
-      color: var(--primary-text-color);
-      text-align: left;
-      position: sticky;
-      left: 0;
+      font-weight: normal;
+      font-size: 0.9em;
+      color: var(--secondary-text-color);
+      text-align: center;
+      padding: 1px 3px;
       background: var(--secondary-background-color, #f0f0f0);
       border-top: 2px solid var(--divider-color, #ccc);
       border-bottom: 1px solid var(--divider-color, #ccc);
+    }
+    .month-header-row th.month-name {
+      font-weight: bold;
+      font-size: 1em;
+      color: var(--primary-text-color);
+      text-align: left;
+      padding: 4px 6px;
+      position: sticky;
+      left: 0;
     }
     .col-header th {
       text-align: center;
@@ -201,7 +209,7 @@ export class YearTable extends LitElement {
     const hasCumulative = this.hasCumulative();
     const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: 1 });
 
-    const dayHeaders = [];
+    const dayHeaders: ReturnType<typeof html>[] = [];
     for (let d = 1; d <= TOTAL_DAYS; d++) {
       dayHeaders.push(html`<th>${d}</th>`);
     }
@@ -218,12 +226,20 @@ export class YearTable extends LitElement {
             </tr>
           </thead>
           <tbody>
-            ${this.visibleMonths.map((month) => {
+            ${this.visibleMonths.map((month, i) => {
               const days = this.daysInMonth(month);
               const totalCols = 1 + TOTAL_DAYS + 1 + (hasCumulative ? 1 : 0);
+              const showDayNumbers = i > 0 && i % 3 === 0;
               return html`
                 <tr class="month-header-row">
-                  <th colspan="${totalCols}">${this.monthName(month)}</th>
+                  ${showDayNumbers ? html`
+                    <th class="label-column month-name">${this.monthName(month)}</th>
+                    ${dayHeaders}
+                    <th class="summary-column">${localize('table.summary', this.lang)}</th>
+                    ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
+                  ` : html`
+                    <th class="month-name" colspan="${totalCols}">${this.monthName(month)}</th>
+                  `}
                 </tr>
                 ${this.entityConfigs.map((cfg) => this.renderEntityRows(cfg, month, days, nf))}
               `;
