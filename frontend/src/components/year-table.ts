@@ -28,6 +28,7 @@ export class YearTable extends LitElement {
     table {
       border-collapse: collapse;
       white-space: nowrap;
+      user-select: text;
     }
     th, td {
       padding: 1px 3px;
