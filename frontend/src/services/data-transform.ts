@@ -150,8 +150,7 @@ export function transformMonthlyStats(
 
     const sorted = [...entries].sort((a, b) => a.start - b.start);
 
-    for (let i = 0; i < sorted.length; i++) {
-      const entry = sorted[i]!;
+    for (const entry of sorted) {
       const date = new Date(entry.start);
       const year = date.getUTCFullYear();
       const month = date.getUTCMonth() + 1;
@@ -168,18 +167,16 @@ export function transformMonthlyStats(
           total: null,
         });
       } else {
-        // Cumulative: card-computed min/mean/max from daily values
-        const sums = collectDailySums(entityId, year, month, dailyValues, isPrecipitation);
+        // Cumulative: all stats computed from daily values (correctly handles year boundary)
+        const filteredSums = collectDailySums(entityId, year, month, dailyValues, isPrecipitation);
+        const allSums = isPrecipitation
+          ? collectDailySums(entityId, year, month, dailyValues, false)
+          : filteredSums;
 
-        const minVal = sums.length > 0 ? Math.min(...sums) : null;
-        const maxVal = sums.length > 0 ? Math.max(...sums) : null;
-        const meanVal = sums.length > 0 ? sums.reduce((a, b) => a + b, 0) / sums.length : null;
-
-        // Monthly total: delta from cumulative monthly sum
-        const prevEntry = sorted[i - 1];
-        const currentMonthSum = entry.sum ?? 0;
-        const prevMonthSum = prevEntry != null ? (prevEntry.sum ?? 0) : null;
-        const total = prevMonthSum === null ? currentMonthSum : currentMonthSum - prevMonthSum;
+        const minVal = filteredSums.length > 0 ? Math.min(...filteredSums) : null;
+        const maxVal = filteredSums.length > 0 ? Math.max(...filteredSums) : null;
+        const meanVal = filteredSums.length > 0 ? filteredSums.reduce((a, b) => a + b, 0) / filteredSums.length : null;
+        const total = allSums.length > 0 ? allSums.reduce((a, b) => a + b, 0) : null;
 
         result.set(key, {
           entityId,

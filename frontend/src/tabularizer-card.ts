@@ -116,6 +116,7 @@ export class TabularzerCard extends LitElement {
     this.requestUpdate();
 
     const entityIds = [...new Set(this._config.entities.map((e) => e.entity))];
+    const dailyStartTime = `${year - 1}-12-31T00:00:00Z`;
     const startTime = `${year}-01-01T00:00:00Z`;
     const endTime = `${year + 1}-01-01T00:00:00Z`;
 
@@ -132,7 +133,7 @@ export class TabularzerCard extends LitElement {
       }
 
       const [dailyRaw, monthlyRaw] = await Promise.all([
-        this._service.fetchDailyStats(this._hass, entityIds, startTime, endTime),
+        this._service.fetchDailyStats(this._hass, entityIds, dailyStartTime, endTime),
         this._service.fetchMonthlyStats(this._hass, entityIds, startTime, endTime),
       ]);
 

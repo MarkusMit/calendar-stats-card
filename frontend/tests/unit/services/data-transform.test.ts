@@ -225,7 +225,7 @@ describe('transformMonthlyStats — edge cases', () => {
     expect(result.size).toBe(0);
   });
 
-  it('cumulative with no matching daily values → min/mean/max are null', () => {
+  it('cumulative with no matching daily values → min/mean/max/total are null', () => {
     const start = new Date('2025-01-01T00:00:00Z').getTime();
     const raw = { 'sensor.energy': [{ start, end: start + 2678400_000, sum: 50 }] };
     const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map());
@@ -233,7 +233,7 @@ describe('transformMonthlyStats — edge cases', () => {
     expect(summary?.min).toBeNull();
     expect(summary?.max).toBeNull();
     expect(summary?.mean).toBeNull();
-    expect(summary?.total).toBe(50);
+    expect(summary?.total).toBeNull();
   });
 });
 
@@ -284,19 +284,25 @@ describe('transformMonthlyStats', () => {
     expect(summary?.mean).toBe(5);
   });
 
-  it('cumulative monthly total = monthlySum[M] − monthlySum[M-1]', () => {
+  it('cumulative monthly total = sum of daily values', () => {
     const s1 = new Date('2025-01-01T00:00:00Z').getTime();
     const s2 = new Date('2025-02-01T00:00:00Z').getTime();
+    const s3 = new Date('2025-03-01T00:00:00Z').getTime();
     const raw: Record<string, { start: number; end: number; sum?: number }[]> = {
       'sensor.energy': [
         { start: s1, end: s2, sum: 100 },
-        { start: s2, end: new Date('2025-03-01T00:00:00Z').getTime(), sum: 130 },
+        { start: s2, end: s3, sum: 130 },
       ],
     };
-    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map());
+    const dailyValues = new Map([
+      ['sensor.energy::2025-01-01', { kind: 'cumulative' as const, entityId: 'sensor.energy', date: '2025-01-01', sum: 3, partialCoverage: false }],
+      ['sensor.energy::2025-01-02', { kind: 'cumulative' as const, entityId: 'sensor.energy', date: '2025-01-02', sum: 7, partialCoverage: false }],
+      ['sensor.energy::2025-02-01', { kind: 'cumulative' as const, entityId: 'sensor.energy', date: '2025-02-01', sum: 30, partialCoverage: false }],
+    ]);
+    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, dailyValues);
     const jan = result.get('sensor.energy::2025-1');
     const feb = result.get('sensor.energy::2025-2');
-    expect(jan?.total).toBe(100);  // first tracked month: sum[0]
-    expect(feb?.total).toBe(30);   // 130-100
+    expect(jan?.total).toBe(10);   // 3 + 7
+    expect(feb?.total).toBe(30);   // 30
   });
 });

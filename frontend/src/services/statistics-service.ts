@@ -103,8 +103,7 @@ export class StatisticsService {
     }
 
     if (earliestMs === null) {
-      const now = new Date();
-      return { earliestYear: now.getFullYear(), earliestMonth: now.getMonth() + 1 };
+      return { earliestYear: new Date().getFullYear() - 10, earliestMonth: 1 };
     }
 
     const d = new Date(earliestMs);
