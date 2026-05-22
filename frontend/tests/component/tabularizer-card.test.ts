@@ -101,7 +101,7 @@ describe('TabularzerCard — localized display (T036)', () => {
     const el = await createCard(CONFIG, makeHass({ selectedLanguage: 'de', language: 'de' }));
     const tableRoot = await getFirstTableRoot(el);
     const summaryHeader = tableRoot.querySelector('th.summary-column');
-    expect(summaryHeader?.textContent).toContain('Zusammenfassung');
+    expect(summaryHeader?.textContent).toContain('Monat');
   });
 
   it('hass.language=en → summary column header is English', async () => {

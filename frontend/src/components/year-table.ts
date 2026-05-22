@@ -80,6 +80,7 @@ export class YearTable extends LitElement {
       padding: 4px 6px;
       position: sticky;
       left: 0;
+      z-index: 1;
     }
     .col-header th {
       text-align: center;
@@ -238,7 +239,8 @@ export class YearTable extends LitElement {
                     <th class="summary-column">${localize('table.summary', this.lang)}</th>
                     ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
                   ` : html`
-                    <th class="month-name" colspan="${totalCols}">${this.monthName(month)}</th>
+                    <th class="month-name">${this.monthName(month)}</th>
+                    <th colspan="${totalCols - 1}"></th>
                   `}
                 </tr>
                 ${this.entityConfigs.map((cfg) => this.renderEntityRows(cfg, month, days))}
