@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { EntityConfig } from '../types/card-config';
+import { rowKey } from '../types/card-config';
 import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
 
@@ -90,15 +91,18 @@ export class MonthlyTable extends LitElement {
   }
 
   private renderEntityRow(cfg: EntityConfig) {
-    const meta = this.entityMetadata.get(cfg.entity);
+    const key = rowKey(cfg);
+    const meta = this.entityMetadata.get(key);
     const days = this.daysInMonth();
-    const label = cfg.name ?? meta?.friendlyName ?? cfg.entity;
-    const unit = meta?.unitOfMeasurement ? ` [${meta.unitOfMeasurement}]` : '';
+    const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
+    const unitStr = ('unit' in cfg && cfg.unit) ? cfg.unit : meta?.unitOfMeasurement;
+    const unit = unitStr ? ` [${unitStr}]` : '';
+    const f = ('factor' in cfg && cfg.factor != null) ? cfg.factor : 1;
     const hasStats = meta?.hasStatistics ?? true;
-    const hasError = this.entityErrors.has(cfg.entity);
+    const hasError = this.entityErrors.has(key);
     const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: cfg.precision ?? 20, minimumFractionDigits: cfg.precision ?? 0 });
     const isMeasurement = meta?.stateClass === 'measurement';
-    const summaryKey = `${cfg.entity}::${this.year}-${this.month}`;
+    const summaryKey = `${key}::${this.year}-${this.month}`;
     const summary = this.monthlySummaries.get(summaryKey);
 
     if (isMeasurement && !hasError) {
@@ -112,13 +116,12 @@ export class MonthlyTable extends LitElement {
           maxCells.push(html`<td class="pad-cell"></td>`);
           continue;
         }
-        const key = `${cfg.entity}::${this.dateStr(d)}`;
-        const val = this.dailyValues.get(key);
+        const val = this.dailyValues.get(`${key}::${this.dateStr(d)}`);
         if (val?.kind === 'measurement') {
           const pc = val.partialCoverage ? '*' : '';
-          minCells.push(html`<td class="data-cell has-data">${nf.format(val.min)}${pc}</td>`);
-          meanCells.push(html`<td class="data-cell has-data">${nf.format(val.mean)}</td>`);
-          maxCells.push(html`<td class="data-cell has-data">${nf.format(val.max)}</td>`);
+          minCells.push(html`<td class="data-cell has-data">${nf.format(val.min * f)}${pc}</td>`);
+          meanCells.push(html`<td class="data-cell has-data">${nf.format(val.mean * f)}</td>`);
+          maxCells.push(html`<td class="data-cell has-data">${nf.format(val.max * f)}${pc}</td>`);
         } else {
           minCells.push(html`<td class="data-cell"></td>`);
           meanCells.push(html`<td class="data-cell"></td>`);
@@ -129,15 +132,15 @@ export class MonthlyTable extends LitElement {
         <tr>
           <td class="label-column" rowspan="3">${hasStats ? '' : '⚠ '}${label}${unit}</td>
           ${minCells}
-          <td class="summary-column">${summary?.min != null ? nf.format(summary.min) : ''}</td>
+          <td class="summary-column">${summary?.min != null ? nf.format(summary.min * f) : ''}</td>
         </tr>
         <tr>
           ${meanCells}
-          <td class="summary-column">${summary?.mean != null ? nf.format(summary.mean) : ''}</td>
+          <td class="summary-column">${summary?.mean != null ? nf.format(summary.mean * f) : ''}</td>
         </tr>
         <tr>
           ${maxCells}
-          <td class="summary-column">${summary?.max != null ? nf.format(summary.max) : ''}</td>
+          <td class="summary-column">${summary?.max != null ? nf.format(summary.max * f) : ''}</td>
         </tr>
       `;
     }
@@ -149,22 +152,21 @@ export class MonthlyTable extends LitElement {
         dayCells.push(html`<td class="pad-cell"></td>`);
         continue;
       }
-      const key = `${cfg.entity}::${this.dateStr(d)}`;
-      const val = this.dailyValues.get(key);
+      const val = this.dailyValues.get(`${key}::${this.dateStr(d)}`);
       let cellContent = '';
       if (hasError) {
         cellContent = '—';
       } else if (!hasStats) {
         cellContent = '';
       } else if (val?.kind === 'cumulative') {
-        cellContent = `${nf.format(val.sum)}${val.partialCoverage ? '*' : ''}`;
+        cellContent = `${nf.format(val.sum * f)}${val.partialCoverage ? '*' : ''}`;
       }
       dayCells.push(html`<td class="data-cell ${cellContent ? 'has-data' : ''}">${cellContent}</td>`);
     }
     const summaryContent = summary
-      ? `${summary.min != null ? nf.format(summary.min) : ''}/${summary.mean != null ? nf.format(summary.mean) : ''}/${summary.max != null ? nf.format(summary.max) : ''}`
+      ? `${summary.min != null ? nf.format(summary.min * f) : ''}/${summary.mean != null ? nf.format(summary.mean * f) : ''}/${summary.max != null ? nf.format(summary.max * f) : ''}`
       : '';
-    const totalContent = summary?.total != null ? nf.format(summary.total) : '';
+    const totalContent = summary?.total != null ? nf.format(summary.total * f) : '';
     return html`
       <tr>
         <td class="label-column">${hasStats ? '' : '⚠ '}${label}${unit}</td>
@@ -187,7 +189,7 @@ export class MonthlyTable extends LitElement {
     }
 
     const hasCumulative = this.entityConfigs.some((cfg) => {
-      const meta = this.entityMetadata.get(cfg.entity);
+      const meta = this.entityMetadata.get(rowKey(cfg));
       return meta && meta.stateClass !== 'measurement';
     });
 

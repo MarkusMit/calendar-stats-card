@@ -4,7 +4,8 @@ import type { CardConfig } from './types/card-config';
 import type { HomeAssistant } from './types/ha-types';
 import type { ViewState, YearStatistics } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
-import { transformDailyStats, transformMonthlyStats } from './services/data-transform';
+import { transformDailyStats, transformMonthlyStats, collectDailySums } from './services/data-transform';
+import { extractEntityIds, evaluate } from './services/expression-evaluator';
 import { localize } from './localize/localize';
 import './components/loading-overlay';
 import './components/year-table';
@@ -115,7 +116,11 @@ export class TabularzerCard extends LitElement {
     this._viewState = { ...this._viewState, isLoading: true };
     this.requestUpdate();
 
-    const entityIds = [...new Set(this._config.entities.map((e) => e.entity))];
+    const entityIds = [...new Set(
+      this._config.entities.flatMap((cfg) =>
+        'entity' in cfg ? [cfg.entity] : extractEntityIds(cfg.expression),
+      ),
+    )];
     const dailyStartTime = `${year - 1}-12-31T00:00:00Z`;
     const startTime = `${year}-01-01T00:00:00Z`;
     const endTime = `${year + 1}-01-01T00:00:00Z`;
@@ -154,9 +159,80 @@ export class TabularzerCard extends LitElement {
         };
       }
 
+      // Add synthetic metadata for expression rows
+      for (const cfg of this._config.entities) {
+        if (!('expression' in cfg)) continue;
+        metadataMap[cfg.expression] = {
+          entityId: cfg.expression,
+          stateClass: 'total',
+          deviceClass: null,
+          unitOfMeasurement: cfg.unit ?? null,
+          friendlyName: cfg.name ?? null,
+          hasStatistics: true,
+        };
+      }
+
       const tz = this._hass.config.time_zone;
-      const dailyValues = transformDailyStats(dailyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, tz, Date.now(), {});
+      const nowMs = Date.now();
+      const dailyValues = transformDailyStats(dailyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, tz, nowMs, {});
+
+      // Compute expression daily values from constituent entity daily values
+      const todayStr = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date(nowMs));
+      for (const cfg of this._config.entities) {
+        if (!('expression' in cfg)) continue;
+        const exprEntityIds = extractEntityIds(cfg.expression);
+        for (let m = 1; m <= 12; m++) {
+          const daysInMonth = new Date(year, m, 0).getDate();
+          for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const key = `${cfg.expression}::${dateStr}`;
+            if (dateStr >= todayStr) {
+              dailyValues.set(key, { kind: 'empty', entityId: cfg.expression, date: dateStr });
+              continue;
+            }
+            const context: Record<string, number> = {};
+            let hasData = false;
+            for (const id of exprEntityIds) {
+              const v = dailyValues.get(`${id}::${dateStr}`);
+              if (v?.kind === 'cumulative') { context[id] = v.sum; hasData = true; }
+              else if (v?.kind === 'measurement') { context[id] = v.mean; hasData = true; }
+              else { context[id] = 0; }
+            }
+            if (hasData) {
+              dailyValues.set(key, {
+                kind: 'cumulative',
+                entityId: cfg.expression,
+                date: dateStr,
+                sum: evaluate(cfg.expression, context),
+                partialCoverage: false,
+              });
+            }
+          }
+        }
+      }
+
       const monthlySummaries = transformMonthlyStats(monthlyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, dailyValues);
+
+      // Compute expression monthly summaries from expression daily values
+      for (const cfg of this._config.entities) {
+        if (!('expression' in cfg)) continue;
+        for (let m = 1; m <= 12; m++) {
+          const sums = collectDailySums(cfg.expression, year, m, dailyValues, false);
+          if (sums.length === 0) continue;
+          const total = sums.reduce((a, b) => a + b, 0);
+          monthlySummaries.set(`${cfg.expression}::${year}-${m}`, {
+            entityId: cfg.expression,
+            year,
+            month: m,
+            min: Math.min(...sums),
+            mean: total / sums.length,
+            max: Math.max(...sums),
+            total,
+          });
+        }
+      }
 
       const yearStats: YearStatistics = {
         dailyValues,

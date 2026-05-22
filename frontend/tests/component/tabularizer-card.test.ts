@@ -330,3 +330,98 @@ describe('TabularzerCard — year navigation (T030)', () => {
     }, { timeout: 3000 });
   });
 });
+
+// Expression rows
+describe('TabularzerCard — expression rows', () => {
+  async function getFirstTableRoot(card: TabularzerCard): Promise<ShadowRoot> {
+    let root: ShadowRoot | null = null;
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      const table = card.shadowRoot!.querySelector('year-table');
+      if (!table) throw new Error('no year-table');
+      if (!table.shadowRoot) throw new Error('year-table shadow root not ready');
+      await (table as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
+      root = table.shadowRoot;
+    }, { timeout: 3000 });
+    return root!;
+  }
+
+  const year = new Date().getFullYear();
+  const dec31prev = Date.UTC(year - 1, 11, 31);
+  const jan1 = Date.UTC(year, 0, 1);
+  const jan2 = Date.UTC(year, 0, 2);
+
+  function makeExpressionHass(): HomeAssistant {
+    return makeHass({
+      connection: {
+        sendMessagePromise: vi.fn().mockImplementation((msg: Record<string, unknown>) => {
+          if (msg['type'] === 'recorder/get_statistics_metadata') return Promise.resolve([]);
+          if (msg['period'] === 'day') {
+            return Promise.resolve({
+              'sensor.a': [
+                { start: dec31prev, end: jan1, sum: 0 },
+                { start: jan1, end: jan2, sum: 10 },
+              ],
+              'sensor.b': [
+                { start: dec31prev, end: jan1, sum: 0 },
+                { start: jan1, end: jan2, sum: 5 },
+              ],
+            });
+          }
+          return Promise.resolve({});
+        }),
+      },
+      states: {
+        'sensor.a': {
+          entity_id: 'sensor.a',
+          state: '10',
+          attributes: { state_class: 'total_increasing', friendly_name: 'Sensor A' },
+        },
+        'sensor.b': {
+          entity_id: 'sensor.b',
+          state: '5',
+          attributes: { state_class: 'total_increasing', friendly_name: 'Sensor B' },
+        },
+      },
+    });
+  }
+
+  it('expression row shows evaluated sum in Jan 1 daily cell', async () => {
+    const config: CardConfig = {
+      type: 'custom:tabularizer-card',
+      entities: [{ expression: '{{ sensor.a + sensor.b }}', name: 'Combined', unit: 'kWh' }],
+    };
+    const el = await createCard(config, makeExpressionHass());
+    const tableRoot = await getFirstTableRoot(el);
+    const rows = tableRoot.querySelectorAll('tbody tr');
+    const exprRow = Array.from(rows).find(
+      (row) => row.querySelector('.label-column')?.textContent?.includes('Combined'),
+    );
+    expect(exprRow).toBeTruthy();
+    // Jan 1 delta: sensor.a = 10-0=10, sensor.b = 5-0=5, combined = 15
+    const firstDataCell = exprRow?.querySelector('.data-cell.has-data');
+    expect(firstDataCell?.textContent?.trim()).toBe('15');
+  });
+
+  it('expression row total column shows sum of daily values', async () => {
+    const config: CardConfig = {
+      type: 'custom:tabularizer-card',
+      entities: [{ expression: '{{ sensor.a + sensor.b }}', name: 'Combined', unit: 'kWh' }],
+    };
+    const el = await createCard(config, makeExpressionHass());
+    const tableRoot = await getFirstTableRoot(el);
+    // Total column header must appear (requires hasCumulative = true for expression row)
+    const totalHeader = Array.from(tableRoot.querySelectorAll('th.summary-column')).find(
+      (th) => th.textContent?.includes('Total') || th.textContent?.includes('total'),
+    );
+    expect(totalHeader).toBeTruthy();
+    // Total for Jan: only Jan 1 has data → total = 15
+    const rows = tableRoot.querySelectorAll('tbody tr');
+    const exprRow = Array.from(rows).find(
+      (row) => row.querySelector('.label-column')?.textContent?.includes('Combined'),
+    );
+    const summaryCells = exprRow?.querySelectorAll('.summary-column');
+    const totalCell = summaryCells?.[summaryCells.length - 1];
+    expect(totalCell?.textContent?.trim()).toBe('15');
+  });
+});

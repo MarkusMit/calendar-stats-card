@@ -194,7 +194,7 @@ export function transformMonthlyStats(
   return result;
 }
 
-function collectDailySums(
+export function collectDailySums(
   entityId: string,
   year: number,
   month: number,

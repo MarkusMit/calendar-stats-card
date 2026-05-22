@@ -331,3 +331,63 @@ describe('MonthlyTable — entity error states (T027)', () => {
     expect(secondRowEmpty).toBe(true);
   });
 });
+
+describe('MonthlyTable — factor and unit override', () => {
+  it('factor: 0.001 scales cumulative daily cell value', async () => {
+    const dayVal: CumulativeDailyValue = {
+      kind: 'cumulative', entityId: 'sensor.energy', date: '2025-01-01', sum: 5000, partialCoverage: false,
+    };
+    const el = new MonthlyTable();
+    el.month = 1;
+    el.year = 2025;
+    el.entityConfigs = [{ entity: 'sensor.energy', factor: 0.001 }];
+    el.dailyValues = new Map([['sensor.energy::2025-01-01', dayVal]]);
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([['sensor.energy', energyMeta]]);
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => { await el.updateComplete; if (!el.shadowRoot) throw new Error('no root'); }, { timeout: 3000 });
+    const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(day1?.textContent?.trim()).toBe('5');
+  });
+
+  it('factor: 0.001 scales measurement min/mean/max cells', async () => {
+    const dayVal: MeasurementDailyValue = {
+      kind: 'measurement', entityId: ENTITY_ID, date: '2025-01-01', min: 1000, mean: 2000, max: 3000, partialCoverage: false,
+    };
+    const el = new MonthlyTable();
+    el.month = 1;
+    el.year = 2025;
+    el.entityConfigs = [{ entity: ENTITY_ID, factor: 0.001 }];
+    el.dailyValues = new Map([[`${ENTITY_ID}::2025-01-01`, dayVal]]);
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => { await el.updateComplete; if (!el.shadowRoot) throw new Error('no root'); }, { timeout: 3000 });
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    const minCell = rows[0]!.querySelectorAll('td.data-cell')[0];
+    const meanCell = rows[1]!.querySelectorAll('td.data-cell')[0];
+    const maxCell = rows[2]!.querySelectorAll('td.data-cell')[0];
+    expect(minCell?.textContent?.trim()).toBe('1');
+    expect(meanCell?.textContent?.trim()).toBe('2');
+    expect(maxCell?.textContent?.trim()).toBe('3');
+  });
+
+  it('unit: "kWh" overrides HA-reported unit in label column', async () => {
+    const el = new MonthlyTable();
+    el.month = 1;
+    el.year = 2025;
+    el.entityConfigs = [{ entity: 'sensor.energy', unit: 'kWh' }];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map();
+    // HA reports Wh, config overrides to kWh
+    el.entityMetadata = new Map([['sensor.energy', { ...energyMeta, unitOfMeasurement: 'Wh' }]]);
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => { await el.updateComplete; if (!el.shadowRoot) throw new Error('no root'); }, { timeout: 3000 });
+    const label = el.shadowRoot!.querySelector('td.label-column');
+    expect(label?.textContent).toContain('[kWh]');
+    expect(label?.textContent).not.toContain('[Wh]');
+  });
+});
