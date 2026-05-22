@@ -145,8 +145,8 @@ describe('TabularzerCard — localized display (T036)', () => {
   });
 });
 
-// T033: label configuration tests
-describe('TabularzerCard — label configuration (T033)', () => {
+// T033: name configuration tests
+describe('TabularzerCard — name configuration (T033)', () => {
   async function getFirstTableRoot(card: TabularzerCard): Promise<ShadowRoot> {
     let root: ShadowRoot | null = null;
     await vi.waitFor(async () => {
@@ -160,8 +160,8 @@ describe('TabularzerCard — label configuration (T033)', () => {
     return root!;
   }
 
-  it('label override → label column shows override text', async () => {
-    const config = { type: 'custom:tabularizer-card', entities: [{ entity: 'sensor.temp', label: 'My Override' }] };
+  it('name override → label column shows override text', async () => {
+    const config = { type: 'custom:tabularizer-card', entities: [{ entity: 'sensor.temp', name: 'My Override' }] };
     const hass = makeHass({ states: { 'sensor.temp': {
       entity_id: 'sensor.temp', state: '20',
       attributes: { friendly_name: 'Temperature', unit_of_measurement: '°C', state_class: 'measurement' },
@@ -211,8 +211,8 @@ describe('TabularzerCard — label configuration (T033)', () => {
 
   it('duplicate entity IDs → both labels rendered in year-table', async () => {
     const config = { type: 'custom:tabularizer-card', entities: [
-      { entity: 'sensor.temp', label: 'Row A' },
-      { entity: 'sensor.temp', label: 'Row B' },
+      { entity: 'sensor.temp', name: 'Row A' },
+      { entity: 'sensor.temp', name: 'Row B' },
     ] };
     const el = await createCard(config, makeHass());
     const tableRoot = await getFirstTableRoot(el);

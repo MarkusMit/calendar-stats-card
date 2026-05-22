@@ -121,9 +121,10 @@ export class YearTable extends LitElement {
     });
   }
 
-  private renderEntityRows(cfg: EntityConfig, month: number, days: number, nf: Intl.NumberFormat) {
+  private renderEntityRows(cfg: EntityConfig, month: number, days: number) {
+    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: cfg.precision ?? 1 });
     const meta = this.entityMetadata.get(cfg.entity);
-    const label = cfg.label ?? meta?.friendlyName ?? cfg.entity;
+    const label = cfg.name ?? meta?.friendlyName ?? cfg.entity;
     const unit = meta?.unitOfMeasurement ? ` [${meta.unitOfMeasurement}]` : '';
     const hasStats = meta?.hasStatistics ?? true;
     const hasError = this.entityErrors.has(cfg.entity);
@@ -207,7 +208,6 @@ export class YearTable extends LitElement {
 
   render() {
     const hasCumulative = this.hasCumulative();
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: 1 });
 
     const dayHeaders: ReturnType<typeof html>[] = [];
     for (let d = 1; d <= TOTAL_DAYS; d++) {
@@ -241,7 +241,7 @@ export class YearTable extends LitElement {
                     <th class="month-name" colspan="${totalCols}">${this.monthName(month)}</th>
                   `}
                 </tr>
-                ${this.entityConfigs.map((cfg) => this.renderEntityRows(cfg, month, days, nf))}
+                ${this.entityConfigs.map((cfg) => this.renderEntityRows(cfg, month, days))}
               `;
             })}
           </tbody>

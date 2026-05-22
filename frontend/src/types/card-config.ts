@@ -1,6 +1,7 @@
 export interface EntityConfig {
   entity: string;
-  label?: string;
+  name?: string;
+  precision?: number;
 }
 
 export interface CardConfig {

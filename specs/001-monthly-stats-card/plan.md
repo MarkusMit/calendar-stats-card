@@ -95,7 +95,7 @@ frontend/
 │   │   ├── en.json                   # English strings
 │   │   └── de-AT.json                # Austrian German strings
 │   └── types/
-│       ├── card-config.ts            # CardConfig, EntityConfig
+│       ├── card-config.ts            # CardConfig, EntityConfig (entity, name?, precision?)
 │       ├── statistics.ts             # DailyValue, MonthlySummary, ViewState, EntityMetadata
 │       └── ha-types.ts               # Minimal HA API type shims (HomeAssistant, etc.)
 ├── tests/

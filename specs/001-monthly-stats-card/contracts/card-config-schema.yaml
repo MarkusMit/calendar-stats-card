@@ -5,7 +5,8 @@
 #   type: custom:tabularizer-card
 #   entities:
 #     - entity: sensor.outdoor_temperature
-#       label: "Temperature"
+#       name: "Temperature"
+#       precision: 1
 #     - entity: sensor.precipitation_gauge
 
 type:
@@ -38,9 +39,9 @@ entities:
           - sensor.outdoor_temperature
           - sensor.precipitation_gauge
           - sensor.daily_energy_consumption
-      label:
+      name:
         description: |
-          OPTIONAL. Display label shown in the entity label column.
+          OPTIONAL. Display name shown in the entity label column.
           Overrides the entity's HA friendly name.
           When omitted, the entity's HA friendly name is used (FR-022).
           The unit of measurement is always appended automatically from entity metadata.
@@ -49,3 +50,14 @@ entities:
           - "Außentemperatur"
           - "Niederschlag"
           - "Stromverbrauch"
+      precision:
+        description: |
+          OPTIONAL. Number of decimal digits shown in day cells and summary columns for this entity.
+          When omitted, defaults to 1.
+        type: integer
+        minimum: 0
+        maximum: 10
+        examples:
+          - 0
+          - 1
+          - 2

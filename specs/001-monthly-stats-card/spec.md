@@ -38,7 +38,7 @@ A user examines a monthly table and sees each configured entity displayed as a r
 2. **Given** a precipitation entity (`state_class: total_increasing`) is configured, **When** viewing a monthly table, **Then** each day cell shows a single daily sum (accumulated total for that day).
 3. **Given** a precipitation entity (`state_class: total_increasing`) with many zero-sum days, **When** viewing the summary column, **Then** avg/min/max calculations exclude days where the daily sum is zero; the total column shows the HA-authoritative monthly cumulative sum.
 4. **Given** an electricity meter entity (`state_class: total_increasing` or `total`), **When** viewing a monthly table, **Then** each day cell shows the daily sum (accumulated change for that calendar day).
-5. **Given** any entity row, **When** visible, **Then** the label column shows the configured label (or HA friendly name if no override) plus the unit of measurement.
+5. **Given** any entity row, **When** visible, **Then** the label column shows the configured name (or HA friendly name if no override) plus the unit of measurement.
 
 ---
 
@@ -60,19 +60,20 @@ A user wants to review statistics from a previous year. The card displays a year
 
 ---
 
-### User Story 4 - Configure Entities and Label Overrides (Priority: P2)
+### User Story 4 - Configure Entities, Name Overrides, and Display Precision (Priority: P2)
 
-A user configures the card to track specific HA entities — for example, outdoor temperature, daily rainfall, and electricity usage — and assigns friendly display names. The user edits the card configuration, provides entity IDs, and optionally sets display labels per entity.
+A user configures the card to track specific HA entities — for example, outdoor temperature, daily rainfall, and electricity usage — assigns friendly display names, and optionally controls the number of decimal digits per entity. The user edits the card configuration, provides entity IDs, and optionally sets a `name` and/or `precision` per entity.
 
 **Why this priority**: Without configuration, the card shows nothing. This story enables the setup that P1 stories depend on.
 
-**Independent Test**: Edit card YAML configuration, add 3 entities with label overrides, save, verify card renders with the overridden labels in all monthly tables.
+**Independent Test**: Edit card YAML configuration, add 3 entities with name overrides, save, verify card renders with the overridden names in all monthly tables.
 
 **Acceptance Scenarios**:
 
 1. **Given** a user adds an entity ID to the card configuration, **When** the card renders, **Then** that entity appears as a row in every monthly table.
-2. **Given** a user sets a label override for an entity, **When** the card renders, **Then** the overridden label is shown in the label column instead of the HA-provided friendly name.
-3. **Given** no label override is set for an entity, **When** the card renders, **Then** the entity's HA-provided friendly name is used as the label.
+2. **Given** a user sets a `name` override for an entity, **When** the card renders, **Then** the overridden name is shown in the label column instead of the HA-provided friendly name.
+3. **Given** no `name` override is set for an entity, **When** the card renders, **Then** the entity's HA-provided friendly name is used as the label.
+4. **Given** a user sets `precision: 0` for an entity, **When** the card renders, **Then** all numeric values for that entity are shown as whole numbers (no decimal digits).
 
 ---
 
@@ -193,8 +194,9 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 
 - **FR-020**: Card MUST allow users to configure a list of HA entity IDs to display.
 - **FR-033**: When no entities are configured, the card MUST display a localised placeholder message instructing the user to add at least one entity; no monthly tables MUST be rendered.
-- **FR-021**: Card MUST allow an optional display label override per configured entity.
-- **FR-022**: When no label override is provided for an entity, the entity's HA-provided friendly name MUST be used as the label.
+- **FR-021**: Card MUST allow an optional display name override (`name`) per configured entity.
+- **FR-022**: When no `name` override is provided for an entity, the entity's HA-provided friendly name MUST be used as the label.
+- **FR-036**: Card MUST allow an optional `precision` integer per configured entity controlling the number of decimal digits shown in day cells and summary columns. When omitted, the default is 1 decimal digit.
 
 **Layout and localisation**
 
@@ -207,7 +209,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 
 ### Key Entities
 
-- **EntityConfig**: A user-specified HA entity ID with an optional label override; the card resolves the entity's measurement type from HA metadata. Entity ID uniqueness is not enforced — the same entity ID may appear in multiple EntityConfig entries, each producing its own row.
+- **EntityConfig**: A user-specified HA entity ID with an optional `name` override and optional `precision` (decimal digits). The card resolves the entity's measurement type from HA metadata. Entity ID uniqueness is not enforced — the same entity ID may appear in multiple EntityConfig entries, each producing its own row.
 - **MonthlyTable**: The data grid for one calendar month — rows are entity configs, columns are days plus label/summary/total columns.
 - **DailyValue**: The statistic(s) recorded for one entity on one calendar day: min/avg/max triple for `measurement` entities; daily sum (accumulated change) for `total_increasing` / `total` entities.
 - **MonthlySummary**: Monthly-period statistics for one entity. `measurement` entities: min, avg, max sourced from HA native monthly statistics (authoritative). `total_increasing` / `total` entities with `device_class: precipitation`: min, avg, max computed by the card from daily sums with zero-exclusion applied (zero-sum days excluded), plus a total equal to the monthly delta (`sum[month] − sum[prev_month]` from HA monthly-period statistics). All other `total_increasing` / `total` entities: min, avg, max computed by the card from all daily sums (zero-sum days included), plus a total equal to the monthly delta.
@@ -220,7 +222,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 - **SC-002**: Users can navigate to any previous year that has data; fully past years show all 12 monthly tables; the earliest data year shows only months from the first recorded data point onward.
 - **SC-003**: No future month is ever rendered when viewing the current year, regardless of the current date.
 - **SC-004**: Monthly summary and total statistics are correct: `total_increasing` / `total` entities with `device_class: precipitation` exclude zero-sum days from avg/min/max in the monthly summary; all other cumulative entities include zero-sum days; `measurement` entities include all recorded days; the monthly total column for cumulative entities shows the monthly delta (`sum[month] − sum[prev_month]`) and matches HA's authoritative monthly figures.
-- **SC-005**: A user can configure 3–10 entities with optional label overrides in under 5 minutes using the standard HA card configuration interface.
+- **SC-005**: A user can configure 3–10 entities with optional name overrides and precision settings in under 5 minutes using the standard HA card configuration interface.
 - **SC-006**: The card renders correctly in both English and Austrian German — all text elements are translated with no untranslated strings visible.
 - **SC-007**: All monthly tables load and render within 3 seconds per year-view for configurations of up to 10 entities on a standard HA installation. This target applies to both initial card load and every subsequent year navigation switch. The 10-entity figure is the performance-tested ceiling; the card imposes no hard cap on entity count.
 - **SC-008**: Each monthly table scrolls horizontally to accommodate up to 31 day columns; the entity label column remains visible (sticky) at all times while scrolling so users always know which row they are reading.
