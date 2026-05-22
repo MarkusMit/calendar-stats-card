@@ -5,7 +5,7 @@
 
 ## Summary
 
-Build a Home Assistant Lovelace custom card (`custom:tabularizer-card`) that fetches entity statistics via the HA WebSocket API (`recorder/statistics_during_period`) and renders them as dense monthly tables. Each configured entity is one row per monthly table; columns cover day 1 through last day of month plus a sticky label column, a summary column (min/avg/max), and a total column (cumulative entities only). Year navigation (`‹ YYYY ›`) allows browsing past years bounded by the earliest year with recorded data. Locale is auto-detected from `hass.selectedLanguage`; supported: `en` and `de-AT`.
+Build a Home Assistant Lovelace custom card (`custom:tabularizer-card`) that fetches entity statistics via the HA WebSocket API (`recorder/statistics_during_period`) and renders them as dense monthly tables. Each configured entity is one row per monthly table; columns cover day 1 through last day of month plus a sticky label column, a summary column (min/avg/max), and a total column (cumulative entities only). Year navigation (`‹ YYYY ›`) allows browsing past years bounded by the earliest year with recorded data. Locale is auto-detected from `hass.selectedLanguage`; supported: `en` and `de`.
 
 **Stack**: TypeScript 5.6+ + Lit 3.2 bundled by Rollup 4; tested with Vitest + happy-dom + @open-wc/testing.
 
@@ -19,7 +19,7 @@ Build a Home Assistant Lovelace custom card (`custom:tabularizer-card`) that fet
 **Project Type**: HA Lovelace custom card (single ES module bundle `tabularizer-card.js`)  
 **Performance Goals**: <3s per year-view (initial load + every year navigation), ≤10 entities (SC-007)  
 **Constraints**: Dense layout (4px cell padding, zero decorative gap); no internal vertical scroll (FR-035); horizontal scroll per monthly table (FR-026); sticky label column (FR-027); UTF-8 LF line endings  
-**Scale/Scope**: Up to 10 entities (soft performance ceiling), 12 months, 2 locales (en, de-AT)
+**Scale/Scope**: Up to 10 entities (soft performance ceiling), 12 months, 2 locales (en, de)
 
 ## Constitution Check
 
@@ -28,7 +28,7 @@ Build a Home Assistant Lovelace custom card (`custom:tabularizer-card`) that fet
 - [x] **I. HA-Native Design** — Root element is `<ha-card>`; all colors and typography use HA CSS custom properties (`--primary-text-color`, `--secondary-text-color`, `--card-background-color`, `--divider-color`, `--ha-card-border-radius`, `--paper-font-body1`). No custom theming or deviations from HA design norms.
 - [x] **II. Test-First** — TDD is mandatory and enforced per task. Every task requires tests to be written and confirmed failing before implementation code is written. Red-Green-Refactor cycle applied to every task without exception.
 - [x] **III. Density & Data Fidelity** — CSS Grid with 4px cell padding, zero decorative gap. Computation rules: `measurement` → min/avg/max from HA daily stats; monthly min/mean/max from HA monthly stats (authoritative). Cumulative → daily delta (`sum[N] − sum[N-1]`); negative as 0 for `total_increasing`, as-is for `total`. Precipitation only: zero-sum days excluded from monthly summary (FR-016). *(Note: constitution's broad "exclude zero-value days" is refined by spec to precipitation only — this is a spec clarification, not a violation.)*
-- [x] **IV. i18n from Day One** — All user-visible strings go through `localize()` from first introduction. Translation files: `src/translations/en.json` and `src/translations/de-AT.json`. Dates via `Intl.DateTimeFormat`, numbers via `Intl.NumberFormat`. No hard-coded display strings permitted.
+- [x] **IV. i18n from Day One** — All user-visible strings go through `localize()` from first introduction. Translation files: `src/translations/en.json` and `src/translations/de.json`. Dates via `Intl.DateTimeFormat`, numbers via `Intl.NumberFormat`. No hard-coded display strings permitted.
 - [x] **V. Simplicity** — Out-of-scope features (color coding, separate min/max rows, yearly summary tab, cross-year comparison, graphical config UI) are not implemented. No abstractions introduced without a concrete current need. Every component has an immediately required use case.
 
 *No violations → Complexity Tracking table not required.*
@@ -93,7 +93,7 @@ frontend/
 │   │   └── localize.ts               # i18n key lookup + Intl formatting helpers
 │   ├── translations/
 │   │   ├── en.json                   # English strings
-│   │   └── de-AT.json                # Austrian German strings
+│   │   └── de.json                   # German strings
 │   └── types/
 │       ├── card-config.ts            # CardConfig, EntityConfig (entity, name?, precision?)
 │       ├── statistics.ts             # DailyValue, MonthlySummary, ViewState, EntityMetadata

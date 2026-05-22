@@ -79,16 +79,16 @@ A user configures the card to track specific HA entities — for example, outdoo
 
 ### User Story 5 - Localized Display (Priority: P3)
 
-A user with a German (Austria) HA installation sees month names and UI text in German. An English-language user sees English text. No manual locale configuration in the card is needed.
+A user with a German HA installation sees month names and UI text in German. An English-language user sees English text. No manual locale configuration in the card is needed.
 
 **Why this priority**: Important for usability in supported locales but does not affect core data correctness.
 
-**Independent Test**: Set HA language to `de-AT`, load card, verify month names and column headers appear in German. Repeat with `en`.
+**Independent Test**: Set HA language to `de`, load card, verify month names and column headers appear in German. Repeat with `en`.
 
 **Acceptance Scenarios**:
 
 1. **Given** HA is configured for `en` locale, **When** the card renders, **Then** all text labels, month names, and headers appear in English.
-2. **Given** HA is configured for `de-AT` locale, **When** the card renders, **Then** all text labels, month names, and headers appear in Austrian German.
+2. **Given** HA is configured for `de` locale, **When** the card renders, **Then** all text labels, month names, and headers appear in German.
 
 ---
 
@@ -204,7 +204,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 - **FR-035**: The card MUST render at full content height with no internal vertical scrollbar; vertical scrolling is delegated to the native HA dashboard page scroll.
 - **FR-026**: Each monthly table MUST support horizontal scrolling to accommodate all day columns (up to 31).
 - **FR-027**: The label column of each monthly table MUST remain sticky (always visible) while the user scrolls the day columns horizontally.
-- **FR-024**: Card MUST support English (`en`) and Austrian German (`de-AT`) for all displayed text.
+- **FR-024**: Card MUST support English (`en`) and German (`de`) for all displayed text.
 - **FR-025**: The active locale MUST be determined automatically from the HA instance's language setting; no per-card locale configuration is required.
 
 ### Key Entities

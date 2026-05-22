@@ -28,7 +28,7 @@ Displays HA entity statistics in dense monthly tables. Entities are user-configu
 
 ### i18n
 
-Supported from day one: `en`, `de-AT`.
+Supported from day one: `en`, `de`.
 
 ### Out of Scope (do not implement)
 
