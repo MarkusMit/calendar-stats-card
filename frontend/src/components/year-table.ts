@@ -122,7 +122,7 @@ export class YearTable extends LitElement {
   }
 
   private renderEntityRows(cfg: EntityConfig, month: number, days: number) {
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: cfg.precision ?? 1 });
+    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: cfg.precision ?? 20, minimumFractionDigits: cfg.precision ?? 0 });
     const meta = this.entityMetadata.get(cfg.entity);
     const label = cfg.name ?? meta?.friendlyName ?? cfg.entity;
     const unit = meta?.unitOfMeasurement ? ` [${meta.unitOfMeasurement}]` : '';

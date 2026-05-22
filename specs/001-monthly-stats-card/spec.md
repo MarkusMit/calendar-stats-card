@@ -196,7 +196,7 @@ A user with a German (Austria) HA installation sees month names and UI text in G
 - **FR-033**: When no entities are configured, the card MUST display a localised placeholder message instructing the user to add at least one entity; no monthly tables MUST be rendered.
 - **FR-021**: Card MUST allow an optional display name override (`name`) per configured entity.
 - **FR-022**: When no `name` override is provided for an entity, the entity's HA-provided friendly name MUST be used as the label.
-- **FR-036**: Card MUST allow an optional `precision` integer per configured entity controlling the number of decimal digits shown in day cells and summary columns. When omitted, the default is 1 decimal digit.
+- **FR-036**: Card MUST allow an optional `precision` integer per configured entity controlling the number of decimal digits shown in day cells and summary columns. When omitted, values are shown with their full native precision as received from HA (no artificial rounding).
 
 **Layout and localisation**
 

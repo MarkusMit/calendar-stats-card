@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HA_HOST="test-assistant.local"
+HA_HOST="test-assistant.fritz.box"
 HA_USER="root"
 HA_WWW_PATH="/config/www/tabularizer"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

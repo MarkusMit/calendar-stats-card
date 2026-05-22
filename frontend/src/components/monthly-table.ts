@@ -96,7 +96,7 @@ export class MonthlyTable extends LitElement {
     const unit = meta?.unitOfMeasurement ? ` [${meta.unitOfMeasurement}]` : '';
     const hasStats = meta?.hasStatistics ?? true;
     const hasError = this.entityErrors.has(cfg.entity);
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: cfg.precision ?? 1 });
+    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: cfg.precision ?? 20, minimumFractionDigits: cfg.precision ?? 0 });
     const isMeasurement = meta?.stateClass === 'measurement';
     const summaryKey = `${cfg.entity}::${this.year}-${this.month}`;
     const summary = this.monthlySummaries.get(summaryKey);
