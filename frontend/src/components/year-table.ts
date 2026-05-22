@@ -100,6 +100,20 @@ export class YearTable extends LitElement {
       text-align: right;
       padding: 1px 3px;
     }
+    .cumul-summary {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      white-space: nowrap;
+    }
+    .cumul-minmax {
+      display: flex;
+      justify-content: space-between;
+      gap: 4px;
+      width: 100%;
+      font-size: 0.85em;
+      opacity: 0.8;
+    }
   `;
 
   private daysInMonth(month: number): number {
@@ -195,7 +209,13 @@ export class YearTable extends LitElement {
       dayCells.push(html`<td class="data-cell ${cellContent ? 'has-data' : ''}">${cellContent}</td>`);
     }
     const summaryContent = summary
-      ? `${summary.min != null ? nf.format(summary.min) : ''}/${summary.mean != null ? nf.format(summary.mean) : ''}/${summary.max != null ? nf.format(summary.max) : ''}`
+      ? html`<div class="cumul-summary">
+          <div>${summary.mean != null ? nf.format(summary.mean) : ''}</div>
+          <div class="cumul-minmax">
+            <span>${summary.min != null ? `↓${nf.format(summary.min)}` : ''}</span>
+            <span>${summary.max != null ? `↑${nf.format(summary.max)}` : ''}</span>
+          </div>
+        </div>`
       : '';
     const totalContent = summary?.total != null ? nf.format(summary.total) : '';
     return html`
