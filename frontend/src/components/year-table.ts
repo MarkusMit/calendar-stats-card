@@ -229,7 +229,10 @@ export class YearTable extends LitElement {
       } else if (!hasStats) {
         cellContent = '';
       } else if (val?.kind === 'cumulative') {
-        cellContent = `${nf.format(val.sum * f)}${val.partialCoverage ? '*' : ''}`;
+        const v = val.sum * f;
+        if (v !== 0 || cfg.show_zero !== false) {
+          cellContent = `${nf.format(v)}${val.partialCoverage ? '*' : ''}`;
+        }
       }
       dayCells.push(html`<td class="data-cell ${cellContent ? 'has-data' : ''}">${cellContent}</td>`);
     }
