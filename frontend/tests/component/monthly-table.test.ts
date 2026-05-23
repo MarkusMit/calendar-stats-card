@@ -463,3 +463,69 @@ describe('MonthlyTable — factor and unit override', () => {
     expect(label?.textContent).not.toContain('[Wh]');
   });
 });
+
+// show_zero option
+describe('MonthlyTable — show_zero (cumulative)', () => {
+  async function renderWithShowZero(showZero: boolean | undefined, sum: number) {
+    const entity = 'sensor.energy';
+    const meta: EntityMetadata = {
+      entityId: entity,
+      stateClass: 'total_increasing',
+      deviceClass: 'energy',
+      unitOfMeasurement: 'kWh',
+      friendlyName: 'Energy',
+      hasStatistics: true,
+    };
+    const dayVal: CumulativeDailyValue = {
+      kind: 'cumulative',
+      entityId: entity,
+      date: '2025-01-01',
+      sum,
+      partialCoverage: false,
+    };
+    const el = new MonthlyTable();
+    el.month = 1;
+    el.year = 2025;
+    el.entityConfigs = showZero === undefined
+      ? [{ entity }]
+      : [{ entity, show_zero: showZero }];
+    el.dailyValues = new Map([[`${entity}::2025-01-01`, dayVal]]);
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[entity, meta]]);
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('show_zero omitted + sum=0 → cell renders "0"', async () => {
+    const el = await renderWithShowZero(undefined, 0);
+    const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(day1?.textContent?.trim()).toBe('0');
+    expect(day1?.classList.contains('has-data')).toBe(true);
+  });
+
+  it('show_zero: true + sum=0 → cell renders "0"', async () => {
+    const el = await renderWithShowZero(true, 0);
+    const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(day1?.textContent?.trim()).toBe('0');
+    expect(day1?.classList.contains('has-data')).toBe(true);
+  });
+
+  it('show_zero: false + sum=0 → blank cell, no has-data class', async () => {
+    const el = await renderWithShowZero(false, 0);
+    const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(day1?.textContent?.trim()).toBe('');
+    expect(day1?.classList.contains('has-data')).toBe(false);
+  });
+
+  it('show_zero: false + sum≠0 → cell renders normally', async () => {
+    const el = await renderWithShowZero(false, 5.5);
+    const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(day1?.textContent?.trim()).toBe('5.5');
+    expect(day1?.classList.contains('has-data')).toBe(true);
+  });
+});
