@@ -115,6 +115,14 @@ export class YearTable extends LitElement {
       font-size: 0.85em;
       opacity: 0.8;
     }
+    .sub-label {
+      text-align: right;
+      color: var(--secondary-text-color);
+      font-size: 0.8em;
+      opacity: 0.7;
+      padding: 1px 4px;
+      white-space: nowrap;
+    }
   `;
 
   private daysInMonth(month: number): number {
@@ -138,7 +146,14 @@ export class YearTable extends LitElement {
     });
   }
 
-  private renderEntityRows(cfg: EntityConfig, month: number, days: number) {
+  private hasMeasurement(): boolean {
+    return this.entityConfigs.some((cfg) => {
+      const meta = this.entityMetadata.get(rowKey(cfg));
+      return meta?.stateClass === 'measurement';
+    });
+  }
+
+  private renderEntityRows(cfg: EntityConfig, month: number, days: number, hasMeasurement: boolean) {
     const key = rowKey(cfg);
     const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: cfg.precision ?? 20, minimumFractionDigits: cfg.precision ?? 0 });
     const meta = this.entityMetadata.get(key);
@@ -178,14 +193,17 @@ export class YearTable extends LitElement {
       return html`
         <tr>
           <td class="label-column" rowspan="3">${hasStats ? '' : '⚠ '}${label}${unit}</td>
+          <td class="sub-label">${localize('summary.min', this.lang)}</td>
           ${minCells}
           <td class="summary-column">${summary?.min != null ? nf.format(summary.min * f) : ''}</td>
         </tr>
         <tr>
+          <td class="sub-label">${localize('summary.avg', this.lang)}</td>
           ${meanCells}
           <td class="summary-column">${summary?.mean != null ? nf.format(summary.mean * f) : ''}</td>
         </tr>
         <tr>
+          <td class="sub-label">${localize('summary.max', this.lang)}</td>
           ${maxCells}
           <td class="summary-column">${summary?.max != null ? nf.format(summary.max * f) : ''}</td>
         </tr>
@@ -223,6 +241,7 @@ export class YearTable extends LitElement {
     return html`
       <tr>
         <td class="label-column">${hasStats ? '' : '⚠ '}${label}${unit}</td>
+        ${hasMeasurement ? html`<td class="sub-label"></td>` : ''}
         ${dayCells}
         <td class="summary-column">${summaryContent}</td>
         <td class="summary-column">${totalContent}</td>
@@ -232,6 +251,7 @@ export class YearTable extends LitElement {
 
   render() {
     const hasCumulative = this.hasCumulative();
+    const hasMeasurement = this.hasMeasurement();
 
     const dayHeaders: ReturnType<typeof html>[] = [];
     for (let d = 1; d <= TOTAL_DAYS; d++) {
@@ -244,12 +264,13 @@ export class YearTable extends LitElement {
           <tbody>
             ${this.visibleMonths.map((month, i) => {
               const days = this.daysInMonth(month);
-              const totalCols = 1 + TOTAL_DAYS + 1 + (hasCumulative ? 1 : 0);
+              const totalCols = 1 + (hasMeasurement ? 1 : 0) + TOTAL_DAYS + 1 + (hasCumulative ? 1 : 0);
               const showDayNumbers = i % 3 === 0;
               return html`
                 <tr class="month-header-row">
                   ${showDayNumbers ? html`
                     <th class="label-column month-name">${this.monthName(month)}</th>
+                    ${hasMeasurement ? html`<th class="sub-label"></th>` : ''}
                     ${dayHeaders}
                     <th class="summary-column">${localize('table.summary', this.lang)}</th>
                     ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
@@ -258,7 +279,7 @@ export class YearTable extends LitElement {
                     <th colspan="${totalCols - 1}"></th>
                   `}
                 </tr>
-                ${this.entityConfigs.map((cfg) => this.renderEntityRows(cfg, month, days))}
+                ${this.entityConfigs.map((cfg) => this.renderEntityRows(cfg, month, days, hasMeasurement))}
               `;
             })}
           </tbody>
