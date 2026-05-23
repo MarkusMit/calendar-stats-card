@@ -74,31 +74,33 @@ describe('YearTable — measurement sub-label column', () => {
     expect(subLabels.length).toBe(0);
   });
 
-  it('mixed measurement + cumulative → 3 labeled + 1 empty sub-label cells', async () => {
+  it('mixed measurement + cumulative → 3 sub-label cells, cumulative label uses colspan=2', async () => {
     const el = await renderYearTable({
       entityConfigs: [{ entity: ENTITY_ID }, { entity: 'sensor.rain' }],
       entityMetadata: new Map([[ENTITY_ID, tempMeta], ['sensor.rain', precipMeta]]),
     });
     const subLabels = el.shadowRoot!.querySelectorAll('td.sub-label');
-    expect(subLabels.length).toBe(4);
+    expect(subLabels.length).toBe(3);
     expect(subLabels[0]?.textContent?.trim()).toBe('min');
     expect(subLabels[1]?.textContent?.trim()).toBe('avg');
     expect(subLabels[2]?.textContent?.trim()).toBe('max');
-    expect(subLabels[3]?.textContent?.trim()).toBe('');
+    const labelCells = el.shadowRoot!.querySelectorAll('td.label-column');
+    const cumulativeLabel = Array.from(labelCells).find((td) => !td.hasAttribute('rowspan'));
+    expect(cumulativeLabel?.getAttribute('colspan')).toBe('2');
   });
 
-  it('measurement entity → th.sub-label present in header', async () => {
+  it('measurement entity → month-name header uses colspan=2', async () => {
     const el = await renderYearTable();
-    const subLabelHeaders = el.shadowRoot!.querySelectorAll('th.sub-label');
-    expect(subLabelHeaders.length).toBe(1);
+    const monthName = el.shadowRoot!.querySelector('th.month-name');
+    expect(monthName?.getAttribute('colspan')).toBe('2');
   });
 
-  it('cumulative-only entity → no th.sub-label in header', async () => {
+  it('cumulative-only entity → month-name header uses colspan=1', async () => {
     const el = await renderYearTable({
       entityConfigs: [{ entity: 'sensor.rain' }],
       entityMetadata: new Map([['sensor.rain', precipMeta]]),
     });
-    const subLabelHeaders = el.shadowRoot!.querySelectorAll('th.sub-label');
-    expect(subLabelHeaders.length).toBe(0);
+    const monthName = el.shadowRoot!.querySelector('th.month-name');
+    expect(monthName?.getAttribute('colspan')).toBe('1');
   });
 });

@@ -367,19 +367,19 @@ describe('MonthlyTable — measurement sub-label column', () => {
     expect(subLabels.length).toBe(0);
   });
 
-  it('measurement entity → th.sub-label present in header', async () => {
+  it('measurement entity → month-header uses colspan=2', async () => {
     const el = await renderSingleEntity(ENTITY_ID, tempMeta);
-    const subLabelHeaders = el.shadowRoot!.querySelectorAll('th.sub-label');
-    expect(subLabelHeaders.length).toBe(1);
+    const monthHeader = el.shadowRoot!.querySelector('th.month-header');
+    expect(monthHeader?.getAttribute('colspan')).toBe('2');
   });
 
-  it('cumulative-only entity → no th.sub-label in header', async () => {
+  it('cumulative-only entity → month-header uses colspan=1', async () => {
     const el = await renderSingleEntity('sensor.rain', precipMeta);
-    const subLabelHeaders = el.shadowRoot!.querySelectorAll('th.sub-label');
-    expect(subLabelHeaders.length).toBe(0);
+    const monthHeader = el.shadowRoot!.querySelector('th.month-header');
+    expect(monthHeader?.getAttribute('colspan')).toBe('1');
   });
 
-  it('mixed measurement + cumulative → measurement rows have min/avg/max, cumulative row has empty sub-label', async () => {
+  it('mixed measurement + cumulative → 3 sub-label cells, cumulative label uses colspan=2', async () => {
     const el = new MonthlyTable();
     el.month = 1;
     el.year = 2025;
@@ -394,11 +394,13 @@ describe('MonthlyTable — measurement sub-label column', () => {
       if (!el.shadowRoot) throw new Error('no root');
     }, { timeout: 3000 });
     const subLabels = el.shadowRoot!.querySelectorAll('td.sub-label');
-    expect(subLabels.length).toBe(4);
+    expect(subLabels.length).toBe(3);
     expect(subLabels[0]?.textContent?.trim()).toBe('min');
     expect(subLabels[1]?.textContent?.trim()).toBe('avg');
     expect(subLabels[2]?.textContent?.trim()).toBe('max');
-    expect(subLabels[3]?.textContent?.trim()).toBe('');
+    const labelCells = el.shadowRoot!.querySelectorAll('td.label-column');
+    const cumulativeLabel = Array.from(labelCells).find((td) => !td.hasAttribute('rowspan'));
+    expect(cumulativeLabel?.getAttribute('colspan')).toBe('2');
   });
 });
 

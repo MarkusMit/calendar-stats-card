@@ -37,6 +37,9 @@ export class YearTable extends LitElement {
     tbody tr {
       border-bottom: 1px solid var(--divider-color, #e0e0e0);
     }
+    tbody tr.sub-row td.sub-label {
+      border-bottom: hidden;
+    }
     td.data-cell {
       padding: 1px 3px;
       color: var(--primary-text-color);
@@ -61,7 +64,6 @@ export class YearTable extends LitElement {
       color: var(--secondary-text-color);
       white-space: nowrap;
       padding: 1px 6px 1px 4px;
-      border-right: 1px solid var(--divider-color, #ccc);
       vertical-align: top;
     }
     .month-header-row th {
@@ -83,6 +85,7 @@ export class YearTable extends LitElement {
       position: sticky;
       left: 0;
       z-index: 1;
+      border-right: 1px solid var(--divider-color, #ccc);
     }
     .col-header th {
       text-align: center;
@@ -122,6 +125,9 @@ export class YearTable extends LitElement {
       opacity: 0.7;
       padding: 1px 4px;
       white-space: nowrap;
+    }
+    td.sub-label {
+      border-right: 1px solid var(--divider-color, #ccc);
     }
   `;
 
@@ -191,13 +197,13 @@ export class YearTable extends LitElement {
         }
       }
       return html`
-        <tr>
+        <tr class="sub-row">
           <td class="label-column" rowspan="3">${hasStats ? '' : '⚠ '}${label}${unit}</td>
           <td class="sub-label">${localize('summary.min', this.lang)}</td>
           ${minCells}
           <td class="summary-column">${summary?.min != null ? nf.format(summary.min * f) : ''}</td>
         </tr>
-        <tr>
+        <tr class="sub-row">
           <td class="sub-label">${localize('summary.avg', this.lang)}</td>
           ${meanCells}
           <td class="summary-column">${summary?.mean != null ? nf.format(summary.mean * f) : ''}</td>
@@ -240,8 +246,7 @@ export class YearTable extends LitElement {
     const totalContent = summary?.total != null ? nf.format(summary.total * f) : '';
     return html`
       <tr>
-        <td class="label-column">${hasStats ? '' : '⚠ '}${label}${unit}</td>
-        ${hasMeasurement ? html`<td class="sub-label"></td>` : ''}
+        <td class="label-column" colspan="${hasMeasurement ? 2 : 1}">${hasStats ? '' : '⚠ '}${label}${unit}</td>
         ${dayCells}
         <td class="summary-column">${summaryContent}</td>
         <td class="summary-column">${totalContent}</td>
@@ -269,8 +274,7 @@ export class YearTable extends LitElement {
               return html`
                 <tr class="month-header-row">
                   ${showDayNumbers ? html`
-                    <th class="label-column month-name">${this.monthName(month)}</th>
-                    ${hasMeasurement ? html`<th class="sub-label"></th>` : ''}
+                    <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this.monthName(month)}</th>
                     ${dayHeaders}
                     <th class="summary-column">${localize('table.summary', this.lang)}</th>
                     ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}

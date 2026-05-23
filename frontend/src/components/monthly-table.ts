@@ -54,13 +54,13 @@ export class MonthlyTable extends LitElement {
       color: var(--secondary-text-color);
       white-space: nowrap;
       padding: 1px 6px 1px 4px;
-      border-right: 1px solid var(--divider-color, #ccc);
     }
     .month-header {
       font-weight: bold;
       padding: 4px 4px 2px;
       color: var(--primary-text-color);
       font-size: 1.1em;
+      border-right: 1px solid var(--divider-color, #ccc);
     }
     .summary-column {
       color: var(--secondary-text-color);
@@ -81,6 +81,9 @@ export class MonthlyTable extends LitElement {
       opacity: 0.7;
       padding: 1px 4px;
       white-space: nowrap;
+    }
+    td.sub-label {
+      border-right: 1px solid var(--divider-color, #ccc);
     }
   `;
 
@@ -144,13 +147,13 @@ export class MonthlyTable extends LitElement {
         }
       }
       return html`
-        <tr>
+        <tr class="sub-row">
           <td class="label-column" rowspan="3">${hasStats ? '' : '⚠ '}${label}${unit}</td>
           <td class="sub-label">${localize('summary.min', this.lang)}</td>
           ${minCells}
           <td class="summary-column">${summary?.min != null ? nf.format(summary.min * f) : ''}</td>
         </tr>
-        <tr>
+        <tr class="sub-row">
           <td class="sub-label">${localize('summary.avg', this.lang)}</td>
           ${meanCells}
           <td class="summary-column">${summary?.mean != null ? nf.format(summary.mean * f) : ''}</td>
@@ -187,8 +190,7 @@ export class MonthlyTable extends LitElement {
     const totalContent = summary?.total != null ? nf.format(summary.total * f) : '';
     return html`
       <tr>
-        <td class="label-column">${hasStats ? '' : '⚠ '}${label}${unit}</td>
-        ${hasMeasurement ? html`<td class="sub-label"></td>` : ''}
+        <td class="label-column" colspan="${hasMeasurement ? 2 : 1}">${hasStats ? '' : '⚠ '}${label}${unit}</td>
         ${dayCells}
         <td class="summary-column">${summaryContent}</td>
         <td class="summary-column">${totalContent}</td>
@@ -218,8 +220,7 @@ export class MonthlyTable extends LitElement {
         <table>
           <thead>
             <tr>
-              <th class="label-column month-header" colspan="1">${this.monthName()}</th>
-              ${hasMeasurement ? html`<th class="sub-label"></th>` : ''}
+              <th class="label-column month-header" colspan="${hasMeasurement ? 2 : 1}">${this.monthName()}</th>
               ${dayHeaders}
               <th class="summary-column">${localize('table.summary', this.lang)}</th>
               ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
