@@ -74,12 +74,12 @@ export class MonthlyTable extends LitElement {
       color: var(--secondary-text-color);
       font-size: 0.9em;
     }
-    td.sub-label {
+    .sub-label {
+      text-align: right;
       color: var(--secondary-text-color);
       font-size: 0.8em;
-      text-align: right;
       opacity: 0.7;
-      padding: 1px 3px;
+      padding: 1px 4px;
       white-space: nowrap;
     }
   `;
@@ -105,7 +105,7 @@ export class MonthlyTable extends LitElement {
     });
   }
 
-  private renderEntityRow(cfg: EntityConfig) {
+  private renderEntityRow(cfg: EntityConfig, hasMeasurement: boolean) {
     const key = rowKey(cfg);
     const meta = this.entityMetadata.get(key);
     const days = this.daysInMonth();
@@ -188,7 +188,7 @@ export class MonthlyTable extends LitElement {
     return html`
       <tr>
         <td class="label-column">${hasStats ? '' : '⚠ '}${label}${unit}</td>
-        ${this.hasMeasurement() ? html`<td class="sub-label"></td>` : ''}
+        ${hasMeasurement ? html`<td class="sub-label"></td>` : ''}
         ${dayCells}
         <td class="summary-column">${summaryContent}</td>
         <td class="summary-column">${totalContent}</td>
@@ -198,6 +198,7 @@ export class MonthlyTable extends LitElement {
 
   render() {
     const days = this.daysInMonth();
+    const hasMeasurement = this.hasMeasurement();
     const dayHeaders = [];
     for (let d = 1; d <= 31; d++) {
       if (d > days) {
@@ -218,14 +219,14 @@ export class MonthlyTable extends LitElement {
           <thead>
             <tr>
               <th class="label-column month-header" colspan="1">${this.monthName()}</th>
-              ${this.hasMeasurement() ? html`<th class="sub-label"></th>` : ''}
+              ${hasMeasurement ? html`<th class="sub-label"></th>` : ''}
               ${dayHeaders}
               <th class="summary-column">${localize('table.summary', this.lang)}</th>
               ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
             </tr>
           </thead>
           <tbody>
-            ${this.entityConfigs.map((cfg) => this.renderEntityRow(cfg))}
+            ${this.entityConfigs.map((cfg) => this.renderEntityRow(cfg, hasMeasurement))}
           </tbody>
         </table>
       </div>

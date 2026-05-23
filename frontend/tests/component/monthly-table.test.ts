@@ -367,6 +367,18 @@ describe('MonthlyTable — measurement sub-label column', () => {
     expect(subLabels.length).toBe(0);
   });
 
+  it('measurement entity → th.sub-label present in header', async () => {
+    const el = await renderSingleEntity(ENTITY_ID, tempMeta);
+    const subLabelHeaders = el.shadowRoot!.querySelectorAll('th.sub-label');
+    expect(subLabelHeaders.length).toBe(1);
+  });
+
+  it('cumulative-only entity → no th.sub-label in header', async () => {
+    const el = await renderSingleEntity('sensor.rain', precipMeta);
+    const subLabelHeaders = el.shadowRoot!.querySelectorAll('th.sub-label');
+    expect(subLabelHeaders.length).toBe(0);
+  });
+
   it('mixed measurement + cumulative → measurement rows have min/avg/max, cumulative row has empty sub-label', async () => {
     const el = new MonthlyTable();
     el.month = 1;
