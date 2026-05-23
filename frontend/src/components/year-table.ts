@@ -85,7 +85,6 @@ export class YearTable extends LitElement {
       position: sticky;
       left: 0;
       z-index: 1;
-      border-right: 1px solid var(--divider-color, #ccc);
     }
     .col-header th {
       text-align: center;

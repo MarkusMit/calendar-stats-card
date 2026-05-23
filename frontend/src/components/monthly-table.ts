@@ -60,7 +60,6 @@ export class MonthlyTable extends LitElement {
       padding: 4px 4px 2px;
       color: var(--primary-text-color);
       font-size: 1.1em;
-      border-right: 1px solid var(--divider-color, #ccc);
     }
     .summary-column {
       color: var(--secondary-text-color);
