@@ -90,7 +90,7 @@ describe('YearTable — measurement sub-label column', () => {
   it('measurement entity → th.sub-label present in header', async () => {
     const el = await renderYearTable();
     const subLabelHeaders = el.shadowRoot!.querySelectorAll('th.sub-label');
-    expect(subLabelHeaders.length).toBeGreaterThanOrEqual(1);
+    expect(subLabelHeaders.length).toBe(1);
   });
 
   it('cumulative-only entity → no th.sub-label in header', async () => {
