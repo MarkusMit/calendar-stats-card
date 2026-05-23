@@ -186,9 +186,13 @@ export class YearTable extends LitElement {
         const val = this.dailyValues.get(`${key}::${this.dateStr(month, d)}`);
         if (val?.kind === 'measurement') {
           const pc = val.partialCoverage ? '*' : '';
-          minCells.push(html`<td class="data-cell has-data">${nf.format(val.min * f)}${pc}</td>`);
-          meanCells.push(html`<td class="data-cell has-data">${nf.format(val.mean * f)}</td>`);
-          maxCells.push(html`<td class="data-cell has-data">${nf.format(val.max * f)}</td>`);
+          const showZero = cfg.show_zero !== false;
+          const minV = val.min * f;
+          const meanV = val.mean * f;
+          const maxV = val.max * f;
+          minCells.push(minV === 0 && !showZero ? html`<td class="data-cell"></td>` : html`<td class="data-cell has-data">${nf.format(minV)}${pc}</td>`);
+          meanCells.push(meanV === 0 && !showZero ? html`<td class="data-cell"></td>` : html`<td class="data-cell has-data">${nf.format(meanV)}</td>`);
+          maxCells.push(maxV === 0 && !showZero ? html`<td class="data-cell"></td>` : html`<td class="data-cell has-data">${nf.format(maxV)}</td>`);
         } else {
           minCells.push(html`<td class="data-cell"></td>`);
           meanCells.push(html`<td class="data-cell"></td>`);
@@ -268,12 +272,12 @@ export class YearTable extends LitElement {
     return html`
       <div class="table-container">
         <table>
-          <tbody>
-            ${this.visibleMonths.map((month, i) => {
-              const days = this.daysInMonth(month);
-              const totalCols = 1 + (hasMeasurement ? 1 : 0) + TOTAL_DAYS + 1 + (hasCumulative ? 1 : 0);
-              const showDayNumbers = i % 3 === 0;
-              return html`
+          ${this.visibleMonths.map((month, i) => {
+            const days = this.daysInMonth(month);
+            const totalCols = 1 + (hasMeasurement ? 1 : 0) + TOTAL_DAYS + 1 + (hasCumulative ? 1 : 0);
+            const showDayNumbers = i % 3 === 0;
+            return html`
+              <thead>
                 <tr class="month-header-row">
                   ${showDayNumbers ? html`
                     <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this.monthName(month)}</th>
@@ -285,10 +289,12 @@ export class YearTable extends LitElement {
                     <th colspan="${totalCols - 1}"></th>
                   `}
                 </tr>
+              </thead>
+              <tbody>
                 ${this.entityConfigs.map((cfg) => this.renderEntityRows(cfg, month, days, hasMeasurement))}
-              `;
-            })}
-          </tbody>
+              </tbody>
+            `;
+          })}
         </table>
       </div>
     `;

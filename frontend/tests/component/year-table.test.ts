@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { YearTable } from '../../src/components/year-table';
 import type { EntityConfig } from '../../src/types/card-config';
-import type { CumulativeDailyValue, EntityMetadata } from '../../src/types/statistics';
+import type { CumulativeDailyValue, MeasurementDailyValue, EntityMetadata } from '../../src/types/statistics';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -154,5 +154,80 @@ describe('YearTable — show_zero (cumulative)', () => {
     const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
     expect(day1?.textContent?.trim()).toBe('3.2');
     expect(day1?.classList.contains('has-data')).toBe(true);
+  });
+});
+
+describe('YearTable — show_zero (measurement)', () => {
+  async function renderYearMeasurement(showZero: boolean | undefined, min: number, mean: number, max: number) {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = showZero === undefined
+      ? [{ entity: ENTITY_ID }]
+      : [{ entity: ENTITY_ID, show_zero: showZero }];
+    const dayVal: MeasurementDailyValue = {
+      kind: 'measurement',
+      entityId: ENTITY_ID,
+      date: '2025-01-05',
+      min,
+      mean,
+      max,
+      partialCoverage: false,
+    };
+    el.dailyValues = new Map([[`${ENTITY_ID}::2025-01-05`, dayVal]]);
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('show_zero omitted + all-zero day → cells render "0"', async () => {
+    const el = await renderYearMeasurement(undefined, 0, 0, 0);
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    const minCell = rows[0]!.querySelectorAll('td.data-cell')[4];
+    expect(minCell?.textContent?.trim()).toBe('0');
+    expect(minCell?.classList.contains('has-data')).toBe(true);
+  });
+
+  it('show_zero: false + all-zero day → all three sub-row cells blank', async () => {
+    const el = await renderYearMeasurement(false, 0, 0, 0);
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    const minCell = rows[0]!.querySelectorAll('td.data-cell')[4];
+    const meanCell = rows[1]!.querySelectorAll('td.data-cell')[4];
+    const maxCell = rows[2]!.querySelectorAll('td.data-cell')[4];
+    expect(minCell?.textContent?.trim()).toBe('');
+    expect(minCell?.classList.contains('has-data')).toBe(false);
+    expect(meanCell?.textContent?.trim()).toBe('');
+    expect(meanCell?.classList.contains('has-data')).toBe(false);
+    expect(maxCell?.textContent?.trim()).toBe('');
+    expect(maxCell?.classList.contains('has-data')).toBe(false);
+  });
+
+  it('show_zero: false + only min=0 → only min cell blank', async () => {
+    const el = await renderYearMeasurement(false, 0, 5, 10);
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    const minCell = rows[0]!.querySelectorAll('td.data-cell')[4];
+    const meanCell = rows[1]!.querySelectorAll('td.data-cell')[4];
+    const maxCell = rows[2]!.querySelectorAll('td.data-cell')[4];
+    expect(minCell?.textContent?.trim()).toBe('');
+    expect(minCell?.classList.contains('has-data')).toBe(false);
+    expect(meanCell?.textContent?.trim()).toBe('5');
+    expect(meanCell?.classList.contains('has-data')).toBe(true);
+    expect(maxCell?.textContent?.trim()).toBe('10');
+    expect(maxCell?.classList.contains('has-data')).toBe(true);
+  });
+
+  it('show_zero: false + nonzero values → renders normally', async () => {
+    const el = await renderYearMeasurement(false, 2, 5, 8);
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    const minCell = rows[0]!.querySelectorAll('td.data-cell')[4];
+    expect(minCell?.textContent?.trim()).toBe('2');
+    expect(minCell?.classList.contains('has-data')).toBe(true);
   });
 });
