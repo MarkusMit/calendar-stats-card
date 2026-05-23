@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { YearTable } from '../../src/components/year-table';
 import type { EntityConfig } from '../../src/types/card-config';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- MeasurementDailyValue used in Task 5 (measurement tests)
-import type { CumulativeDailyValue, MeasurementDailyValue, EntityMetadata } from '../../src/types/statistics';
+import type { CumulativeDailyValue, EntityMetadata } from '../../src/types/statistics';
 
 afterEach(() => {
   document.body.innerHTML = '';
