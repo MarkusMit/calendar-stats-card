@@ -4,6 +4,7 @@ export interface EntityRowConfig {
   precision?: number;
   factor?: number;
   unit?: string;
+  show_zero?: boolean;
 }
 
 export interface ExpressionRowConfig {
@@ -11,6 +12,7 @@ export interface ExpressionRowConfig {
   name?: string;
   unit?: string;
   precision?: number;
+  show_zero?: boolean;
 }
 
 export type EntityConfig = EntityRowConfig | ExpressionRowConfig;
