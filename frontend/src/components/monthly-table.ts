@@ -78,6 +78,7 @@ export class MonthlyTable extends LitElement {
       color: var(--secondary-text-color);
       font-size: 0.8em;
       text-align: right;
+      opacity: 0.7;
       padding: 1px 3px;
       white-space: nowrap;
     }
