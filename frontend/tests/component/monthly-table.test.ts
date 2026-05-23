@@ -24,7 +24,7 @@ const tempMeta: EntityMetadata = {
   hasStatistics: true,
 };
 
-const entityConfigs: EntityConfig[] = [{ entity: ENTITY_ID, label: 'Temp' }];
+const entityConfigs: EntityConfig[] = [{ entity: ENTITY_ID, name: 'Temp' }];
 
 async function renderTable(month: number, year: number, overrides: Partial<{
   dailyValues: Map<string, DailyValue>;
