@@ -528,6 +528,41 @@ describe('MonthlyTable — show_zero (cumulative)', () => {
     expect(day1?.textContent?.trim()).toBe('5.5');
     expect(day1?.classList.contains('has-data')).toBe(true);
   });
+
+  it('show_zero: false + sum=0 + partialCoverage=true → blank cell (suppression wins)', async () => {
+    const entity = 'sensor.energy';
+    const meta: EntityMetadata = {
+      entityId: entity,
+      stateClass: 'total_increasing',
+      deviceClass: 'energy',
+      unitOfMeasurement: 'kWh',
+      friendlyName: 'Energy',
+      hasStatistics: true,
+    };
+    const dayVal: CumulativeDailyValue = {
+      kind: 'cumulative',
+      entityId: entity,
+      date: '2025-01-01',
+      sum: 0,
+      partialCoverage: true,
+    };
+    const el = new MonthlyTable();
+    el.month = 1;
+    el.year = 2025;
+    el.entityConfigs = [{ entity, show_zero: false }];
+    el.dailyValues = new Map([[`${entity}::2025-01-01`, dayVal]]);
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[entity, meta]]);
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(day1?.textContent?.trim()).toBe('');
+    expect(day1?.classList.contains('has-data')).toBe(false);
+  });
 });
 
 describe('MonthlyTable — show_zero (measurement)', () => {

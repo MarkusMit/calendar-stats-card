@@ -155,6 +155,33 @@ describe('YearTable — show_zero (cumulative)', () => {
     expect(day1?.textContent?.trim()).toBe('3.2');
     expect(day1?.classList.contains('has-data')).toBe(true);
   });
+
+  it('show_zero: false + sum=0 + partialCoverage=true → blank cell (suppression wins)', async () => {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = [{ entity: RAIN_ID, show_zero: false }];
+    const dayVal: CumulativeDailyValue = {
+      kind: 'cumulative',
+      entityId: RAIN_ID,
+      date: '2025-01-01',
+      sum: 0,
+      partialCoverage: true,
+    };
+    el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(day1?.textContent?.trim()).toBe('');
+    expect(day1?.classList.contains('has-data')).toBe(false);
+  });
 });
 
 describe('YearTable — show_zero (measurement)', () => {
