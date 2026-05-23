@@ -136,9 +136,13 @@ export class MonthlyTable extends LitElement {
         const val = this.dailyValues.get(`${key}::${this.dateStr(d)}`);
         if (val?.kind === 'measurement') {
           const pc = val.partialCoverage ? '*' : '';
-          minCells.push(html`<td class="data-cell has-data">${nf.format(val.min * f)}${pc}</td>`);
-          meanCells.push(html`<td class="data-cell has-data">${nf.format(val.mean * f)}</td>`);
-          maxCells.push(html`<td class="data-cell has-data">${nf.format(val.max * f)}${pc}</td>`);
+          const showZero = cfg.show_zero !== false;
+          const minV = val.min * f;
+          const meanV = val.mean * f;
+          const maxV = val.max * f;
+          minCells.push(minV === 0 && !showZero ? html`<td class="data-cell"></td>` : html`<td class="data-cell has-data">${nf.format(minV)}${pc}</td>`);
+          meanCells.push(meanV === 0 && !showZero ? html`<td class="data-cell"></td>` : html`<td class="data-cell has-data">${nf.format(meanV)}</td>`);
+          maxCells.push(maxV === 0 && !showZero ? html`<td class="data-cell"></td>` : html`<td class="data-cell has-data">${nf.format(maxV)}${pc}</td>`);
         } else {
           minCells.push(html`<td class="data-cell"></td>`);
           meanCells.push(html`<td class="data-cell"></td>`);
