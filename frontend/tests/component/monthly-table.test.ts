@@ -332,6 +332,64 @@ describe('MonthlyTable — entity error states (T027)', () => {
   });
 });
 
+// Sub-label column (min/avg/max indicators)
+describe('MonthlyTable — measurement sub-label column', () => {
+  it('measurement entity → 3 td.sub-label cells with min/avg/max text (EN)', async () => {
+    const el = await renderSingleEntity(ENTITY_ID, tempMeta);
+    const subLabels = el.shadowRoot!.querySelectorAll('td.sub-label');
+    expect(subLabels.length).toBe(3);
+    expect(subLabels[0]?.textContent?.trim()).toBe('min');
+    expect(subLabels[1]?.textContent?.trim()).toBe('avg');
+    expect(subLabels[2]?.textContent?.trim()).toBe('max');
+  });
+
+  it('measurement entity lang=de → avg row shows Ø', async () => {
+    const el = new MonthlyTable();
+    el.month = 1;
+    el.year = 2025;
+    el.entityConfigs = [{ entity: ENTITY_ID }];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
+    el.lang = 'de';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    const subLabels = el.shadowRoot!.querySelectorAll('td.sub-label');
+    expect(subLabels[1]?.textContent?.trim()).toBe('Ø');
+  });
+
+  it('cumulative-only entity → no td.sub-label cells', async () => {
+    const el = await renderSingleEntity('sensor.rain', precipMeta);
+    const subLabels = el.shadowRoot!.querySelectorAll('td.sub-label');
+    expect(subLabels.length).toBe(0);
+  });
+
+  it('mixed measurement + cumulative → measurement rows have min/avg/max, cumulative row has empty sub-label', async () => {
+    const el = new MonthlyTable();
+    el.month = 1;
+    el.year = 2025;
+    el.entityConfigs = [{ entity: ENTITY_ID }, { entity: 'sensor.rain' }];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta], ['sensor.rain', precipMeta]]);
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    const subLabels = el.shadowRoot!.querySelectorAll('td.sub-label');
+    expect(subLabels.length).toBe(4);
+    expect(subLabels[0]?.textContent?.trim()).toBe('min');
+    expect(subLabels[1]?.textContent?.trim()).toBe('avg');
+    expect(subLabels[2]?.textContent?.trim()).toBe('max');
+    expect(subLabels[3]?.textContent?.trim()).toBe('');
+  });
+});
+
 describe('MonthlyTable — factor and unit override', () => {
   it('factor: 0.001 scales cumulative daily cell value', async () => {
     const dayVal: CumulativeDailyValue = {
