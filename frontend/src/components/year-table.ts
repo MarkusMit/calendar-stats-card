@@ -125,7 +125,8 @@ export class YearTable extends LitElement {
       padding: 1px 4px;
       white-space: nowrap;
     }
-    td.sub-label {
+    td.sub-label,
+    td.label-column[colspan="2"] {
       border-right: 1px solid var(--divider-color, #ccc);
     }
   `;
