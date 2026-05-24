@@ -93,6 +93,33 @@ entities:
             type: boolean
             examples:
               - false
+          show_min:
+            description: |
+              OPTIONAL. When false, the min sub-row is hidden for measurement entities
+              (day cells and summary value). For cumulative entities, the min value is
+              hidden from the summary column only; the day column is unaffected.
+              Default: true (min shown).
+            type: boolean
+            examples:
+              - false
+          show_avg:
+            description: |
+              OPTIONAL. When false, the avg sub-row is hidden for measurement entities
+              (day cells and summary value). For cumulative entities, the avg value is
+              hidden from the summary column only; the day column is unaffected.
+              Default: true (avg shown).
+            type: boolean
+            examples:
+              - false
+          show_max:
+            description: |
+              OPTIONAL. When false, the max sub-row is hidden for measurement entities
+              (day cells and summary value). For cumulative entities, the max value is
+              hidden from the summary column only; the day column is unaffected.
+              Default: true (max shown).
+            type: boolean
+            examples:
+              - false
       - description: "Expression row — displays a value derived from an arithmetic expression over entity daily sums."
         type: object
         required:
