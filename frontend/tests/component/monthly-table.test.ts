@@ -638,3 +638,158 @@ describe('MonthlyTable — show_zero (measurement)', () => {
     expect(minCell?.classList.contains('has-data')).toBe(true);
   });
 });
+
+// T003: measurement sub-row visibility (show_min/avg/max)
+describe('MonthlyTable — measurement sub-row visibility', () => {
+  const measSummary: MonthlySummary = { entityId: ENTITY_ID, year: 2025, month: 1, min: 5, mean: 18, max: 30, total: null };
+
+  async function renderMeasVisibility(cfg: Record<string, unknown>, summary?: MonthlySummary) {
+    const el = new MonthlyTable();
+    el.month = 1;
+    el.year = 2025;
+    el.entityConfigs = [cfg as any];
+    el.dailyValues = new Map();
+    el.monthlySummaries = summary ? new Map([[`${ENTITY_ID}::2025-1`, summary]]) : new Map();
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('default → 3 sub-rows; all summary values shown (regression guard)', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID }, measSummary);
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(3);
+    const texts = Array.from(el.shadowRoot!.querySelectorAll('td.sub-label')).map(td => td.textContent?.trim());
+    expect(texts).toContain('min');
+    expect(texts).toContain('avg');
+    expect(texts).toContain('max');
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    expect(rows[0]!.querySelector('td.summary-column')?.textContent?.trim()).toBe('5');
+    expect(rows[1]!.querySelector('td.summary-column')?.textContent?.trim()).toBe('18');
+    expect(rows[2]!.querySelector('td.summary-column')?.textContent?.trim()).toBe('30');
+  });
+
+  it('show_min: false → min row absent; avg and max rows present', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_min: false });
+    const texts = Array.from(el.shadowRoot!.querySelectorAll('td.sub-label')).map(td => td.textContent?.trim());
+    expect(texts).not.toContain('min');
+    expect(texts).toContain('avg');
+    expect(texts).toContain('max');
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(2);
+  });
+
+  it('show_avg: false → avg row absent; min and max rows present', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_avg: false });
+    const texts = Array.from(el.shadowRoot!.querySelectorAll('td.sub-label')).map(td => td.textContent?.trim());
+    expect(texts).toContain('min');
+    expect(texts).not.toContain('avg');
+    expect(texts).toContain('max');
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(2);
+  });
+
+  it('show_max: false → max row absent; min and avg rows present', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_max: false });
+    const texts = Array.from(el.shadowRoot!.querySelectorAll('td.sub-label')).map(td => td.textContent?.trim());
+    expect(texts).toContain('min');
+    expect(texts).toContain('avg');
+    expect(texts).not.toContain('max');
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(2);
+  });
+
+  it('show_min: false, show_max: false → only avg row; label cell rowspan="1"', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_min: false, show_max: false });
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(1);
+    const texts = Array.from(el.shadowRoot!.querySelectorAll('td.sub-label')).map(td => td.textContent?.trim());
+    expect(texts).not.toContain('min');
+    expect(texts).toContain('avg');
+    expect(texts).not.toContain('max');
+    const labelCell = el.shadowRoot!.querySelector('td.label-column[rowspan]');
+    expect(labelCell?.getAttribute('rowspan')).toBe('1');
+  });
+
+  it('show_min: false, show_avg: false, show_max: false → single row; no data/summary cells', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_min: false, show_avg: false, show_max: false });
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(1);
+    expect(el.shadowRoot!.querySelectorAll('td.sub-label').length).toBe(0);
+    expect(el.shadowRoot!.querySelectorAll('td.data-cell').length).toBe(0);
+    expect(el.shadowRoot!.querySelectorAll('td.summary-column').length).toBe(0);
+  });
+
+  it('show_min: false → summary shows no min; avg and max values present', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_min: false }, measSummary);
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    expect(rows.length).toBe(2);
+    expect(rows[0]!.querySelector('td.summary-column')?.textContent?.trim()).toBe('18');
+    expect(rows[1]!.querySelector('td.summary-column')?.textContent?.trim()).toBe('30');
+  });
+});
+
+// T007: cumulative summary visibility (show_min/avg/max) — slash-separated format
+describe('MonthlyTable — cumulative summary visibility', () => {
+  const RAIN_ID = 'sensor.rain';
+  const rainSummary: MonthlySummary = { entityId: RAIN_ID, year: 2025, month: 1, min: 5, mean: 18, max: 30, total: 100 };
+
+  async function renderCumulVisibility(cfg: Record<string, unknown>) {
+    const el = new MonthlyTable();
+    el.month = 1;
+    el.year = 2025;
+    el.entityConfigs = [cfg as any];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map([[`${RAIN_ID}::2025-1`, rainSummary]]);
+    el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('default → summary shows "5/18/30" (regression guard)', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID });
+    const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(summaries[0]?.textContent?.trim()).toBe('5/18/30');
+  });
+
+  it('show_min: false → summary shows "18/30"; total unchanged', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID, show_min: false });
+    const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(summaries[0]?.textContent?.trim()).toBe('18/30');
+    expect(summaries[summaries.length - 1]?.textContent?.trim()).toBe('100');
+  });
+
+  it('show_avg: false → summary shows "5/30"; total unchanged', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID, show_avg: false });
+    const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(summaries[0]?.textContent?.trim()).toBe('5/30');
+    expect(summaries[summaries.length - 1]?.textContent?.trim()).toBe('100');
+  });
+
+  it('show_max: false → summary shows "5/18"; total unchanged', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID, show_max: false });
+    const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(summaries[0]?.textContent?.trim()).toBe('5/18');
+    expect(summaries[summaries.length - 1]?.textContent?.trim()).toBe('100');
+  });
+
+  it('show_min: false, show_max: false → summary shows "18"; total shown', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID, show_min: false, show_max: false });
+    const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(summaries[0]?.textContent?.trim()).toBe('18');
+    expect(summaries[summaries.length - 1]?.textContent?.trim()).toBe('100');
+  });
+
+  it('show_min: false, show_avg: false, show_max: false → summary empty; total still shows', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID, show_min: false, show_avg: false, show_max: false });
+    const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(summaries[0]?.textContent?.trim()).toBe('');
+    expect(summaries[summaries.length - 1]?.textContent?.trim()).toBe('100');
+  });
+});

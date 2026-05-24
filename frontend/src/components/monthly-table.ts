@@ -124,6 +124,15 @@ export class MonthlyTable extends LitElement {
     const summary = this.monthlySummaries.get(summaryKey);
 
     if (isMeasurement && !hasError) {
+      const erc = 'entity' in cfg ? cfg : null;
+      const showMin = erc?.show_min !== false;
+      const showAvg = erc?.show_avg !== false;
+      const showMax = erc?.show_max !== false;
+      const visibleRows: Array<'min' | 'avg' | 'max'> = [];
+      if (showMin) visibleRows.push('min');
+      if (showAvg) visibleRows.push('avg');
+      if (showMax) visibleRows.push('max');
+
       const minCells = [];
       const meanCells = [];
       const maxCells = [];
@@ -150,24 +159,31 @@ export class MonthlyTable extends LitElement {
           maxCells.push(html`<td class="data-cell"></td>`);
         }
       }
-      return html`
-        <tr class="sub-row">
-          <td class="label-column" rowspan="3">${hasStats ? '' : '⚠ '}${label}${unit}</td>
-          <td class="sub-label">${localize('summary.min', this.lang)}</td>
-          ${minCells}
-          <td class="summary-column">${summary?.min != null ? nf.format(summary.min * f) : ''}</td>
+
+      if (visibleRows.length === 0) {
+        return html`
+          <tr>
+            <td class="label-column">${hasStats ? '' : '⚠ '}${label}${unit}</td>
+          </tr>
+        `;
+      }
+
+      const rowspan = visibleRows.length;
+      const cells = { min: minCells, avg: meanCells, max: maxCells } as const;
+      const summaryVals = {
+        min: summary?.min != null ? nf.format(summary.min * f) : '',
+        avg: summary?.mean != null ? nf.format(summary.mean * f) : '',
+        max: summary?.max != null ? nf.format(summary.max * f) : '',
+      };
+
+      return html`${visibleRows.map((row, idx) => html`
+        <tr class="${idx < visibleRows.length - 1 ? 'sub-row' : ''}">
+          ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}">${hasStats ? '' : '⚠ '}${label}${unit}</td>` : ''}
+          <td class="sub-label">${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
+          ${cells[row]}
+          <td class="summary-column">${summaryVals[row]}</td>
         </tr>
-        <tr class="sub-row">
-          <td class="sub-label">${localize('summary.avg', this.lang)}</td>
-          ${meanCells}
-          <td class="summary-column">${summary?.mean != null ? nf.format(summary.mean * f) : ''}</td>
-        </tr>
-        <tr>
-          <td class="sub-label">${localize('summary.max', this.lang)}</td>
-          ${maxCells}
-          <td class="summary-column">${summary?.max != null ? nf.format(summary.max * f) : ''}</td>
-        </tr>
-      `;
+      `)}`;
     }
 
     // Cumulative entity — single row
@@ -191,9 +207,18 @@ export class MonthlyTable extends LitElement {
       }
       dayCells.push(html`<td class="data-cell ${cellContent ? 'has-data' : ''}">${cellContent}</td>`);
     }
-    const summaryContent = summary
-      ? `${summary.min != null ? nf.format(summary.min * f) : ''}/${summary.mean != null ? nf.format(summary.mean * f) : ''}/${summary.max != null ? nf.format(summary.max * f) : ''}`
-      : '';
+    const cumulErc = 'entity' in cfg ? cfg : null;
+    const showMin = cumulErc?.show_min !== false;
+    const showAvg = cumulErc?.show_avg !== false;
+    const showMax = cumulErc?.show_max !== false;
+    let summaryContent = '';
+    if (summary && (showMin || showAvg || showMax)) {
+      const parts: string[] = [];
+      if (showMin) parts.push(summary.min != null ? nf.format(summary.min * f) : '');
+      if (showAvg) parts.push(summary.mean != null ? nf.format(summary.mean * f) : '');
+      if (showMax) parts.push(summary.max != null ? nf.format(summary.max * f) : '');
+      summaryContent = parts.join('/');
+    }
     const totalContent = summary?.total != null ? nf.format(summary.total * f) : '';
     return html`
       <tr>

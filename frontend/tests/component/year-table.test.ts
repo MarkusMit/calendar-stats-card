@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { YearTable } from '../../src/components/year-table';
 import type { EntityConfig } from '../../src/types/card-config';
-import type { CumulativeDailyValue, MeasurementDailyValue, EntityMetadata } from '../../src/types/statistics';
+import type { CumulativeDailyValue, MeasurementDailyValue, MonthlySummary, EntityMetadata } from '../../src/types/statistics';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -256,5 +256,174 @@ describe('YearTable — show_zero (measurement)', () => {
     const minCell = rows[0]!.querySelectorAll('td.data-cell')[4];
     expect(minCell?.textContent?.trim()).toBe('2');
     expect(minCell?.classList.contains('has-data')).toBe(true);
+  });
+});
+
+// T002: measurement sub-row visibility (show_min/avg/max)
+describe('YearTable — measurement sub-row visibility', () => {
+  const testSummary: MonthlySummary = { entityId: ENTITY_ID, year: 2025, month: 1, min: 5, mean: 18, max: 30, total: null };
+
+  async function renderMeasVisibility(cfg: Parameters<typeof Object.assign>[0], summary?: MonthlySummary) {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = [cfg as any];
+    el.dailyValues = new Map();
+    el.monthlySummaries = summary ? new Map([[`${ENTITY_ID}::2025-1`, summary]]) : new Map();
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('default → 3 sub-rows; all summary values shown (regression guard)', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID }, testSummary);
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(3);
+    const texts = Array.from(el.shadowRoot!.querySelectorAll('td.sub-label')).map(td => td.textContent?.trim());
+    expect(texts).toContain('min');
+    expect(texts).toContain('avg');
+    expect(texts).toContain('max');
+    const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(summaries[0]?.textContent?.trim()).toBe('5');
+    expect(summaries[1]?.textContent?.trim()).toBe('18');
+    expect(summaries[2]?.textContent?.trim()).toBe('30');
+  });
+
+  it('show_min: false → min row absent; avg and max rows present', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_min: false });
+    const texts = Array.from(el.shadowRoot!.querySelectorAll('td.sub-label')).map(td => td.textContent?.trim());
+    expect(texts).not.toContain('min');
+    expect(texts).toContain('avg');
+    expect(texts).toContain('max');
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(2);
+  });
+
+  it('show_avg: false → avg row absent; min and max rows present', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_avg: false });
+    const texts = Array.from(el.shadowRoot!.querySelectorAll('td.sub-label')).map(td => td.textContent?.trim());
+    expect(texts).toContain('min');
+    expect(texts).not.toContain('avg');
+    expect(texts).toContain('max');
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(2);
+  });
+
+  it('show_max: false → max row absent; min and avg rows present', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_max: false });
+    const texts = Array.from(el.shadowRoot!.querySelectorAll('td.sub-label')).map(td => td.textContent?.trim());
+    expect(texts).toContain('min');
+    expect(texts).toContain('avg');
+    expect(texts).not.toContain('max');
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(2);
+  });
+
+  it('show_min: false, show_max: false → only avg row; label cell rowspan="1"', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_min: false, show_max: false });
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(1);
+    const texts = Array.from(el.shadowRoot!.querySelectorAll('td.sub-label')).map(td => td.textContent?.trim());
+    expect(texts).not.toContain('min');
+    expect(texts).toContain('avg');
+    expect(texts).not.toContain('max');
+    const labelCell = el.shadowRoot!.querySelector('td.label-column[rowspan]');
+    expect(labelCell?.getAttribute('rowspan')).toBe('1');
+  });
+
+  it('show_min: false, show_avg: false, show_max: false → single row; no data/summary cells', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_min: false, show_avg: false, show_max: false });
+    expect(el.shadowRoot!.querySelectorAll('tbody tr').length).toBe(1);
+    expect(el.shadowRoot!.querySelectorAll('td.sub-label').length).toBe(0);
+    expect(el.shadowRoot!.querySelectorAll('td.data-cell').length).toBe(0);
+    expect(el.shadowRoot!.querySelectorAll('td.summary-column').length).toBe(0);
+  });
+
+  it('show_min: false → summary shows no min; avg and max summary values present', async () => {
+    const el = await renderMeasVisibility({ entity: ENTITY_ID, show_min: false }, testSummary);
+    const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(summaries.length).toBe(2);
+    expect(summaries[0]?.textContent?.trim()).toBe('18');
+    expect(summaries[1]?.textContent?.trim()).toBe('30');
+  });
+});
+
+// T006: cumulative summary visibility (show_min/avg/max)
+describe('YearTable — cumulative summary visibility', () => {
+  const RAIN_ID = 'sensor.rain';
+  const rainSummary: MonthlySummary = { entityId: RAIN_ID, year: 2025, month: 1, min: 5, mean: 18, max: 30, total: 100 };
+
+  async function renderCumulVisibility(cfg: Record<string, unknown>) {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = [cfg as any];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map([[`${RAIN_ID}::2025-1`, rainSummary]]);
+    el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('default → mean + ↓min + ↑max all present (regression guard)', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID });
+    const summaryEl = el.shadowRoot!.querySelector('.cumul-summary');
+    expect(summaryEl).toBeTruthy();
+    expect(summaryEl!.textContent).toContain('18');
+    expect(summaryEl!.textContent).toContain('↓5');
+    expect(summaryEl!.textContent).toContain('↑30');
+    expect(el.shadowRoot!.querySelector('.cumul-minmax')).toBeTruthy();
+  });
+
+  it('show_min: false → ↓min absent; ↑max and mean present; total unchanged', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID, show_min: false });
+    const summaryEl = el.shadowRoot!.querySelector('.cumul-summary');
+    expect(summaryEl!.textContent).not.toContain('↓');
+    expect(summaryEl!.textContent).toContain('18');
+    expect(summaryEl!.textContent).toContain('↑30');
+    const cols = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100');
+  });
+
+  it('show_avg: false → mean absent; ↓min and ↑max present; total unchanged', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID, show_avg: false });
+    const summaryEl = el.shadowRoot!.querySelector('.cumul-summary');
+    expect(summaryEl!.textContent).not.toContain('18');
+    expect(summaryEl!.textContent).toContain('↓5');
+    expect(summaryEl!.textContent).toContain('↑30');
+    const cols = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100');
+  });
+
+  it('show_max: false → ↑max absent; mean and ↓min present; total unchanged', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID, show_max: false });
+    const summaryEl = el.shadowRoot!.querySelector('.cumul-summary');
+    expect(summaryEl!.textContent).not.toContain('↑');
+    expect(summaryEl!.textContent).toContain('18');
+    expect(summaryEl!.textContent).toContain('↓5');
+  });
+
+  it('show_min: false, show_max: false → cumul-minmax absent; mean present; total shown', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID, show_min: false, show_max: false });
+    expect(el.shadowRoot!.querySelector('.cumul-minmax')).toBeFalsy();
+    const summaryEl = el.shadowRoot!.querySelector('.cumul-summary');
+    expect(summaryEl).toBeTruthy();
+    expect(summaryEl!.textContent).toContain('18');
+    const cols = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100');
+  });
+
+  it('show_min: false, show_avg: false, show_max: false → cumul-summary absent; total still shows', async () => {
+    const el = await renderCumulVisibility({ entity: RAIN_ID, show_min: false, show_avg: false, show_max: false });
+    expect(el.shadowRoot!.querySelector('.cumul-summary')).toBeFalsy();
+    const cols = el.shadowRoot!.querySelectorAll('td.summary-column');
+    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100');
   });
 });

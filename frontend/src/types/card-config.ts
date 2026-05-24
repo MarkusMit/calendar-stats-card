@@ -5,6 +5,9 @@ export interface EntityRowConfig {
   factor?: number;
   unit?: string;
   show_zero?: boolean;
+  show_min?: boolean;
+  show_avg?: boolean;
+  show_max?: boolean;
 }
 
 export interface ExpressionRowConfig {

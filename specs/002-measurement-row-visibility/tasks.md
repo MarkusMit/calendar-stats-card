@@ -18,7 +18,7 @@
 
 **⚠️ CRITICAL**: No rendering work can begin until this phase is complete.
 
-- [ ] T001 Add `show_min?: boolean`, `show_avg?: boolean`, `show_max?: boolean` to `EntityRowConfig` in `frontend/src/types/card-config.ts` (after `show_zero`; do NOT add to `ExpressionRowConfig`)
+- [x] T001 Add `show_min?: boolean`, `show_avg?: boolean`, `show_max?: boolean` to `EntityRowConfig` in `frontend/src/types/card-config.ts` (after `show_zero`; do NOT add to `ExpressionRowConfig`)
 
 **Checkpoint**: `npx tsc --noEmit` passes; existing tests still pass (`npm test`)
 
@@ -32,7 +32,7 @@
 
 > **TDD**: Write and confirm test FAILS before implementing.
 
-- [ ] T002 [P] [US1] Write failing component tests for measurement sub-row visibility in `frontend/tests/component/year-table.test.ts`:
+- [x] T002 [P] [US1] Write failing component tests for measurement sub-row visibility in `frontend/tests/component/year-table.test.ts`:
   - `show_min: false` → min `<tr>` absent; avg and max rows present
   - `show_avg: false` → avg row absent; min and max rows present
   - `show_max: false` → max row absent; min and avg rows present
@@ -41,16 +41,16 @@
   - `show_min: false` → summary column for that entity shows no min value; avg and max summary values still present
   - Default (no flags set) → all 3 sub-rows present and summary shows all three values (regression guard)
 
-- [ ] T003 [P] [US1] Write failing component tests for measurement sub-row visibility in `frontend/tests/component/monthly-table.test.ts` (same scenarios as T002)
+- [x] T003 [P] [US1] Write failing component tests for measurement sub-row visibility in `frontend/tests/component/monthly-table.test.ts` (same scenarios as T002)
 
-- [ ] T004 [US1] Implement measurement sub-row visibility in `frontend/src/components/year-table.ts`:
+- [x] T004 [US1] Implement measurement sub-row visibility in `frontend/src/components/year-table.ts`:
   - Compute `visibleRows = [cfg.show_min, cfg.show_avg, cfg.show_max].filter(v => v !== false).length`
   - Label cell `rowspan = Math.max(visibleRows, 1)` (dynamic, replacing hard-coded `rowspan="3"`)
   - Wrap each `<tr>` block in conditional: `cfg.show_min !== false`, `cfg.show_avg !== false`, `cfg.show_max !== false`
   - When `visibleRows === 0`: render single `<tr>` with label cell spanning label + sub-label + day columns and summary cell; no data content
   - Summary cell value for each row only rendered when that row is visible (already gated by conditional `<tr>`)
 
-- [ ] T005 [US1] Implement measurement sub-row visibility in `frontend/src/components/monthly-table.ts` (same logic as T004; `monthly-table.ts` uses the same 3-`<tr>` pattern)
+- [x] T005 [US1] Implement measurement sub-row visibility in `frontend/src/components/monthly-table.ts` (same logic as T004; `monthly-table.ts` uses the same 3-`<tr>` pattern)
 
 **Checkpoint**: US1 acceptance scenarios 1–5 verifiable; T002–T003 tests pass
 
@@ -64,7 +64,7 @@
 
 > **TDD**: Write and confirm test FAILS before implementing.
 
-- [ ] T006 [P] [US2] Write failing component tests for cumulative summary visibility in `frontend/tests/component/year-table.test.ts`:
+- [x] T006 [P] [US2] Write failing component tests for cumulative summary visibility in `frontend/tests/component/year-table.test.ts`:
   - `show_min: false` on cumulative → `↓min` absent from `div.cumul-summary`; `↑max` and mean still present; total cell unchanged; day cells unchanged
   - `show_avg: false` → mean value absent from `div.cumul-summary`; min/max arrows still present; total cell unchanged
   - `show_max: false` → `↑max` absent from `div.cumul-summary`; mean and min still present; total cell unchanged
@@ -72,16 +72,16 @@
   - `show_min: false, show_avg: false, show_max: false` → `div.cumul-summary` absent or empty; total cell still shows value
   - Default (no flags) → mean + `↓min ↑max` all present (regression guard)
 
-- [ ] T007 [P] [US2] Write failing component tests for cumulative summary visibility in `frontend/tests/component/monthly-table.test.ts` (same scenarios as T006; adjust for `monthly-table.ts`'s inline slash-separated summary format)
+- [x] T007 [P] [US2] Write failing component tests for cumulative summary visibility in `frontend/tests/component/monthly-table.test.ts` (same scenarios as T006; adjust for `monthly-table.ts`'s inline slash-separated summary format)
 
-- [ ] T008 [US2] Implement cumulative summary visibility in `frontend/src/components/year-table.ts` (`renderEntityRows()`, cumulative branch, lines ~244–252):
+- [x] T008 [US2] Implement cumulative summary visibility in `frontend/src/components/year-table.ts` (`renderEntityRows()`, cumulative branch, lines ~244–252):
   - Mean div: render when `cfg.show_avg !== false`
   - Min span (`↓`): render when `cfg.show_min !== false`
   - Max span (`↑`): render when `cfg.show_max !== false`
   - `div.cumul-minmax`: render only when `cfg.show_min !== false || cfg.show_max !== false`
   - If all three hidden: set `summaryContent = ''` (empty string); `totalContent` and day cells unaffected
 
-- [ ] T009 [US2] Implement cumulative summary visibility in `frontend/src/components/monthly-table.ts` (cumulative summary uses slash-separated inline format; apply same conditional flags)
+- [x] T009 [US2] Implement cumulative summary visibility in `frontend/src/components/monthly-table.ts` (cumulative summary uses slash-separated inline format; apply same conditional flags)
 
 **Checkpoint**: US2 acceptance scenarios 1–7 verifiable; T006–T007 tests pass
 
@@ -89,7 +89,7 @@
 
 ## Phase 4: Polish
 
-- [ ] T010 [P] Run full test suite (`npm test`) and confirm all tests pass; run `npm run build` and confirm `frontend/dist/tabularizer-card.js` produced without errors; verify no TypeScript errors (`npx tsc --noEmit`)
+- [x] T010 [P] Run full test suite (`npm test`) and confirm all tests pass; run `npm run build` and confirm `frontend/dist/tabularizer-card.js` produced without errors; verify no TypeScript errors (`npx tsc --noEmit`)
 
 ---
 
