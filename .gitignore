@@ -49,6 +49,9 @@ Thumbs.db
 # OS
 .DS_Store
 desktop.ini
-.claude/settings.local.json
+
+# project
+/.claude/settings.local.json
+/.superpowers/
 /.tmp/
-scripts/deploy.sh
+/scripts/deploy.sh
