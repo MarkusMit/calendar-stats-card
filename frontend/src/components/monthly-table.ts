@@ -75,10 +75,13 @@ export class MonthlyTable extends LitElement {
       font-size: 0.9em;
     }
     .sub-label {
+      position: sticky;
+      left: var(--label-col-width, 0px);
+      z-index: 1;
+      background: var(--card-background-color, #fff);
       text-align: right;
       color: var(--secondary-text-color);
       font-size: 0.8em;
-      opacity: 0.7;
       padding: 1px 4px;
       white-space: nowrap;
     }
@@ -87,6 +90,13 @@ export class MonthlyTable extends LitElement {
       border-right: 1px solid var(--divider-color, #ccc);
     }
   `;
+
+  override updated() {
+    const labelCol = this.shadowRoot?.querySelector<HTMLElement>('.label-column');
+    if (labelCol) {
+      this.style.setProperty('--label-col-width', `${labelCol.getBoundingClientRect().width}px`);
+    }
+  }
 
   private daysInMonth(): number {
     return new Date(this.year, this.month, 0).getDate();
