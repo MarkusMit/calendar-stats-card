@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import type { EntityConfig } from '../types/card-config';
 import { rowKey } from '../types/card-config';
 import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
@@ -123,6 +124,11 @@ export class MonthlyTable extends LitElement {
     const summaryKey = `${key}::${this.year}-${this.month}`;
     const summary = this.monthlySummaries.get(summaryKey);
 
+    const colorParts: string[] = [];
+    if (cfg.text_color) colorParts.push(`color:${cfg.text_color}`);
+    if (cfg.background_color) colorParts.push(`background-color:${cfg.background_color}`);
+    const labelStyle = colorParts.length ? colorParts.join(';') : undefined;
+
     if (isMeasurement && !hasError) {
       const erc = 'entity' in cfg ? cfg : null;
       const showMin = erc?.show_min !== false;
@@ -163,7 +169,7 @@ export class MonthlyTable extends LitElement {
       if (visibleRows.length === 0) {
         return html`
           <tr>
-            <td class="label-column">${hasStats ? '' : '⚠ '}${label}${unit}</td>
+            <td class="label-column" style=${ifDefined(labelStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>
           </tr>
         `;
       }
@@ -178,7 +184,7 @@ export class MonthlyTable extends LitElement {
 
       return html`${visibleRows.map((row, idx) => html`
         <tr class="${idx < visibleRows.length - 1 ? 'sub-row' : ''}">
-          ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}">${hasStats ? '' : '⚠ '}${label}${unit}</td>` : ''}
+          ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(labelStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>` : ''}
           <td class="sub-label">${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
           ${cells[row]}
           <td class="summary-column">${summaryVals[row]}</td>
@@ -222,7 +228,7 @@ export class MonthlyTable extends LitElement {
     const totalContent = summary?.total != null ? nf.format(summary.total * f) : '';
     return html`
       <tr>
-        <td class="label-column" colspan="${hasMeasurement ? 2 : 1}">${hasStats ? '' : '⚠ '}${label}${unit}</td>
+        <td class="label-column" colspan="${hasMeasurement ? 2 : 1}" style=${ifDefined(labelStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>
         ${dayCells}
         <td class="summary-column">${summaryContent}</td>
         <td class="summary-column">${totalContent}</td>

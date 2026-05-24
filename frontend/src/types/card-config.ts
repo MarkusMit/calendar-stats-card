@@ -8,6 +8,8 @@ export interface EntityRowConfig {
   show_min?: boolean;
   show_avg?: boolean;
   show_max?: boolean;
+  text_color?: string;
+  background_color?: string;
 }
 
 export interface ExpressionRowConfig {
@@ -16,6 +18,8 @@ export interface ExpressionRowConfig {
   unit?: string;
   precision?: number;
   show_zero?: boolean;
+  text_color?: string;
+  background_color?: string;
 }
 
 export type EntityConfig = EntityRowConfig | ExpressionRowConfig;

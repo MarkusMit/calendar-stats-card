@@ -18,7 +18,7 @@
 
 **⚠️ CRITICAL**: No rendering work can begin until this phase is complete.
 
-- [ ] T001 Add `text_color?: string` and `background_color?: string` to both `EntityRowConfig` and `ExpressionRowConfig` in `frontend/src/types/card-config.ts`
+- [x] T001 Add `text_color?: string` and `background_color?: string` to both `EntityRowConfig` and `ExpressionRowConfig` in `frontend/src/types/card-config.ts`
 
 **Checkpoint**: `npx tsc --noEmit` passes; existing tests still pass (`npm test`)
 
@@ -30,7 +30,7 @@
 
 > **TDD**: Confirm each test block FAILS (`npm test`) before moving to Phase 3.
 
-- [ ] T002 [P] [US1] Write failing component tests for EntityRowConfig label cell colors in `frontend/tests/component/year-table.test.ts`:
+- [x] T002 [P] [US1] Write failing component tests for EntityRowConfig label cell colors in `frontend/tests/component/year-table.test.ts`:
   - `text_color: "red"` on measurement entity → label cell `style` attribute contains `color:red`; data cells have no `style` attribute
   - `background_color: "#e0f0ff"` on measurement entity → label cell `style` contains `background-color:#e0f0ff`
   - Both `text_color` and `background_color` set → label cell `style` contains both properties
@@ -40,15 +40,15 @@
   - `text_color` on cumulative entity → `td.label-column` has color style
   - Two entities: only the configured one has `style`; the other's label cell has no `style` attribute (FR-008)
 
-- [ ] T003 [P] [US1] Write failing component tests for EntityRowConfig label cell colors in `frontend/tests/component/monthly-table.test.ts` (same 8 scenarios as T002)
+- [x] T003 [P] [US1] Write failing component tests for EntityRowConfig label cell colors in `frontend/tests/component/monthly-table.test.ts` (same 8 scenarios as T002)
 
-- [ ] T004 [P] [US2] Write failing component tests for ExpressionRowConfig label cell colors in `frontend/tests/component/year-table.test.ts`:
+- [x] T004 [P] [US2] Write failing component tests for ExpressionRowConfig label cell colors in `frontend/tests/component/year-table.test.ts`:
   - `text_color: "green"` on expression row → label cell `style` contains `color:green`
   - `background_color: "#ffe0e0"` on expression row → label cell `style` contains `background-color:#ffe0e0`
   - `text_color: "var(--primary-color)"` on expression row → label cell `style` contains `color:var(--primary-color)` (CSS custom property passthrough; FR-003)
   - Neither field set on expression row → label cell has no `style` attribute
 
-- [ ] T005 [P] [US2] Write failing component tests for ExpressionRowConfig label cell colors in `frontend/tests/component/monthly-table.test.ts` (same 4 scenarios as T004)
+- [x] T005 [P] [US2] Write failing component tests for ExpressionRowConfig label cell colors in `frontend/tests/component/monthly-table.test.ts` (same 4 scenarios as T004)
 
 **Checkpoint**: All 4 test blocks confirmed FAILING before any implementation begins. T002–T005 failing verifies types exist but render sites do not yet apply color styles.
 
@@ -62,7 +62,7 @@
 
 > **TDD**: T002 and T003 must be confirmed failing before T006/T007 begin.
 
-- [ ] T006 [P] [US1] Implement label cell color in `frontend/src/components/year-table.ts`:
+- [x] T006 [P] [US1] Implement label cell color in `frontend/src/components/year-table.ts`:
   - Add `import { ifDefined } from 'lit/directives/if-defined.js';` to imports
   - Compute before each entity render: `const colorParts: string[] = []; if (cfg.text_color) colorParts.push(\`color:${cfg.text_color}\`); if (cfg.background_color) colorParts.push(\`background-color:${cfg.background_color}\`); const labelStyle = colorParts.length ? colorParts.join(';') : undefined;`
   - Apply `style=${ifDefined(labelStyle)}` to all 3 `td.label-column` sites:
@@ -70,7 +70,7 @@
     2. Measurement spanned label cell (`idx === 0`, `rowspan`) — line ~231
     3. Cumulative/expression single row (`colspan`) — line ~276
 
-- [ ] T007 [P] [US1] Implement label cell color in `frontend/src/components/monthly-table.ts` (identical approach; 3 label-cell sites at lines ~166, ~181, ~225)
+- [x] T007 [P] [US1] Implement label cell color in `frontend/src/components/monthly-table.ts` (identical approach; 3 label-cell sites at lines ~166, ~181, ~225)
 
 **Checkpoint**: T002–T005 (all four test blocks including US2) pass. Site 3 (cumulative branch) covers ExpressionRowConfig fall-through — no separate implementation for US2 is required.
 
@@ -78,7 +78,7 @@
 
 ## Phase 4: Polish
 
-- [ ] T008 [P] Run full test suite (`npm test`) and confirm all tests pass; run `npm run build` and confirm `frontend/dist/tabularizer-card.js` produced without errors; verify no TypeScript errors (`npx tsc --noEmit`)
+- [x] T008 [P] Run full test suite (`npm test`) and confirm all tests pass; run `npm run build` and confirm `frontend/dist/tabularizer-card.js` produced without errors; verify no TypeScript errors (`npx tsc --noEmit`)
 
 ---
 

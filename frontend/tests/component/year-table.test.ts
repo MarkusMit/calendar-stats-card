@@ -427,3 +427,132 @@ describe('YearTable — cumulative summary visibility', () => {
     expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100');
   });
 });
+
+// T002: EntityRowConfig label cell colors
+describe('YearTable — label cell colors (EntityRowConfig)', () => {
+  async function renderEntityColor(cfgs: EntityConfig[], metadata?: Map<string, EntityMetadata>) {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = cfgs;
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map();
+    el.entityMetadata = metadata ?? new Map([[ENTITY_ID, tempMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('text_color: "red" on measurement → label cell style contains color:red; data cells have no style', async () => {
+    const el = await renderEntityColor([{ entity: ENTITY_ID, text_color: 'red' }]);
+    const labelCell = el.shadowRoot!.querySelector('td.label-column[rowspan]');
+    expect(labelCell?.getAttribute('style')).toContain('color:red');
+    for (const cell of el.shadowRoot!.querySelectorAll('td.data-cell')) {
+      expect(cell.getAttribute('style')).toBeNull();
+    }
+  });
+
+  it('background_color: "#e0f0ff" on measurement → label cell style contains background-color:#e0f0ff', async () => {
+    const el = await renderEntityColor([{ entity: ENTITY_ID, background_color: '#e0f0ff' }]);
+    const labelCell = el.shadowRoot!.querySelector('td.label-column[rowspan]');
+    expect(labelCell?.getAttribute('style')).toContain('background-color:#e0f0ff');
+  });
+
+  it('both text_color and background_color → label cell style contains both', async () => {
+    const el = await renderEntityColor([{ entity: ENTITY_ID, text_color: 'red', background_color: '#e0f0ff' }]);
+    const style = el.shadowRoot!.querySelector('td.label-column[rowspan]')?.getAttribute('style') ?? '';
+    expect(style).toContain('color:red');
+    expect(style).toContain('background-color:#e0f0ff');
+  });
+
+  it('neither text_color nor background_color → label cell has no style attribute', async () => {
+    const el = await renderEntityColor([{ entity: ENTITY_ID }]);
+    const labelCell = el.shadowRoot!.querySelector('td.label-column[rowspan]');
+    expect(labelCell?.getAttribute('style')).toBeNull();
+  });
+
+  it('text_color: "var(--primary-color)" → label cell style contains color:var(--primary-color)', async () => {
+    const el = await renderEntityColor([{ entity: ENTITY_ID, text_color: 'var(--primary-color)' }]);
+    const labelCell = el.shadowRoot!.querySelector('td.label-column[rowspan]');
+    expect(labelCell?.getAttribute('style')).toContain('color:var(--primary-color)');
+  });
+
+  it('measurement rowspan>1: spanned label cell has color; sub-label cells have no style', async () => {
+    const el = await renderEntityColor([{ entity: ENTITY_ID, text_color: 'blue' }]);
+    const labelCell = el.shadowRoot!.querySelector('td.label-column[rowspan]');
+    expect(labelCell?.getAttribute('style')).toContain('color:blue');
+    for (const cell of el.shadowRoot!.querySelectorAll('td.sub-label')) {
+      expect(cell.getAttribute('style')).toBeNull();
+    }
+  });
+
+  it('text_color on cumulative entity → td.label-column has color style', async () => {
+    const el = await renderEntityColor(
+      [{ entity: 'sensor.rain', text_color: 'green' }],
+      new Map([['sensor.rain', precipMeta]])
+    );
+    const labelCell = el.shadowRoot!.querySelector('td.label-column');
+    expect(labelCell?.getAttribute('style')).toContain('color:green');
+  });
+
+  it('two entities: configured entity label has style; other label has no style', async () => {
+    const el = await renderEntityColor(
+      [{ entity: ENTITY_ID, text_color: 'red' }, { entity: 'sensor.rain' }],
+      new Map([[ENTITY_ID, tempMeta], ['sensor.rain', precipMeta]])
+    );
+    const measLabel = el.shadowRoot!.querySelector('td.label-column[rowspan]');
+    expect(measLabel?.getAttribute('style')).toContain('color:red');
+    const cumulLabel = el.shadowRoot!.querySelector('td.label-column[colspan]');
+    expect(cumulLabel?.getAttribute('style')).toBeNull();
+  });
+});
+
+// T004: ExpressionRowConfig label cell colors
+describe('YearTable — label cell colors (ExpressionRowConfig)', () => {
+  async function renderExprColor(cfg: EntityConfig) {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = [cfg];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map();
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('text_color: "green" on expression row → label cell style contains color:green', async () => {
+    const el = await renderExprColor({ expression: 'sensor.a - sensor.b', text_color: 'green' });
+    const labelCell = el.shadowRoot!.querySelector('td.label-column');
+    expect(labelCell?.getAttribute('style')).toContain('color:green');
+  });
+
+  it('background_color: "#ffe0e0" on expression row → label cell style contains background-color:#ffe0e0', async () => {
+    const el = await renderExprColor({ expression: 'sensor.a - sensor.b', background_color: '#ffe0e0' });
+    const labelCell = el.shadowRoot!.querySelector('td.label-column');
+    expect(labelCell?.getAttribute('style')).toContain('background-color:#ffe0e0');
+  });
+
+  it('text_color: "var(--primary-color)" on expression row → label cell style contains color:var(--primary-color)', async () => {
+    const el = await renderExprColor({ expression: 'sensor.a - sensor.b', text_color: 'var(--primary-color)' });
+    const labelCell = el.shadowRoot!.querySelector('td.label-column');
+    expect(labelCell?.getAttribute('style')).toContain('color:var(--primary-color)');
+  });
+
+  it('neither field set on expression row → label cell has no style attribute', async () => {
+    const el = await renderExprColor({ expression: 'sensor.a - sensor.b' });
+    const labelCell = el.shadowRoot!.querySelector('td.label-column');
+    expect(labelCell?.getAttribute('style')).toBeNull();
+  });
+});
