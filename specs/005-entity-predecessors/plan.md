@@ -5,7 +5,7 @@
 
 ## Summary
 
-Extend `EntityRowConfig` with an optional `predecessors` list. Each predecessor has an entity ID and an optional `replaced_on` ISO date. A new `predecessor-resolver.ts` service merges predecessor data into the main entity's daily-value map entries after the initial stats fetch. All downstream code — rendering, monthly summaries, expression evaluation — is unchanged.
+Extend `EntityRowConfig` with an optional `predecessors` list. Each predecessor has an entity ID, an optional `replaced_on` ISO date, and an optional `factor` number for unit-scaling. A new `predecessor-resolver.ts` service merges predecessor data into the main entity's daily-value map entries after the initial stats fetch. All downstream code — rendering, monthly summaries, expression evaluation — is unchanged.
 
 ## Technical Context
 
@@ -71,6 +71,7 @@ Add `PredecessorConfig` interface and `predecessors` optional field to `EntityRo
 export interface PredecessorConfig {
   entity: string;
   replaced_on?: string; // ISO date YYYY-MM-DD
+  factor?: number;      // multiplied onto all values; also bypasses unit compatibility check
 }
 
 export interface EntityRowConfig {
@@ -94,7 +95,7 @@ export function resolvePredecessorData(
 
 Resolution algorithm (per entity row with predecessors):
 
-1. **Compatibility filter**: For each predecessor, compare `metadataMap[predecessor.entity].stateClass` and `.unitOfMeasurement` against the main entity. Skip incompatible ones; log `console.warn` once per predecessor ID via `warnedPredecessors`.
+1. **Compatibility filter**: For each predecessor, compare `metadataMap[predecessor.entity].stateClass` against the main entity — always enforced. Compare `.unitOfMeasurement` UNLESS `predecessor.factor` is set (factor implies explicit unit conversion; unit check bypassed). Skip incompatible predecessors; log `console.warn` once per predecessor ID via `warnedPredecessors`. When merging a predecessor with `factor` set, multiply all numeric fields (`sum`, `mean`, `min`, `max`) by `factor` before storing.
 
 2. **Sort**: Split compatible predecessors into dated (has `replaced_on`) and undated. Sort dated ascending by `replaced_on`.
 

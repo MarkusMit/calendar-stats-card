@@ -20,9 +20,10 @@ export function resolvePredecessorData(
     const compatible = cfg.predecessors.filter((pred) => {
       const predMeta = metadataMap[pred.entity];
       if (!predMeta) return false;
-      const ok =
-        predMeta.stateClass === mainMeta.stateClass &&
-        predMeta.unitOfMeasurement === mainMeta.unitOfMeasurement;
+      const stateClassOk = predMeta.stateClass === mainMeta.stateClass;
+      // unit check bypassed when factor is configured (FR-011 / FR-015)
+      const unitOk = pred.factor != null || predMeta.unitOfMeasurement === mainMeta.unitOfMeasurement;
+      const ok = stateClassOk && unitOk;
       if (!ok && !warnedPredecessors.has(pred.entity)) {
         console.warn(
           `[tabularizer] predecessor ${pred.entity}: state_class or unit_of_measurement mismatch, skipping`,
@@ -51,6 +52,13 @@ export function resolvePredecessorData(
       if (predIds.has(entityId) || entityId === mainId) dates.add(date);
     }
 
+    const applyFactor = (v: DailyValue, factor: number | undefined): DailyValue => {
+      if (factor == null) return v;
+      if (v.kind === 'cumulative') return { ...v, sum: v.sum * factor };
+      if (v.kind === 'measurement') return { ...v, mean: v.mean * factor, min: v.min * factor, max: v.max * factor };
+      return v;
+    };
+
     for (const date of dates) {
       // Find active dated predecessor: first (oldest) whose replaced_on is strictly after date
       const activeDated = dated.find((p) => p.replaced_on! > date);
@@ -58,7 +66,7 @@ export function resolvePredecessorData(
       if (activeDated) {
         const predValue = result.get(`${activeDated.entity}::${date}`);
         if (predValue && predValue.kind !== 'empty') {
-          result.set(`${mainId}::${date}`, { ...predValue, entityId: mainId });
+          result.set(`${mainId}::${date}`, { ...applyFactor(predValue, activeDated.factor), entityId: mainId });
         }
         // If dated predecessor has no data → leave main key unchanged (no fallback)
       } else {
@@ -68,7 +76,7 @@ export function resolvePredecessorData(
           for (const pred of undated) {
             const predValue = result.get(`${pred.entity}::${date}`);
             if (predValue && predValue.kind !== 'empty') {
-              result.set(`${mainId}::${date}`, { ...predValue, entityId: mainId });
+              result.set(`${mainId}::${date}`, { ...applyFactor(predValue, pred.factor), entityId: mainId });
               break;
             }
           }

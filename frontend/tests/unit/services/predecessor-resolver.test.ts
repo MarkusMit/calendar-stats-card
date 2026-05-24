@@ -507,3 +507,98 @@ describe('resolvePredecessorData — multiple undated predecessors (FR-005/FR-00
     expect(result.has(`${MAIN}::2024-03-10`)).toBe(false);
   });
 });
+
+// ─── Phase 7: Factor Support (FR-015 / FR-011 update) ───────────────────────
+
+describe('resolvePredecessorData — factor scaling (FR-015)', () => {
+  const MAIN = 'sensor.main';
+  const PRED = 'sensor.pred';
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('unit mismatch + factor set → predecessor used (unit check bypassed)', () => {
+    const mainMeta = makeCumulativeMeta(MAIN, 'kWh');
+    const predMeta = makeCumulativeMeta(PRED, 'Wh'); // different unit
+    const metadataMap = { [MAIN]: mainMeta, [PRED]: predMeta };
+    const cfg = makeEntityConfig(MAIN, [{ entity: PRED, factor: 0.001 }]);
+
+    const predVal = makeCumulative(PRED, '2024-03-10', 1000);
+    const dailyValues = buildMap([[`${PRED}::2024-03-10`, predVal]]);
+    const warned = new Set<string>();
+
+    const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
+
+    expect(result.has(`${MAIN}::2024-03-10`)).toBe(true);
+  });
+
+  it('state_class mismatch still blocks even when factor is set', () => {
+    const mainMeta = makeCumulativeMeta(MAIN, 'kWh');
+    const predMeta = makeMeasurementMeta(PRED, 'kWh'); // different state_class
+    const metadataMap = { [MAIN]: mainMeta, [PRED]: predMeta };
+    const cfg = makeEntityConfig(MAIN, [{ entity: PRED, factor: 0.001 }]);
+
+    const predVal = makeCumulative(PRED, '2024-03-10', 1000);
+    const dailyValues = buildMap([[`${PRED}::2024-03-10`, predVal]]);
+    const warned = new Set<string>();
+
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
+
+    expect(result.has(`${MAIN}::2024-03-10`)).toBe(false);
+  });
+
+  it('factor applied to CumulativeDailyValue: sum multiplied by factor', () => {
+    const mainMeta = makeCumulativeMeta(MAIN, 'kWh');
+    const predMeta = makeCumulativeMeta(PRED, 'Wh');
+    const metadataMap = { [MAIN]: mainMeta, [PRED]: predMeta };
+    const cfg = makeEntityConfig(MAIN, [{ entity: PRED, factor: 0.001 }]);
+
+    const predVal = makeCumulative(PRED, '2024-03-10', 5000);
+    const dailyValues = buildMap([[`${PRED}::2024-03-10`, predVal]]);
+    const warned = new Set<string>();
+
+    const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
+
+    const merged = result.get(`${MAIN}::2024-03-10`) as CumulativeDailyValue;
+    expect(merged.kind).toBe('cumulative');
+    expect(merged.sum).toBeCloseTo(5);
+  });
+
+  it('factor applied to MeasurementDailyValue: mean/min/max each multiplied', () => {
+    const mainMeta = makeMeasurementMeta(MAIN, 'kWh');
+    const predMeta = makeMeasurementMeta(PRED, 'Wh');
+    const metadataMap = { [MAIN]: mainMeta, [PRED]: predMeta };
+    const cfg = makeEntityConfig(MAIN, [{ entity: PRED, factor: 0.001 }]);
+
+    // makeMeasurement: mean=100, min=99, max=101
+    const predVal = makeMeasurement(PRED, '2024-03-10', 100);
+    const dailyValues = buildMap([[`${PRED}::2024-03-10`, predVal]]);
+    const warned = new Set<string>();
+
+    const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
+
+    const merged = result.get(`${MAIN}::2024-03-10`) as MeasurementDailyValue;
+    expect(merged.kind).toBe('measurement');
+    expect(merged.mean).toBeCloseTo(0.1);
+    expect(merged.min).toBeCloseTo(0.099);
+    expect(merged.max).toBeCloseTo(0.101);
+  });
+
+  it('factor applied when units already match (factor is not unit-mismatch workaround only)', () => {
+    const mainMeta = makeCumulativeMeta(MAIN, 'kWh');
+    const predMeta = makeCumulativeMeta(PRED, 'kWh'); // same unit
+    const metadataMap = { [MAIN]: mainMeta, [PRED]: predMeta };
+    const cfg = makeEntityConfig(MAIN, [{ entity: PRED, factor: 2 }]);
+
+    const predVal = makeCumulative(PRED, '2024-03-10', 3);
+    const dailyValues = buildMap([[`${PRED}::2024-03-10`, predVal]]);
+    const warned = new Set<string>();
+
+    const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
+
+    const merged = result.get(`${MAIN}::2024-03-10`) as CumulativeDailyValue;
+    expect(merged.sum).toBe(6);
+  });
+});

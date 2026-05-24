@@ -1,6 +1,7 @@
 export interface PredecessorConfig {
   entity: string;
   replaced_on?: string; // ISO date YYYY-MM-DD; predecessor covers dates strictly before this
+  factor?: number;      // multiplied onto all values; also bypasses unit compatibility check
 }
 
 export interface EntityRowConfig {

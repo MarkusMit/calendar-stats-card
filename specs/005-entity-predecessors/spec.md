@@ -63,14 +63,15 @@ A user has replaced their rain gauge twice. Sensor A (oldest) → Sensor B → S
 - What if multiple predecessors have the same `replaced_on` date? → Undefined/invalid config; first one in list wins
 - What if `replaced_on` is in the future? → Valid; predecessor covers past dates before that future date
 - What if a predecessor is itself misconfigured (wrong entity ID)? → Treat as no data; no error shown
-- What if predecessor has different `state_class` or unit than main entity? → Predecessor skipped (treated as no data); warning logged to browser console once per page load
+- What if predecessor has different `state_class` or unit than main entity? → Predecessor skipped (treated as no data); warning logged to browser console once per page load; unit mismatch is exempt when `factor` is configured
+- What if `factor` is 0 or negative? → Treated as valid user intent; 0 produces all-zero values, negative inverts sign; no special handling
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: System MUST support an optional `predecessors` list on entity rows (`EntityRowConfig`); expression rows do not support predecessors
-- **FR-002**: Each predecessor MUST have an `entity` field (entity ID) and an optional `replaced_on` date field
+- **FR-002**: Each predecessor MUST have an `entity` field (entity ID) and optional `replaced_on` (date) and `factor` (number) fields
 - **FR-003**: When `replaced_on` is specified, predecessor data MUST be used for days **strictly before** that date; main entity data MUST be used from that date onwards
 - **FR-004**: When `replaced_on` is not specified, predecessor data MUST be used only for days where the main entity has no data
 - **FR-005**: When multiple predecessors are configured, they MUST be evaluated by their `replaced_on` dates in ascending order (oldest first); predecessors without dates are treated as the oldest and ordered by their position in the config list
@@ -79,15 +80,16 @@ A user has replaced their rain gauge twice. Sensor A (oldest) → Sensor B → S
 - **FR-008**: Unavailable or missing predecessor entities MUST be treated as having no data (graceful degradation, no error state)
 - **FR-009**: The feature MUST work for both `measurement` and `total_increasing`/`increasing` entity types
 - **FR-010**: Entities with no `predecessors` configured MUST behave identically to current behavior
-- **FR-011**: Each predecessor MUST have the same `state_class` and `unit_of_measurement` (from HA metadata) as the main entity; configured `unit` display overrides are ignored for this check; mismatched predecessors MUST be skipped (treated as having no data)
+- **FR-011**: Each predecessor MUST have the same `state_class` as the main entity. The `unit_of_measurement` (from HA metadata) must also match UNLESS `factor` is configured on that predecessor — in which case the unit check is bypassed (the factor handles conversion). Predecessors failing these checks MUST be skipped (treated as having no data)
 - **FR-012**: When a predecessor is skipped due to incompatible `state_class` or unit, the system MUST log a warning to the browser console — at most once per page load (or first access) per offending predecessor
 - **FR-013**: The monthly summary (min/avg/max) MUST be computed from the merged set of daily values — including both main entity days and predecessor days — not from the main entity's native monthly statistics
 - **FR-014**: Partial coverage detection (the `*` indicator) MUST apply to predecessor-sourced days using the same logic as main entity days; a predecessor day with incomplete hourly data is marked partial
+- **FR-015**: When `factor` is configured on a predecessor, all numeric values from that predecessor MUST be multiplied by `factor` before being stored under the main entity key; applies to `sum` (cumulative) and `mean`/`min`/`max` (measurement)
 
 ### Key Entities
 
 - **EntityRowConfig**: Existing entity row configuration, extended with an optional `predecessors` list
-- **PredecessorConfig**: A predecessor definition — entity ID + optional `replaced_on` date
+- **PredecessorConfig**: A predecessor definition — entity ID + optional `replaced_on` date + optional `factor` number (multiplied onto all values; also bypasses unit compatibility check)
 - **Data resolution**: The logic that selects which entity's data to use for each day, given the predecessor chain and dates
 
 ## Success Criteria *(mandatory)*
@@ -111,6 +113,7 @@ A user has replaced their rain gauge twice. Sensor A (oldest) → Sensor B → S
 - Predecessor entities must already have statistics recorded in HA's recorder; this feature does not import or migrate data
 - The feature does not provide guidance on when to use predecessors — that is the user's decision
 - Expression rows (`ExpressionRowConfig`) do not support `predecessors`; each constituent entity row handles its own predecessor chain, and expressions automatically use the merged values
+- `PredecessorConfig` does not have a `unit` field; unit conversion is handled exclusively via `factor`
 
 ## Clarifications
 
@@ -124,3 +127,7 @@ A user has replaced their rain gauge twice. Sensor A (oldest) → Sensor B → S
 
 - Q: Multiple dateless predecessors — if 2+ have no `replaced_on` date and main has no data, which is used? → A: First in config list order that has data for that day; if none have data, cell is empty
 - Q: Partial coverage (`*`) indicator — apply to predecessor-sourced days? → A: Yes — same logic as main entity days; data quality indicator is source-agnostic
+
+### Session 2026-05-25 (factor/unit)
+
+- Q: When `factor` is set on a predecessor whose HA unit differs from main, should the unit compatibility check be automatically bypassed while `state_class` is still enforced? → A: Yes — `factor` present bypasses unit check; `state_class` still enforced; no `unit` field on `PredecessorConfig` (unit conversion handled exclusively by `factor`)

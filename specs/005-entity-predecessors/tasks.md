@@ -122,7 +122,7 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 
 - [x] T013 [P] Write failing unit tests for compatibility validation in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
   - predecessor with different `stateClass` than main is skipped entirely (not used for any date)
-  - predecessor with different `unitOfMeasurement` than main is skipped
+  - predecessor with different `unitOfMeasurement` than main is skipped *(covers case where `factor` is NOT set)*
   - `console.warn` called with predecessor entity ID when skipped
   - `console.warn` called at most once per predecessor ID per `warnedPredecessors` set instance
   - compatible predecessors (same stateClass + unit) are not warned and are used normally
@@ -142,6 +142,37 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 - [x] T017 Run `npm test` from `frontend/` in WSL2 — confirm all tests pass (including predecessor-resolver.test.ts and tabularizer-card.test.ts)
 - [x] T018 Run `npm run build` from `frontend/` in WSL2 — confirm TypeScript compiles without errors
 - [x] T019 Run `npm run lint` from `frontend/` in WSL2 — confirm no lint violations
+
+---
+
+## Phase 7: Factor Support (FR-015 / FR-011 update)
+
+**Purpose**: Implement `factor` field on `PredecessorConfig` — scales predecessor values on merge and bypasses the unit compatibility check. Added to spec post-implementation via `/speckit-clarify`.
+
+**⚠️ Constitution Principle II**: Tests MUST be written and confirmed FAILING before T022 implementation.
+
+### Tests for Factor Support
+
+> **Write these tests FIRST — confirm they FAIL before implementing T022**
+
+- [x] T020 Write failing unit tests for factor behavior in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
+  - predecessor with different `unitOfMeasurement` AND `factor` set → used (unit check bypassed); state_class mismatch still skips even when factor set
+  - factor applied to `CumulativeDailyValue`: merged `sum` equals `predValue.sum * factor`
+  - factor applied to `MeasurementDailyValue`: merged `mean`, `min`, `max` each multiplied by `factor`
+  - factor=0.001 with Wh predecessor and kWh main: merged value equals predecessor value × 0.001
+  - predecessor with matching unit AND factor set → still used (factor applied even when units already match)
+
+### Implementation for Factor Support
+
+- [x] T021 Add `factor?: number` to `PredecessorConfig` interface in `frontend/src/types/card-config.ts`
+- [x] T022 Update `frontend/src/services/predecessor-resolver.ts`:
+  (a) compatibility check: skip unit check when `pred.factor != null`; state_class check unchanged;
+  (b) value merge: when `pred.factor != null`, multiply `sum` (cumulative) or `mean`/`min`/`max` (measurement) by `pred.factor` before `result.set(...)`
+
+### Quality Gates
+
+- [x] T023 Run `npm test` from `frontend/` in WSL2 — confirm all 233+ tests pass including new factor tests
+- [x] T024 Run `npm run build` and `npm run lint` from `frontend/` in WSL2 — confirm no errors
 
 ---
 
