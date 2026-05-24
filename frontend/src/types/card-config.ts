@@ -1,3 +1,8 @@
+export interface PredecessorConfig {
+  entity: string;
+  replaced_on?: string; // ISO date YYYY-MM-DD; predecessor covers dates strictly before this
+}
+
 export interface EntityRowConfig {
   entity: string;
   name?: string;
@@ -10,6 +15,7 @@ export interface EntityRowConfig {
   show_max?: boolean;
   text_color?: string;
   background_color?: string;
+  predecessors?: PredecessorConfig[];
 }
 
 export interface ExpressionRowConfig {

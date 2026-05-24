@@ -19,9 +19,9 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 
 **Purpose**: Add type definitions and create new file stubs. No behavior yet — these unblock all story phases.
 
-- [ ] T001 Add `PredecessorConfig` interface and `predecessors?: PredecessorConfig[]` field to `frontend/src/types/card-config.ts`
-- [ ] T002 Create `frontend/src/services/predecessor-resolver.ts` with exported `resolvePredecessorData` function stub (returns input `dailyValues` map unchanged; types only, no logic)
-- [ ] T003 Create `frontend/tests/unit/services/predecessor-resolver.test.ts` with test helper functions (`makeEntityMeta`, `makeDailyValue`) and empty `describe` blocks per story — no test cases yet
+- [x] T001 Add `PredecessorConfig` interface and `predecessors?: PredecessorConfig[]` field to `frontend/src/types/card-config.ts`
+- [x] T002 Create `frontend/src/services/predecessor-resolver.ts` with exported `resolvePredecessorData` function stub (returns input `dailyValues` map unchanged; types only, no logic)
+- [x] T003 Create `frontend/tests/unit/services/predecessor-resolver.test.ts` with test helper functions (`makeEntityMeta`, `makeDailyValue`) and empty `describe` blocks per story — no test cases yet
 
 ---
 
@@ -31,7 +31,7 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 
 **⚠️ CRITICAL**: Must complete before story integration tasks (T008) can be verified end-to-end.
 
-- [ ] T004 Add `private _warnedPredecessors = new Set<string>()` instance variable to `frontend/src/tabularizer-card.ts`
+- [x] T004 Add `private _warnedPredecessors = new Set<string>()` instance variable to `frontend/src/tabularizer-card.ts`
 
 **Checkpoint**: Scaffolding complete. Story phases can now begin.
 
@@ -47,7 +47,7 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 
 > **Write these tests FIRST — confirm they FAIL before implementing T006/T007/T008**
 
-- [ ] T005 [US1] Write failing unit tests for date-based resolution in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
+- [x] T005 [US1] Write failing unit tests for date-based resolution in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
   - predecessor data returned for date strictly before `replaced_on`
   - main entity data returned for date equal to `replaced_on` (main wins on exchange date)
   - main entity data returned for date after `replaced_on`
@@ -58,9 +58,9 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Implement date-based predecessor logic in `frontend/src/services/predecessor-resolver.ts`: sort dated predecessors ascending by `replaced_on`; for each date find active predecessor via `sortedDated.find(p => p.replaced_on > date)` algorithm; store resolved value under `${mainEntityId}::${date}` key with `entityId` field rewritten to main entity ID
-- [ ] T007 [US1] Write failing component test in `frontend/tests/component/tabularizer-card.test.ts` verifying predecessor entity IDs appear in the `statistic_ids` array of the statistics fetch call when `predecessors` is configured
-- [ ] T008 [US1] Update `frontend/src/tabularizer-card.ts`: (a) include predecessor entity IDs in `entityIds` collection; (b) replace `transformDailyStats(...)` assignment with `resolvePredecessorData(entityConfigs, transformDailyStats(...), metadataMap, _warnedPredecessors)`
+- [x] T006 [US1] Implement date-based predecessor logic in `frontend/src/services/predecessor-resolver.ts`: sort dated predecessors ascending by `replaced_on`; for each date find active predecessor via `sortedDated.find(p => p.replaced_on > date)` algorithm; store resolved value under `${mainEntityId}::${date}` key with `entityId` field rewritten to main entity ID
+- [x] T007 [US1] Write failing component test in `frontend/tests/component/tabularizer-card.test.ts` verifying predecessor entity IDs appear in the `statistic_ids` array of the statistics fetch call when `predecessors` is configured
+- [x] T008 [US1] Update `frontend/src/tabularizer-card.ts`: (a) include predecessor entity IDs in `entityIds` collection; (b) replace `transformDailyStats(...)` assignment with `resolvePredecessorData(entityConfigs, transformDailyStats(...), metadataMap, _warnedPredecessors)`
 
 **Checkpoint**: User Story 1 fully functional. Entity with one dated predecessor shows continuous data across the replacement date.
 
@@ -76,7 +76,7 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 
 > **Write these tests FIRST — confirm they FAIL before implementing T010**
 
-- [ ] T009 [US2] Write failing unit tests for undated fallback logic in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
+- [x] T009 [US2] Write failing unit tests for undated fallback logic in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
   - predecessor data used for day where main entity has `EmptyDailyValue`
   - predecessor data used for day where main entity has no entry in map
   - main entity data used when both main and predecessor have data for same day
@@ -85,7 +85,7 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Extend `frontend/src/services/predecessor-resolver.ts` with undated/fallback predecessor logic: for days in main entity range with no real data, try each undated predecessor (in config list order); store first non-empty value found under main entity key
+- [x] T010 [US2] Extend `frontend/src/services/predecessor-resolver.ts` with undated/fallback predecessor logic: for days in main entity range with no real data, try each undated predecessor (in config list order); store first non-empty value found under main entity key
 
 **Checkpoint**: User Story 2 functional. Predecessor fills gaps without overriding existing main entity data.
 
@@ -101,14 +101,14 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 
 > **Write these tests FIRST — confirm they FAIL before implementing T012**
 
-- [ ] T011 [US3] Write failing unit tests for chained predecessor resolution in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
+- [x] T011 [US3] Write failing unit tests for chained predecessor resolution in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
   - two dated predecessors (P2 `replaced_on: 2023-01-01`, P1 `replaced_on: 2024-06-01`): P2 active before 2023-01-01, P1 active 2023-01-01–2024-05-31, main active from 2024-06-01
   - day within P2 range with no P2 data → empty (no further fallback to earlier predecessor)
   - three-predecessor chain resolves correctly at each boundary
 
 ### Implementation for User Story 3
 
-- [ ] T012 [US3] Verify `frontend/src/services/predecessor-resolver.ts` handles 2+ dated predecessors correctly — the ascending-sort + `find` algorithm already supports chains; run T011 tests to confirm; fix edge cases if any
+- [x] T012 [US3] Verify `frontend/src/services/predecessor-resolver.ts` handles 2+ dated predecessors correctly — the ascending-sort + `find` algorithm already supports chains; run T011 tests to confirm; fix edge cases if any
 
 **Checkpoint**: User Story 3 functional. Full predecessor chains work across arbitrary date ranges.
 
@@ -120,28 +120,28 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 
 ### Compatibility Check (FR-011 / FR-012)
 
-- [ ] T013 [P] Write failing unit tests for compatibility validation in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
+- [x] T013 [P] Write failing unit tests for compatibility validation in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
   - predecessor with different `stateClass` than main is skipped entirely (not used for any date)
   - predecessor with different `unitOfMeasurement` than main is skipped
   - `console.warn` called with predecessor entity ID when skipped
   - `console.warn` called at most once per predecessor ID per `warnedPredecessors` set instance
   - compatible predecessors (same stateClass + unit) are not warned and are used normally
   - predecessor entity ID absent from `metadataMap` (entity not in `hass.states`) → skipped silently, no crash, no `console.warn` (FR-008)
-- [ ] T014 Implement compatibility check in `frontend/src/services/predecessor-resolver.ts`: before processing each predecessor, compare `metadataMap[pred.entity].stateClass` and `.unitOfMeasurement` against main entity; if `metadataMap` entry is absent, skip silently without warning (entity hasn't loaded yet); skip incompatible ones; call `console.warn('[tabularizer] predecessor ${id}: state_class or unit_of_measurement mismatch, skipping')` once per ID via `warnedPredecessors` set
+- [x] T014 Implement compatibility check in `frontend/src/services/predecessor-resolver.ts`: before processing each predecessor, compare `metadataMap[pred.entity].stateClass` and `.unitOfMeasurement` against main entity; if `metadataMap` entry is absent, skip silently without warning (entity hasn't loaded yet); skip incompatible ones; call `console.warn('[tabularizer] predecessor ${id}: state_class or unit_of_measurement mismatch, skipping')` once per ID via `warnedPredecessors` set
 
 ### Multiple Undated Predecessors (FR-005 / FR-006)
 
-- [ ] T015 [P] Write failing unit tests for multiple undated predecessor ordering in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
+- [x] T015 [P] Write failing unit tests for multiple undated predecessor ordering in `frontend/tests/unit/services/predecessor-resolver.test.ts`:
   - two undated predecessors: first in list order with data wins
   - two undated predecessors: first has no data, second has data → second used
   - two undated predecessors: neither has data → cell empty
-- [ ] T016 Extend `frontend/src/services/predecessor-resolver.ts` fallback loop to iterate all undated predecessors in config list order, returning first with non-empty data (no change needed if already implemented this way in T010; confirm test passes)
+- [x] T016 Extend `frontend/src/services/predecessor-resolver.ts` fallback loop to iterate all undated predecessors in config list order, returning first with non-empty data (no change needed if already implemented this way in T010; confirm test passes)
 
 ### Final Quality Gates
 
-- [ ] T017 Run `npm test` from `frontend/` in WSL2 — confirm all tests pass (including predecessor-resolver.test.ts and tabularizer-card.test.ts)
-- [ ] T018 Run `npm run build` from `frontend/` in WSL2 — confirm TypeScript compiles without errors
-- [ ] T019 Run `npm run lint` from `frontend/` in WSL2 — confirm no lint violations
+- [x] T017 Run `npm test` from `frontend/` in WSL2 — confirm all tests pass (including predecessor-resolver.test.ts and tabularizer-card.test.ts)
+- [x] T018 Run `npm run build` from `frontend/` in WSL2 — confirm TypeScript compiles without errors
+- [x] T019 Run `npm run lint` from `frontend/` in WSL2 — confirm no lint violations
 
 ---
 

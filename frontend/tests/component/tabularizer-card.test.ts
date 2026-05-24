@@ -425,3 +425,38 @@ describe('TabularzerCard — expression rows', () => {
     expect(totalCell?.textContent?.trim()).toBe('15');
   });
 });
+
+// T007: predecessor entity IDs included in statistics fetch
+describe('TabularzerCard — predecessor entity IDs in fetch (T007)', () => {
+  it('predecessor entity IDs appear in statistic_ids of statistics fetch call', async () => {
+    const sendMessagePromise = vi.fn().mockResolvedValue([]);
+    const hass = makeHass({ connection: { sendMessagePromise } });
+    const config: CardConfig = {
+      type: 'custom:tabularizer-card',
+      entities: [
+        {
+          entity: 'sensor.main',
+          predecessors: [{ entity: 'sensor.old', replaced_on: '2024-01-01' }],
+        },
+      ],
+    };
+
+    await createCard(config, hass);
+
+    // Wait for at least one statistics fetch to happen
+    await vi.waitFor(() => {
+      expect(sendMessagePromise).toHaveBeenCalled();
+    }, { timeout: 3000 });
+
+    const statsCalls = sendMessagePromise.mock.calls.filter(
+      (c: unknown[]) => (c[0] as Record<string, unknown>)?.type === 'recorder/statistics_during_period',
+    );
+    expect(statsCalls.length).toBeGreaterThan(0);
+
+    const allFetchedIds: string[] = statsCalls.flatMap(
+      (c: unknown[]) => (c[0] as Record<string, unknown>).statistic_ids as string[],
+    );
+    expect(allFetchedIds).toContain('sensor.main');
+    expect(allFetchedIds).toContain('sensor.old');
+  });
+});
