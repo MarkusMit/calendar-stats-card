@@ -35,18 +35,20 @@
   - `background_color: "#e0f0ff"` on measurement entity → label cell `style` contains `background-color:#e0f0ff`
   - Both `text_color` and `background_color` set → label cell `style` contains both properties
   - Neither `text_color` nor `background_color` set → label cell has no `style` attribute (FR-004)
+  - `text_color: "var(--primary-color)"` on measurement entity → label cell `style` contains `color:var(--primary-color)` (CSS custom property passthrough; FR-003)
   - Measurement entity with `rowspan > 1` (default all 3 sub-rows visible): spanned label cell (`td[rowspan]`) has color; sub-label cells have no `style`
   - `text_color` on cumulative entity → `td.label-column` has color style
   - Two entities: only the configured one has `style`; the other's label cell has no `style` attribute (FR-008)
 
-- [ ] T003 [P] [US1] Write failing component tests for EntityRowConfig label cell colors in `frontend/tests/component/monthly-table.test.ts` (same 7 scenarios as T002)
+- [ ] T003 [P] [US1] Write failing component tests for EntityRowConfig label cell colors in `frontend/tests/component/monthly-table.test.ts` (same 8 scenarios as T002)
 
 - [ ] T004 [P] [US2] Write failing component tests for ExpressionRowConfig label cell colors in `frontend/tests/component/year-table.test.ts`:
   - `text_color: "green"` on expression row → label cell `style` contains `color:green`
   - `background_color: "#ffe0e0"` on expression row → label cell `style` contains `background-color:#ffe0e0`
+  - `text_color: "var(--primary-color)"` on expression row → label cell `style` contains `color:var(--primary-color)` (CSS custom property passthrough; FR-003)
   - Neither field set on expression row → label cell has no `style` attribute
 
-- [ ] T005 [P] [US2] Write failing component tests for ExpressionRowConfig label cell colors in `frontend/tests/component/monthly-table.test.ts` (same 3 scenarios as T004)
+- [ ] T005 [P] [US2] Write failing component tests for ExpressionRowConfig label cell colors in `frontend/tests/component/monthly-table.test.ts` (same 4 scenarios as T004)
 
 **Checkpoint**: All 4 test blocks confirmed FAILING before any implementation begins. T002–T005 failing verifies types exist but render sites do not yet apply color styles.
 
@@ -150,5 +152,5 @@ ExpressionRowConfig entities fall through to the cumulative rendering branch in 
 - All npm commands in WSL via `bash` tool, from `frontend/`
 - Conventional Commits: `type(scope): subject`
 - TDD is the only accepted workflow: Red → Green → Refactor, no exceptions
-- Estimated test count: Phase 2 ≈ 17 tests (7 + 7 + 3 + 3 scenarios across 4 test blocks / 2 components)
+- Estimated test count: Phase 2 ≈ 20 tests (8 + 8 + 4 + 4 scenarios across 4 test blocks / 2 components)
 - `ifDefined` is part of `lit/directives/if-defined.js` — no new dependencies needed (Lit 3.2 already installed)
