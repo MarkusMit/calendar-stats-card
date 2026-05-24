@@ -172,7 +172,7 @@ A user with a German HA installation sees month names and UI text in German. An 
 
 - **FR-008**: Each monthly table MUST include one column per calendar day of that month (day 1 through last day of the month).
 - **FR-009**: Each monthly table MUST include a label column as the first column, showing the entity's display label and unit of measurement.
-- **FR-010**: Each monthly table MUST include a summary column showing monthly min, avg, and max. For `measurement` entities, values MUST be sourced from HA's native monthly-period statistics (authoritative). For cumulative (`total_increasing` / `total`) entities, values MUST be computed by the card from available daily sums with zero-exclusion applied (see FR-016), since HA native monthly mean includes zero-sum days.
+- **FR-010**: Each monthly table MUST include a summary column showing monthly min, avg, and max. For `measurement` entities, values MUST be card-computed from the daily `DailyValue` entries: true monthly min = min of all daily mins; monthly avg = mean of all daily means; true monthly max = max of all daily maxes. HA's native monthly-period `min`/`max` fields MUST NOT be used — they reflect min/max of daily period means, not true intra-day extremes, and would understate measurement range (e.g. temperature). For cumulative (`total_increasing` / `total`) entities, values MUST be computed by the card from available daily sums with zero-exclusion applied (see FR-016), since HA native monthly mean includes zero-sum days.
 - **FR-011**: Each monthly table MUST include a total column for cumulative (`total_increasing` / `total`) entities. The total MUST be the monthly delta: the amount accumulated during that calendar month, computed as `sum[month] − sum[prev_month]` from HA monthly-period statistics. For the first calendar month with recorded data (no previous month `sum` available), the total MUST be `sum[month]` directly. This value is authoritative and may not equal the arithmetic sum of the visible daily sum cells due to coverage gaps.
 - **FR-012**: Each configured entity MUST appear as exactly one row in every monthly table.
 
@@ -206,7 +206,7 @@ A user with a German HA installation sees month names and UI text in German. An 
 
 **Layout and localisation**
 
-- **FR-023**: Card layout MUST be dense — no excessive whitespace; maximum data density per screen area.
+- **FR-023**: Card layout MUST be dense — maximum 4px cell padding; zero decorative gap between cells; no decorative whitespace.
 - **FR-035**: The card MUST render at full content height with no internal vertical scrollbar; vertical scrolling is delegated to the native HA dashboard page scroll.
 - **FR-026**: Each monthly table MUST support horizontal scrolling to accommodate all day columns (up to 31).
 - **FR-027**: The label column of each monthly table MUST remain sticky (always visible) while the user scrolls the day columns horizontally.

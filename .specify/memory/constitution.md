@@ -1,28 +1,30 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: [NEW] → 1.0.0 (initial ratification, all placeholders replaced)
+Version change: 1.0.0 → 1.0.1 (PATCH — Principle III zero-exclusion rule narrowed to precipitation)
 
-Principles defined:
-  I.   HA-Native Design
-  II.  Test-First (TDD) — NON-NEGOTIABLE
-  III. Density & Data Fidelity
-  IV.  Internationalisation from Day One
-  V.   Simplicity & Bounded Scope
+Modified principles:
+  III. Density & Data Fidelity — zero-sum day exclusion restricted to device_class: precipitation only
+       (was: "scalar measurements broadly"; now: precipitation only, all other cumulative included)
 
-Sections added:
-  - Technology Standards
-  - Development Workflow
-  - Governance
+Added sections:
+  none
+
+Removed sections:
+  none
 
 Templates updated:
-  ✅ .specify/templates/plan-template.md — Constitution Check gates added
   ✅ .specify/memory/constitution.md — this file
+  ⚠  .specify/templates/plan-template.md — no changes required (references entities generically)
   ⚠  .specify/templates/spec-template.md — no changes required
-  ⚠  .specify/templates/tasks-template.md — no changes required (TDD note already present)
+  ⚠  .specify/templates/tasks-template.md — no changes required
 
 Deferred:
-  none — all fields resolved
+  none
+
+Rationale for PATCH (not MAJOR): the spec (FR-016) already narrowed this rule before any
+implementation. The constitution is being corrected to match what was always the intended scope;
+no existing implementation is affected.
 -->
 
 # Tabularizer Constitution
@@ -52,9 +54,15 @@ to fix and provides measurable acceptance criteria for every requirement.
 The card layout MUST maximize information density — no decorative whitespace. Day-level data MUST be
 computed accurately per entity type:
 
-- Scalar measurements: single daily value; monthly avg/min/max MUST exclude zero-value days.
-- Range measurements: min/avg/max per day in a single row; separate min/max rows are prohibited.
-- Cumulative (total_increasing / increasing): daily difference (end − start); negative diffs treated as 0.
+- Scalar measurements (total_increasing / total): single daily value (delta from previous day's sum);
+  for `device_class: precipitation`, monthly avg/min/max MUST exclude zero-sum days (days with no
+  rainfall are not relevant to precipitation statistics); for all other cumulative entities, zero-sum
+  days MUST be included in monthly summary calculations.
+- Range measurements (measurement state_class): min/avg/max per day in a single row; separate min/max
+  rows are prohibited; monthly min/avg/max MUST be card-computed from daily values (HA monthly-period
+  min/max reflect period-mean extremes, not true daily extremes).
+- Negative daily deltas: for `total_increasing` entities, treated as 0 (counter reset anomaly); for
+  `total` entities, shown as-is (legitimate values, e.g. net energy export).
 
 Any deviation from these computation rules is a defect, not a design choice.
 
@@ -63,12 +71,14 @@ error directly undermines its value.
 
 ### IV. Internationalisation from Day One
 
-Every user-visible string MUST be internationalised at the moment it is introduced. Hard-coded display
-strings are prohibited. Supported locales at launch: `en` and `de-AT`. Adding a new locale MUST require
-only a translation file addition — no code changes.
+Every user-visible string MUST be internationalised at the moment it is introduced.
+Hard-coded display strings are prohibited.
+Supported locales at launch: `en` and `de`.
+Home Assistant doesn't support regional variants like `de-AT`.
+Adding a new locale MUST require only a translation file addition — no code changes.
 
-**Rationale**: Retrofitting i18n is expensive. Both locales are required from launch; the architecture
-must accommodate them without later refactoring.
+**Rationale**: Retrofitting i18n is expensive.
+Both locales are required from launch; the architecture must accommodate them without later refactoring.
 
 ### V. Simplicity & Bounded Scope
 
@@ -76,8 +86,8 @@ Features explicitly listed as Out of Scope in any spec MUST NOT be implemented. 
 be introduced without a concrete current need (YAGNI). Three similar lines of code are preferred over
 a premature helper function. All complexity MUST be justified in the plan's Complexity Tracking table.
 
-**Rationale**: HA custom cards accrue complexity quickly. Strict scope discipline keeps the card
-maintainable and prevents shipping half-finished features.
+**Rationale**: HA custom cards accrue complexity quickly.
+Strict scope discipline keeps the card maintainable and prevents shipping half-finished features.
 
 ## Technology Standards
 
@@ -130,4 +140,4 @@ this file).
 Check gate. Plans that cannot satisfy a principle MUST justify the exception in the Complexity Tracking
 table before proceeding.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-19 | **Last Amended**: 2026-05-19
+**Version**: 1.0.1 | **Ratified**: 2026-05-19 | **Last Amended**: 2026-05-24
