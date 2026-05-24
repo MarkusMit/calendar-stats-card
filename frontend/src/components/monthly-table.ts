@@ -144,9 +144,9 @@ export class MonthlyTable extends LitElement {
       const maxCells = [];
       for (let d = 1; d <= 31; d++) {
         if (d > days) {
-          minCells.push(html`<td class="pad-cell"></td>`);
-          meanCells.push(html`<td class="pad-cell"></td>`);
-          maxCells.push(html`<td class="pad-cell"></td>`);
+          minCells.push(html`<td class="pad-cell" style=${ifDefined(labelStyle)}></td>`);
+          meanCells.push(html`<td class="pad-cell" style=${ifDefined(labelStyle)}></td>`);
+          maxCells.push(html`<td class="pad-cell" style=${ifDefined(labelStyle)}></td>`);
           continue;
         }
         const val = this.dailyValues.get(`${key}::${this.dateStr(d)}`);
@@ -156,13 +156,13 @@ export class MonthlyTable extends LitElement {
           const minV = val.min * f;
           const meanV = val.mean * f;
           const maxV = val.max * f;
-          minCells.push(minV === 0 && !showZero ? html`<td class="data-cell"></td>` : html`<td class="data-cell has-data">${nf.format(minV)}${pc}</td>`);
-          meanCells.push(meanV === 0 && !showZero ? html`<td class="data-cell"></td>` : html`<td class="data-cell has-data">${nf.format(meanV)}</td>`);
-          maxCells.push(maxV === 0 && !showZero ? html`<td class="data-cell"></td>` : html`<td class="data-cell has-data">${nf.format(maxV)}${pc}</td>`);
+          minCells.push(minV === 0 && !showZero ? html`<td class="data-cell" style=${ifDefined(labelStyle)}></td>` : html`<td class="data-cell has-data" style=${ifDefined(labelStyle)}>${nf.format(minV)}${pc}</td>`);
+          meanCells.push(meanV === 0 && !showZero ? html`<td class="data-cell" style=${ifDefined(labelStyle)}></td>` : html`<td class="data-cell has-data" style=${ifDefined(labelStyle)}>${nf.format(meanV)}</td>`);
+          maxCells.push(maxV === 0 && !showZero ? html`<td class="data-cell" style=${ifDefined(labelStyle)}></td>` : html`<td class="data-cell has-data" style=${ifDefined(labelStyle)}>${nf.format(maxV)}${pc}</td>`);
         } else {
-          minCells.push(html`<td class="data-cell"></td>`);
-          meanCells.push(html`<td class="data-cell"></td>`);
-          maxCells.push(html`<td class="data-cell"></td>`);
+          minCells.push(html`<td class="data-cell" style=${ifDefined(labelStyle)}></td>`);
+          meanCells.push(html`<td class="data-cell" style=${ifDefined(labelStyle)}></td>`);
+          maxCells.push(html`<td class="data-cell" style=${ifDefined(labelStyle)}></td>`);
         }
       }
 
@@ -185,9 +185,9 @@ export class MonthlyTable extends LitElement {
       return html`${visibleRows.map((row, idx) => html`
         <tr class="${idx < visibleRows.length - 1 ? 'sub-row' : ''}">
           ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(labelStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>` : ''}
-          <td class="sub-label">${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
+          <td class="sub-label" style=${ifDefined(labelStyle)}>${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
           ${cells[row]}
-          <td class="summary-column">${summaryVals[row]}</td>
+          <td class="summary-column" style=${ifDefined(labelStyle)}>${summaryVals[row]}</td>
         </tr>
       `)}`;
     }
@@ -196,7 +196,7 @@ export class MonthlyTable extends LitElement {
     const dayCells = [];
     for (let d = 1; d <= 31; d++) {
       if (d > days) {
-        dayCells.push(html`<td class="pad-cell"></td>`);
+        dayCells.push(html`<td class="pad-cell" style=${ifDefined(labelStyle)}></td>`);
         continue;
       }
       const val = this.dailyValues.get(`${key}::${this.dateStr(d)}`);
@@ -211,7 +211,7 @@ export class MonthlyTable extends LitElement {
           cellContent = `${nf.format(v)}${val.partialCoverage ? '*' : ''}`;
         }
       }
-      dayCells.push(html`<td class="data-cell ${cellContent ? 'has-data' : ''}">${cellContent}</td>`);
+      dayCells.push(html`<td class="data-cell ${cellContent ? 'has-data' : ''}" style=${ifDefined(labelStyle)}>${cellContent}</td>`);
     }
     const cumulErc = 'entity' in cfg ? cfg : null;
     const showMin = cumulErc?.show_min !== false;
@@ -230,8 +230,8 @@ export class MonthlyTable extends LitElement {
       <tr>
         <td class="label-column" colspan="${hasMeasurement ? 2 : 1}" style=${ifDefined(labelStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>
         ${dayCells}
-        <td class="summary-column">${summaryContent}</td>
-        <td class="summary-column">${totalContent}</td>
+        <td class="summary-column" style=${ifDefined(labelStyle)}>${summaryContent}</td>
+        <td class="summary-column" style=${ifDefined(labelStyle)}>${totalContent}</td>
       </tr>
     `;
   }

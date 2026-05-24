@@ -814,12 +814,12 @@ describe('MonthlyTable — label cell colors (EntityRowConfig)', () => {
     return el;
   }
 
-  it('text_color: "red" on measurement → label cell style contains color:red; data cells have no style', async () => {
+  it('text_color: "red" on measurement → label cell and data cells all have color:red in style', async () => {
     const el = await renderEntityColor([{ entity: ENTITY_ID, text_color: 'red' }]);
     const labelCell = el.shadowRoot!.querySelector('td.label-column[rowspan]');
     expect(labelCell?.getAttribute('style')).toContain('color:red');
-    for (const cell of el.shadowRoot!.querySelectorAll('td.data-cell')) {
-      expect(cell.getAttribute('style')).toBeNull();
+    for (const cell of el.shadowRoot!.querySelectorAll('td.data-cell, td.sub-label, td.summary-column')) {
+      expect(cell.getAttribute('style')).toContain('color:red');
     }
   });
 
@@ -848,12 +848,12 @@ describe('MonthlyTable — label cell colors (EntityRowConfig)', () => {
     expect(labelCell?.getAttribute('style')).toContain('color:var(--primary-color)');
   });
 
-  it('measurement rowspan>1: spanned label cell has color; sub-label cells have no style', async () => {
+  it('measurement rowspan>1: spanned label cell and sub-label cells all have color', async () => {
     const el = await renderEntityColor([{ entity: ENTITY_ID, text_color: 'blue' }]);
     const labelCell = el.shadowRoot!.querySelector('td.label-column[rowspan]');
     expect(labelCell?.getAttribute('style')).toContain('color:blue');
     for (const cell of el.shadowRoot!.querySelectorAll('td.sub-label')) {
-      expect(cell.getAttribute('style')).toBeNull();
+      expect(cell.getAttribute('style')).toContain('color:blue');
     }
   });
 
@@ -874,7 +874,7 @@ describe('MonthlyTable — label cell colors (EntityRowConfig)', () => {
     expect(labelCell?.getAttribute('style')).toContain('color:green');
   });
 
-  it('two entities: configured entity label has style; other label has no style', async () => {
+  it('two entities: configured entity cells have style; other entity cells have no style', async () => {
     const precipMeta: EntityMetadata = {
       entityId: 'sensor.rain',
       stateClass: 'total_increasing',
@@ -889,6 +889,9 @@ describe('MonthlyTable — label cell colors (EntityRowConfig)', () => {
     );
     const measLabel = el.shadowRoot!.querySelector('td.label-column[rowspan]');
     expect(measLabel?.getAttribute('style')).toContain('color:red');
+    for (const cell of el.shadowRoot!.querySelectorAll('td.sub-label')) {
+      expect(cell.getAttribute('style')).toContain('color:red');
+    }
     const cumulLabel = el.shadowRoot!.querySelector('td.label-column[colspan]');
     expect(cumulLabel?.getAttribute('style')).toBeNull();
   });
