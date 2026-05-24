@@ -130,6 +130,61 @@ export function transformDailyStats(
   return result;
 }
 
+export function computeMonthlySummaryFromDailyValues(
+  entityId: string,
+  year: number,
+  month: number,
+  isMeasurement: boolean,
+  isPrecipitation: boolean,
+  dailyValues: Map<string, DailyValue>,
+): MonthlySummary | null {
+  if (isMeasurement) {
+    // HA monthly stats return min/max of period means, not true min/max of the month.
+    // Recompute from daily values so summary is consistent with displayed daily cells.
+    const mins: number[] = [];
+    const means: number[] = [];
+    const maxes: number[] = [];
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayVal = dailyValues.get(`${entityId}::${dateStr}`);
+      if (dayVal?.kind === 'measurement') {
+        mins.push(dayVal.min);
+        means.push(dayVal.mean);
+        maxes.push(dayVal.max);
+      }
+    }
+    if (mins.length === 0) return null;
+    return {
+      entityId,
+      year,
+      month,
+      min: Math.min(...mins),
+      mean: means.reduce((a, b) => a + b, 0) / means.length,
+      max: Math.max(...maxes),
+      total: null,
+    };
+  } else {
+    // Cumulative: all stats computed from daily values (correctly handles year boundary)
+    const filteredSums = collectDailySums(entityId, year, month, dailyValues, isPrecipitation);
+    const allSums = isPrecipitation
+      ? collectDailySums(entityId, year, month, dailyValues, false)
+      : filteredSums;
+
+    if (allSums.length === 0) return null;
+
+    return {
+      entityId,
+      year,
+      month,
+      min: filteredSums.length > 0 ? Math.min(...filteredSums) : null,
+      mean: filteredSums.length > 0 ? filteredSums.reduce((a, b) => a + b, 0) / filteredSums.length : null,
+      max: filteredSums.length > 0 ? Math.max(...filteredSums) : null,
+      total: allSums.reduce((a, b) => a + b, 0),
+    };
+  }
+}
+
 /**
  * Transform raw HA monthly-period statistics into a map of MonthlySummary entries.
  * Key format: `${entityId}::${year}-${month}`
@@ -156,53 +211,8 @@ export function transformMonthlyStats(
       const month = date.getUTCMonth() + 1;
       const key = `${entityId}::${year}-${month}`;
 
-      if (isMeasurement) {
-        // HA monthly stats return min/max of period means, not true min/max of the month.
-        // Recompute from daily values so summary is consistent with displayed daily cells.
-        const mins: number[] = [];
-        const means: number[] = [];
-        const maxes: number[] = [];
-        const daysInMonth = new Date(year, month, 0).getDate();
-        for (let day = 1; day <= daysInMonth; day++) {
-          const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          const dayVal = dailyValues.get(`${entityId}::${dateStr}`);
-          if (dayVal?.kind === 'measurement') {
-            mins.push(dayVal.min);
-            means.push(dayVal.mean);
-            maxes.push(dayVal.max);
-          }
-        }
-        result.set(key, {
-          entityId,
-          year,
-          month,
-          min: mins.length > 0 ? Math.min(...mins) : null,
-          mean: means.length > 0 ? means.reduce((a, b) => a + b, 0) / means.length : null,
-          max: maxes.length > 0 ? Math.max(...maxes) : null,
-          total: null,
-        });
-      } else {
-        // Cumulative: all stats computed from daily values (correctly handles year boundary)
-        const filteredSums = collectDailySums(entityId, year, month, dailyValues, isPrecipitation);
-        const allSums = isPrecipitation
-          ? collectDailySums(entityId, year, month, dailyValues, false)
-          : filteredSums;
-
-        const minVal = filteredSums.length > 0 ? Math.min(...filteredSums) : null;
-        const maxVal = filteredSums.length > 0 ? Math.max(...filteredSums) : null;
-        const meanVal = filteredSums.length > 0 ? filteredSums.reduce((a, b) => a + b, 0) / filteredSums.length : null;
-        const total = allSums.length > 0 ? allSums.reduce((a, b) => a + b, 0) : null;
-
-        result.set(key, {
-          entityId,
-          year,
-          month,
-          min: minVal,
-          mean: meanVal,
-          max: maxVal,
-          total,
-        });
-      }
+      const summary = computeMonthlySummaryFromDailyValues(entityId, year, month, isMeasurement, isPrecipitation, dailyValues);
+      result.set(key, summary ?? { entityId, year, month, min: null, mean: null, max: null, total: null });
     }
   }
 

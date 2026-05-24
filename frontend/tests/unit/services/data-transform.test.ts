@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   transformDailyStats,
   transformMonthlyStats,
+  computeMonthlySummaryFromDailyValues,
 } from '../../../src/services/data-transform';
 import type { EntityMetadata } from '../../../src/types/statistics';
 
@@ -322,5 +323,58 @@ describe('transformMonthlyStats', () => {
     const feb = result.get('sensor.energy::2025-2');
     expect(jan?.total).toBe(10);   // 3 + 7
     expect(feb?.total).toBe(30);   // 30
+  });
+});
+
+describe('computeMonthlySummaryFromDailyValues', () => {
+  it('measurement entity: min/mean/max from daily entries, total null', () => {
+    const dailyValues = new Map([
+      ['sensor.temp::2026-05-01', { kind: 'measurement' as const, entityId: 'sensor.temp', date: '2026-05-01', min: 10, mean: 15, max: 20, partialCoverage: false }],
+      ['sensor.temp::2026-05-02', { kind: 'measurement' as const, entityId: 'sensor.temp', date: '2026-05-02', min: 8, mean: 13, max: 18, partialCoverage: false }],
+      ['sensor.temp::2026-05-03', { kind: 'measurement' as const, entityId: 'sensor.temp', date: '2026-05-03', min: 12, mean: 17, max: 22, partialCoverage: false }],
+    ]);
+    const result = computeMonthlySummaryFromDailyValues('sensor.temp', 2026, 5, true, false, dailyValues);
+    expect(result).not.toBeNull();
+    expect(result!.min).toBe(8);
+    expect(result!.mean).toBeCloseTo((15 + 13 + 17) / 3);
+    expect(result!.max).toBe(22);
+    expect(result!.total).toBeNull();
+  });
+
+  it('cumulative entity: total = sum of daily sums, min/mean/max from sums', () => {
+    const dailyValues = new Map([
+      ['sensor.energy::2026-05-01', { kind: 'cumulative' as const, entityId: 'sensor.energy', date: '2026-05-01', sum: 5, partialCoverage: false }],
+      ['sensor.energy::2026-05-02', { kind: 'cumulative' as const, entityId: 'sensor.energy', date: '2026-05-02', sum: 3, partialCoverage: false }],
+      ['sensor.energy::2026-05-03', { kind: 'cumulative' as const, entityId: 'sensor.energy', date: '2026-05-03', sum: 8, partialCoverage: false }],
+    ]);
+    const result = computeMonthlySummaryFromDailyValues('sensor.energy', 2026, 5, false, false, dailyValues);
+    expect(result).not.toBeNull();
+    expect(result!.total).toBe(16);  // 5 + 3 + 8
+    expect(result!.min).toBe(3);
+    expect(result!.mean).toBeCloseTo((5 + 3 + 8) / 3);
+    expect(result!.max).toBe(8);
+  });
+
+  it('precipitation: zero-sum days excluded from min/mean/max, total includes all', () => {
+    const dailyValues = new Map([
+      ['sensor.rain::2026-05-01', { kind: 'cumulative' as const, entityId: 'sensor.rain', date: '2026-05-01', sum: 0, partialCoverage: false }],
+      ['sensor.rain::2026-05-02', { kind: 'cumulative' as const, entityId: 'sensor.rain', date: '2026-05-02', sum: 4, partialCoverage: false }],
+      ['sensor.rain::2026-05-03', { kind: 'cumulative' as const, entityId: 'sensor.rain', date: '2026-05-03', sum: 0, partialCoverage: false }],
+      ['sensor.rain::2026-05-04', { kind: 'cumulative' as const, entityId: 'sensor.rain', date: '2026-05-04', sum: 6, partialCoverage: false }],
+    ]);
+    const result = computeMonthlySummaryFromDailyValues('sensor.rain', 2026, 5, false, true, dailyValues);
+    expect(result).not.toBeNull();
+    expect(result!.total).toBe(10);  // 0 + 4 + 0 + 6
+    expect(result!.min).toBe(4);     // zeros excluded
+    expect(result!.mean).toBeCloseTo((4 + 6) / 2);
+    expect(result!.max).toBe(6);
+  });
+
+  it('no daily data for month: returns null', () => {
+    const dailyValues = new Map([
+      ['sensor.temp::2026-04-01', { kind: 'measurement' as const, entityId: 'sensor.temp', date: '2026-04-01', min: 5, mean: 10, max: 15, partialCoverage: false }],
+    ]);
+    const result = computeMonthlySummaryFromDailyValues('sensor.temp', 2026, 5, true, false, dailyValues);
+    expect(result).toBeNull();
   });
 });

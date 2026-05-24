@@ -4,7 +4,7 @@ import type { CardConfig } from './types/card-config';
 import type { HomeAssistant } from './types/ha-types';
 import type { ViewState, YearStatistics } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
-import { transformDailyStats, transformMonthlyStats, collectDailySums } from './services/data-transform';
+import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues } from './services/data-transform';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
 import { localize } from './localize/localize';
 import './components/loading-overlay';
@@ -231,6 +231,27 @@ export class TabularzerCard extends LitElement {
             max: Math.max(...sums),
             total,
           });
+        }
+      }
+
+      // For current year: fill in missing summaries for the current (incomplete) month
+      const { year: currentYear, month: currentMonth } = this._currentYearMonth();
+      if (year === currentYear) {
+        for (const cfg of this._config.entities) {
+          if (!('entity' in cfg)) continue;
+          const entityId = cfg.entity;
+          const meta = metadataMap[entityId];
+          if (!meta) continue;
+          const key = `${entityId}::${year}-${currentMonth}`;
+          if (!monthlySummaries.has(key)) {
+            const s = computeMonthlySummaryFromDailyValues(
+              entityId, year, currentMonth,
+              meta.stateClass === 'measurement',
+              meta.deviceClass === 'precipitation',
+              dailyValues,
+            );
+            if (s) monthlySummaries.set(key, s);
+          }
         }
       }
 

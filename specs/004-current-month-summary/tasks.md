@@ -18,7 +18,7 @@
 
 > **TDD**: Confirm tests FAIL (`npm test`) before moving to Phase 2.
 
-- [ ] T001 [US1] Write failing unit tests for `computeMonthlySummaryFromDailyValues` in `frontend/tests/unit/services/data-transform.test.ts`:
+- [X] T001 [US1] Write failing unit tests for `computeMonthlySummaryFromDailyValues` in `frontend/tests/unit/services/data-transform.test.ts`:
   - Import `computeMonthlySummaryFromDailyValues` from `../../src/services/data-transform` (alongside existing imports)
   - Describe block: `computeMonthlySummaryFromDailyValues`
   - Test 1 — measurement entity: given a `dailyValues` map with 3 measurement entries for `sensor.temp` in `2026-05` (e.g. days 1–3, each with min/mean/max), calling `computeMonthlySummaryFromDailyValues('sensor.temp', 2026, 5, true, false, dailyValues)` returns a `MonthlySummary` with `min = Math.min(...daily mins)`, `mean = avg of daily means`, `max = Math.max(...daily maxes)`, `total = null`
@@ -38,13 +38,13 @@
 
 > **TDD**: T001 must be confirmed failing before T002 begins.
 
-- [ ] T002 [US1] Extract `computeMonthlySummaryFromDailyValues` helper in `frontend/src/services/data-transform.ts`:
+- [X] T002 [US1] Extract `computeMonthlySummaryFromDailyValues` helper in `frontend/src/services/data-transform.ts`:
   - Add exported function signature: `export function computeMonthlySummaryFromDailyValues(entityId: string, year: number, month: number, isMeasurement: boolean, isPrecipitation: boolean, dailyValues: Map<string, DailyValue>): MonthlySummary | null`
   - Move the measurement-branch computation (currently inside `transformMonthlyStats` lines ~162–183) into this function; return `null` when no daily data exists for the month
   - Move the cumulative-branch computation (currently lines ~186–204) into this function; return `null` when `allSums.length === 0`
   - Refactor `transformMonthlyStats` to call `computeMonthlySummaryFromDailyValues` for both branches — behavior for complete months unchanged; existing tests must still pass
 
-- [ ] T003 [US1] Add current-month fill-in pass in `frontend/src/tabularizer-card.ts`:
+- [X] T003 [US1] Add current-month fill-in pass in `frontend/src/tabularizer-card.ts`:
   - Import `computeMonthlySummaryFromDailyValues` from `./services/data-transform`
   - After the expression-row monthly summary loop (currently ~line 235), add a fill-in block:
     - Only when `year === currentYear` (use the already-computed `currentYear` / `currentMonth` values from `this._currentYearMonth()`)
@@ -60,7 +60,7 @@
 
 ## Phase 3: Polish
 
-- [ ] T004 Run full test suite (`npm test`) and confirm all tests pass; run `npm run build` and confirm `frontend/dist/tabularizer-card.js` produced without errors; verify no TypeScript errors (`npx tsc --noEmit`)
+- [X] T004 Run full test suite (`npm test`) and confirm all tests pass; run `npm run build` and confirm `frontend/dist/tabularizer-card.js` produced without errors; verify no TypeScript errors (`npx tsc --noEmit`)
 
 ---
 
