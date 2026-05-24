@@ -5,9 +5,24 @@
 ### EntityConfig — user-facing configuration entry
 
 ```typescript
-interface EntityConfig {
-  entity: string;   // HA entity ID (e.g. "sensor.outdoor_temp")
-  label?: string;   // Optional display label override
+// Union type — config list may contain entity rows or expression rows
+type EntityConfig = EntityRowConfig | ExpressionRowConfig;
+
+interface EntityRowConfig {
+  entity: string;      // HA entity ID
+  name?: string;       // Optional display label override
+  precision?: number;  // Optional decimal digit count
+  factor?: number;     // Optional value multiplier (default 1)
+  unit?: string;       // Optional unit of measurement override
+  show_zero?: boolean; // When false, zero day cells render blank (default true)
+}
+
+interface ExpressionRowConfig {
+  expression: string;  // Arithmetic formula combining entity IDs (e.g. "{{ sensor.a + sensor.b }}")
+  name?: string;
+  unit?: string;
+  precision?: number;
+  show_zero?: boolean;
 }
 ```
 
@@ -16,7 +31,7 @@ interface EntityConfig {
 ```typescript
 interface CardConfig {
   type: string;              // "custom:tabularizer-card"
-  entities: EntityConfig[];  // Order preserved; duplicates allowed; may be empty
+  entities: EntityConfig[];  // Union of EntityRowConfig | ExpressionRowConfig; order preserved; duplicates allowed; may be empty
 }
 ```
 
@@ -110,7 +125,7 @@ interface MonthlySummary {
 
 | Entity type | min/mean/max source | total source |
 |---|---|---|
-| `measurement` | HA monthly-period stats directly (authoritative) | null (no total column) |
+| `measurement` | Card-computed from daily `DailyValue` entries (HA monthly-period means are period-mean extremes, not true daily min/max) | null (no total column) |
 | `total_increasing` / `total`, `device_class: precipitation` | Card-computed from daily `sum` values, **zero-sum days excluded** (FR-016) | `monthlySum[M] − monthlySum[M-1]`; first month: `monthlySum[0]` (FR-011) |
 | `total_increasing` / `total`, all other device_class | Card-computed from daily `sum` values, **zero-sum days included** (FR-016) | Same monthly delta formula |
 
@@ -141,7 +156,7 @@ interface YearStatistics {
 
 ```
 CardConfig
-  └── EntityConfig[]          (ordered list; duplicates allowed; position = row order)
+  └── EntityConfig[]          (union of EntityRowConfig | ExpressionRowConfig; ordered; duplicates allowed; position = row order)
         └── EntityMetadata    (one per unique entityId, resolved from HA at runtime)
 
 ViewState

@@ -74,6 +74,9 @@ A user configures the card to track specific HA entities — for example, outdoo
 2. **Given** a user sets a `name` override for an entity, **When** the card renders, **Then** the overridden name is shown in the label column instead of the HA-provided friendly name.
 3. **Given** no `name` override is set for an entity, **When** the card renders, **Then** the entity's HA-provided friendly name is used as the label.
 4. **Given** a user sets `precision: 0` for an entity, **When** the card renders, **Then** all numeric values for that entity are shown as whole numbers (no decimal digits).
+5. **Given** a user sets `factor: 0.001` and `unit: 'kWh'` for an entity, **When** the card renders, **Then** all values for that entity are scaled by 0.001 and the label column shows 'kWh' as the unit.
+6. **Given** a user sets `show_zero: false` for an entity, **When** the card renders, **Then** day cells with a computed value of 0 appear blank; summary columns are unaffected.
+7. **Given** a user adds an expression row (e.g. `expression: '{{ sensor.a + sensor.b }}'`), **When** the card renders, **Then** the expression row appears as a single row per monthly table with daily values computed from the referenced entities' daily sums.
 
 ---
 
@@ -184,6 +187,7 @@ A user with a German HA installation sees month names and UI text in German. An 
 - **FR-030**: For `measurement` state_class entities, a day cell with fewer than 24 hours of recorded statistics MUST display a coverage indicator alongside the min/avg/max value to signal that the figures may be incomplete. The coverage indicator is a superscript asterisk appended to the cell value (e.g., `18.3*`).
 - **FR-031**: For cumulative entities, a day cell MUST display a coverage indicator when recorded statistics are missing at the start or end of the calendar day, because the daily sum calculation is unreliable in that case. The coverage indicator is a superscript asterisk appended to the cell value (e.g., `4.2*`).
 - **FR-032**: For cumulative (`total_increasing` / `total`) entities, gaps in recorded statistics that do not fall at the start or end of the calendar day MUST be rendered silently; no coverage indicator is shown (coverage indicators only apply to day-boundary gaps per FR-031).
+- **FR-039**: The `entities` configuration list MAY contain expression rows in addition to entity rows. An expression row uses an `expression` field (instead of `entity`) containing a simple arithmetic formula that combines entity daily values using entity IDs, numeric literals, `+`, `-`, `*`, `/`, and parentheses; the expression MAY be wrapped in `{{ ... }}` delimiters. Entity IDs referenced in the expression are resolved to their daily sum value (same pipeline as cumulative entities). Expression rows MUST produce a single value per day cell. Monthly summary min/avg/max and total for expression rows MUST be computed by the card from the expression's daily values. Expression rows support `name`, `unit`, `precision`, and `show_zero` fields; they do NOT support `factor` (scaling can be incorporated directly in the expression).
 
 **Loading and error states**
 
@@ -197,6 +201,8 @@ A user with a German HA installation sees month names and UI text in German. An 
 - **FR-021**: Card MUST allow an optional display name override (`name`) per configured entity.
 - **FR-022**: When no `name` override is provided for an entity, the entity's HA-provided friendly name MUST be used as the label.
 - **FR-036**: Card MUST allow an optional `precision` integer per configured entity controlling the number of decimal digits shown in day cells and summary columns. When omitted, values are shown with their full native precision as received from HA (no artificial rounding).
+- **FR-037**: Card MUST allow an optional `factor` number and an optional `unit` string per entity row config. When `factor` is present, all displayed values for that entity (day cells and summary columns) MUST be multiplied by `factor` before rendering; the default is 1 (no scaling). When `unit` is present, it MUST override the HA-provided unit of measurement shown in the label column; when absent, the HA entity's unit of measurement is used. `factor` and `unit` are not available on expression rows.
+- **FR-038**: Card MUST allow an optional `show_zero` boolean per entity row config and per expression row config. When `show_zero: false`, day cells whose computed value is exactly 0 MUST render as blank with no content and no data styling; summary columns (min/avg/max/total) MUST be unaffected. The default is `true` (zero values are shown).
 
 **Layout and localisation**
 
@@ -206,13 +212,16 @@ A user with a German HA installation sees month names and UI text in German. An 
 - **FR-027**: The label column of each monthly table MUST remain sticky (always visible) while the user scrolls the day columns horizontally.
 - **FR-024**: Card MUST support English (`en`) and German (`de`) for all displayed text.
 - **FR-025**: The active locale MUST be determined automatically from the HA instance's language setting; no per-card locale configuration is required.
+- **FR-040**: When any measurement entity is present in a table, each monthly table MUST render a narrow sub-label column between the entity label column and the day columns. For `measurement` entity rows, the sub-label column MUST display localised text labels for the three sub-rows (min, avg, max). For all other row types (cumulative and expression rows), the label cell MUST span both the label and sub-label columns (colspan=2) to maintain column alignment. The sub-label column is not sticky.
 
 ### Key Entities
 
-- **EntityConfig**: A user-specified HA entity ID with an optional `name` override and optional `precision` (decimal digits). The card resolves the entity's measurement type from HA metadata. Entity ID uniqueness is not enforced — the same entity ID may appear in multiple EntityConfig entries, each producing its own row.
+- **EntityConfig**: A union of `EntityRowConfig | ExpressionRowConfig`. Represents one row in the entities configuration list. Entity ID uniqueness is not enforced — the same entity ID may appear in multiple entries, each producing its own row.
+- **EntityRowConfig**: An entity-based row config — a HA entity ID with optional `name` (display name override), `precision` (decimal digits), `factor` (numeric scaling multiplier), `unit` (unit of measurement override), and `show_zero` (whether to render zero day cells). The card resolves the entity's measurement type from HA metadata.
+- **ExpressionRowConfig**: An expression-based row config — an arithmetic expression string combining entity daily sums, with optional `name`, `unit`, `precision`, and `show_zero` fields. Produces a single cumulative-style value per day cell. Does not support `factor`.
 - **MonthlyTable**: The data grid for one calendar month — rows are entity configs, columns are days plus label/summary/total columns.
 - **DailyValue**: The statistic(s) recorded for one entity on one calendar day: min/avg/max triple for `measurement` entities; daily sum (accumulated change) for `total_increasing` / `total` entities.
-- **MonthlySummary**: Monthly-period statistics for one entity. `measurement` entities: min, avg, max sourced from HA native monthly statistics (authoritative). `total_increasing` / `total` entities with `device_class: precipitation`: min, avg, max computed by the card from daily sums with zero-exclusion applied (zero-sum days excluded), plus a total equal to the monthly delta (`sum[month] − sum[prev_month]` from HA monthly-period statistics). All other `total_increasing` / `total` entities: min, avg, max computed by the card from all daily sums (zero-sum days included), plus a total equal to the monthly delta.
+- **MonthlySummary**: Monthly-period statistics for one entity. `measurement` entities: min, avg, max card-computed from daily `DailyValue` entries (HA monthly-period means are period-mean extremes, not true daily min/max). `total_increasing` / `total` entities with `device_class: precipitation`: min, avg, max computed by the card from daily sums with zero-exclusion applied (zero-sum days excluded), plus a total equal to the monthly delta (`sum[month] − sum[prev_month]` from HA monthly-period statistics). All other `total_increasing` / `total` entities: min, avg, max computed by the card from all daily sums (zero-sum days included), plus a total equal to the monthly delta.
 
 ## Success Criteria *(mandatory)*
 

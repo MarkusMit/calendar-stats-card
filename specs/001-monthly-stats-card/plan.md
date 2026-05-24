@@ -84,18 +84,20 @@ frontend/
 │   ├── tabularizer-card.ts           # Root custom element (LitElement)
 │   ├── components/
 │   │   ├── year-navigator.ts         # ‹ YYYY › navigation bar
-│   │   ├── monthly-table.ts          # Month grid: entity rows × day columns
+│   │   ├── year-table.ts             # Primary grid: all months of a year in one table
+│   │   ├── monthly-table.ts          # Per-month grid (exists; not used by main card)
 │   │   └── loading-overlay.ts        # Spinner overlay during statistics fetch
 │   ├── services/
 │   │   ├── statistics-service.ts     # HA WebSocket API calls (recorder/statistics_during_period)
-│   │   └── data-transform.ts         # Raw HA API response → DailyValue / MonthlySummary
+│   │   ├── data-transform.ts         # Raw HA API response → DailyValue / MonthlySummary
+│   │   └── expression-evaluator.ts   # Arithmetic expression parser and evaluator
 │   ├── localize/
 │   │   └── localize.ts               # i18n key lookup + Intl formatting helpers
 │   ├── translations/
 │   │   ├── en.json                   # English strings
 │   │   └── de.json                   # German strings
 │   └── types/
-│       ├── card-config.ts            # CardConfig, EntityConfig (entity, name?, precision?)
+│       ├── card-config.ts            # CardConfig, EntityConfig union (EntityRowConfig | ExpressionRowConfig)
 │       ├── statistics.ts             # DailyValue, MonthlySummary, ViewState, EntityMetadata
 │       └── ha-types.ts               # Minimal HA API type shims (HomeAssistant, etc.)
 ├── tests/
@@ -152,3 +154,11 @@ Asterisk `*` shown only when hourly stats are available and confirm partial cove
 ### Monthly total for first tracked month (FR-011)
 
 When no prior-month `sum` entry exists in the monthly-period stats, use `monthlySum[0]` directly as the total (the cumulative sum equals the month's accumulation since tracking started).
+
+### Year-table architecture
+
+The card renders all months of a year in a single `<year-table>` component instead of one `<monthly-table>` per month. This allows the day-number header row to be shared across months and gives a more compact layout. The `monthly-table` component is retained for potential standalone use but is not used by the main card.
+
+### Expression rows
+
+The `entities` config list may include expression rows in addition to entity rows. An expression row uses an arithmetic formula (e.g. `{{ sensor.a - sensor.b }}`) to derive daily values from constituent entities' daily sums. The `expression-evaluator.ts` service parses and evaluates the formula per day. Expression rows always produce cumulative-style data (single sum per day cell) and do not have `stateClass`/`deviceClass` metadata.
