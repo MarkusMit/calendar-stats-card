@@ -92,7 +92,7 @@ export class MonthlyTable extends LitElement {
   `;
 
   override updated() {
-    const labelCol = this.shadowRoot?.querySelector<HTMLElement>('.label-column');
+    const labelCol = this.shadowRoot?.querySelector<HTMLElement>('td.label-column[rowspan]');
     if (labelCol) {
       this.style.setProperty('--label-col-width', `${labelCol.getBoundingClientRect().width}px`);
     }
