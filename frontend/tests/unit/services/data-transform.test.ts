@@ -238,7 +238,25 @@ describe('transformMonthlyStats — edge cases', () => {
 });
 
 describe('transformMonthlyStats', () => {
-  it('measurement → passes through HA monthly min/mean/max', () => {
+  it('measurement → min/mean/max computed from daily values, not HA monthly entry', () => {
+    const start = new Date('2025-01-01T00:00:00Z').getTime();
+    const raw: Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]> = {
+      'sensor.temp': [{ start, end: start + 2678400_000, mean: 18, min: 5, max: 30 }], // HA entry deliberately differs
+    };
+    const dailyValues = new Map<string, import('../../../src/types/statistics').DailyValue>([
+      ['sensor.temp::2025-01-01', { kind: 'measurement', entityId: 'sensor.temp', date: '2025-01-01', min: -14, mean: -3, max: 10, partialCoverage: false }],
+      ['sensor.temp::2025-01-02', { kind: 'measurement', entityId: 'sensor.temp', date: '2025-01-02', min: -7, mean: 2, max: 8, partialCoverage: false }],
+    ]);
+    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, dailyValues);
+    const summary = result.get('sensor.temp::2025-1');
+    expect(summary).toBeDefined();
+    expect(summary?.min).toBe(-14);
+    expect(summary?.mean).toBeCloseTo((-3 + 2) / 2);
+    expect(summary?.max).toBe(10);
+    expect(summary?.total).toBeNull();
+  });
+
+  it('measurement with no daily values → null min/mean/max', () => {
     const start = new Date('2025-01-01T00:00:00Z').getTime();
     const raw: Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]> = {
       'sensor.temp': [{ start, end: start + 2678400_000, mean: 18, min: 5, max: 30 }],
@@ -246,9 +264,9 @@ describe('transformMonthlyStats', () => {
     const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, new Map());
     const summary = result.get('sensor.temp::2025-1');
     expect(summary).toBeDefined();
-    expect(summary?.mean).toBe(18);
-    expect(summary?.min).toBe(5);
-    expect(summary?.max).toBe(30);
+    expect(summary?.min).toBeNull();
+    expect(summary?.mean).toBeNull();
+    expect(summary?.max).toBeNull();
     expect(summary?.total).toBeNull();
   });
 

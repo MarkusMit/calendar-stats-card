@@ -157,13 +157,28 @@ export function transformMonthlyStats(
       const key = `${entityId}::${year}-${month}`;
 
       if (isMeasurement) {
+        // HA monthly stats return min/max of period means, not true min/max of the month.
+        // Recompute from daily values so summary is consistent with displayed daily cells.
+        const mins: number[] = [];
+        const means: number[] = [];
+        const maxes: number[] = [];
+        const daysInMonth = new Date(year, month, 0).getDate();
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const dayVal = dailyValues.get(`${entityId}::${dateStr}`);
+          if (dayVal?.kind === 'measurement') {
+            mins.push(dayVal.min);
+            means.push(dayVal.mean);
+            maxes.push(dayVal.max);
+          }
+        }
         result.set(key, {
           entityId,
           year,
           month,
-          min: entry.min ?? null,
-          mean: entry.mean ?? null,
-          max: entry.max ?? null,
+          min: mins.length > 0 ? Math.min(...mins) : null,
+          mean: means.length > 0 ? means.reduce((a, b) => a + b, 0) / means.length : null,
+          max: maxes.length > 0 ? Math.max(...maxes) : null,
           total: null,
         });
       } else {
