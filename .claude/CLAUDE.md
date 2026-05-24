@@ -47,7 +47,7 @@ Supported from day one: `en`, `de`.
 ## Build & Test Commands
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/001-monthly-stats-card/plan.md](../specs/001-monthly-stats-card/plan.md)
+Active feature plan: [specs/003-entity-row-colors/plan.md](../specs/003-entity-row-colors/plan.md)
 <!-- SPECKIT END -->
 
 All commands run in WSL2, from the `frontend/` directory:
