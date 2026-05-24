@@ -192,12 +192,17 @@ export class MonthlyTable extends LitElement {
         max: summary?.max != null ? nf.format(summary.max * f) : '',
       };
 
+      const hasCumulative = this.entityConfigs.some((c) => {
+        const m = this.entityMetadata.get(rowKey(c));
+        return m && m.stateClass !== 'measurement';
+      });
       return html`${visibleRows.map((row, idx) => html`
         <tr class="${idx < visibleRows.length - 1 ? 'sub-row' : ''}">
           ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(labelStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>` : ''}
           <td class="sub-label" style=${ifDefined(labelStyle)}>${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
           ${cells[row]}
           <td class="summary-column" style=${ifDefined(labelStyle)}>${summaryVals[row]}</td>
+          ${hasCumulative ? html`<td class="summary-column" style=${ifDefined(labelStyle)}></td>` : ''}
         </tr>
       `)}`;
     }
