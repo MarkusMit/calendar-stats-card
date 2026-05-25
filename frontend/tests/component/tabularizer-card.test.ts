@@ -636,11 +636,11 @@ describe('TabularzerCard — floating bottom bar', () => {
   });
 
   // T007: FR-007 — .bottom-bar CSS includes HA design tokens
-  it('.bottom-bar CSS includes HA design tokens and border-top (FR-007)', () => {
+  it('.bottom-bar CSS uses fixed positioning and HA design tokens (FR-007)', () => {
     const cssText = String(TabularzerCard.styles);
     expect(cssText).toContain('.bottom-bar');
+    expect(cssText).toContain('position: fixed');
     expect(cssText).toContain('--ha-card-background');
-    expect(cssText).toContain('border-top');
   });
 
   // T010: US2 — legend inside .card-content, not .bottom-bar

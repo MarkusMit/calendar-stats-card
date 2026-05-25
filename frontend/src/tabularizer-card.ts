@@ -46,13 +46,16 @@ export class TabularzerCard extends LitElement {
       padding: 8px;
     }
     .bottom-bar {
+      position: fixed;
+      bottom: max(16px, var(--safe-area-inset-bottom, 0px));
+      left: 16px;
+      z-index: 5;
       display: flex;
       align-items: center;
-      justify-content: center;
       padding: 4px 8px;
-      background: var(--ha-card-background, var(--card-background-color));
-      border-top: 1px solid var(--divider-color, #e0e0e0);
-      box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.08);
+      background: var(--ha-card-background, var(--card-background-color, white));
+      border-radius: var(--ha-card-border-radius, 24px);
+      box-shadow: var(--ha-card-box-shadow, 0px 2px 4px rgba(0, 0, 0, 0.3));
     }
     .no-entities {
       color: var(--secondary-text-color);
