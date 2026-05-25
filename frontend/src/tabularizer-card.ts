@@ -18,6 +18,7 @@ export class TabularzerCard extends LitElement {
   @state() private _config: CardConfig | null = null;
   @state() private _hass: HomeAssistant | null = null;
   @state() private _triggeredThresholds: ThresholdRule[] = [];
+  @state() private _inEditor = false;
   @state() private _viewState: ViewState = {
     selectedYear: new Date().getFullYear(),
     earliestDataYear: null,
@@ -58,10 +59,6 @@ export class TabularzerCard extends LitElement {
       border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.24);
     }
-    :host-context(hui-card-element-editor) .bottom-bar,
-    :host-context(ha-dialog) .bottom-bar {
-      display: none;
-    }
     .no-entities {
       color: var(--secondary-text-color);
       padding: 8px;
@@ -100,6 +97,28 @@ export class TabularzerCard extends LitElement {
 
   get selectedYear(): number {
     return this._viewState.selectedYear;
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    // Walk the composed DOM tree (crossing shadow root boundaries) to detect editor context.
+    // :host-context() cannot cross shadow DOM boundaries, so JS traversal is required.
+    const editorTags = new Set(['hui-card-element-editor', 'hui-dialog-edit-card', 'ha-dialog']);
+    let node: Node | null = this;
+    while (node) {
+      const parent: Node | null = node.parentNode;
+      if (parent) {
+        node = parent;
+      } else if (node instanceof ShadowRoot) {
+        node = node.host;
+      } else {
+        break;
+      }
+      if (node instanceof Element && editorTags.has(node.tagName.toLowerCase())) {
+        this._inEditor = true;
+        return;
+      }
+    }
   }
 
   setConfig(config: CardConfig): void {
@@ -441,7 +460,7 @@ export class TabularzerCard extends LitElement {
               ${this._buildLegend(this._triggeredThresholds, lang)}`
             : ''}
         </div>
-        <div class="bottom-bar">
+        ${!this._inEditor ? html`<div class="bottom-bar">
           ${config
             ? html`<year-navigator
                 .year=${selectedYear}
@@ -452,7 +471,7 @@ export class TabularzerCard extends LitElement {
                 @tabularizer-next-year=${this._onNextYear}
               ></year-navigator>`
             : ''}
-        </div>
+        </div>` : ''}
       </ha-card>
     `;
   }
