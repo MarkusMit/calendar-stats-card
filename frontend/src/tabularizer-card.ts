@@ -40,8 +40,24 @@ export class TabularzerCard extends LitElement {
       display: block;
     }
     ha-card {
+      display: flex;
+      flex-direction: column;
+    }
+    .card-content {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: auto;
       padding: 8px;
-      overflow: hidden;
+    }
+    .bottom-bar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 8px;
+      background: var(--ha-card-background, var(--card-background-color));
+      border-top: 1px solid var(--divider-color, #e0e0e0);
+      box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.08);
     }
     .no-entities {
       color: var(--secondary-text-color);
@@ -403,33 +419,37 @@ export class TabularzerCard extends LitElement {
     return html`
       <ha-card>
         <loading-overlay .visible=${isLoading} .lang=${lang}></loading-overlay>
-        ${config
-          ? html`<year-navigator
-              .year=${selectedYear}
-              .atCurrentYear=${atCurrentYear}
-              .atEarliestYear=${atEarliestYear}
-              .lang=${lang}
-              @tabularizer-prev-year=${this._onPrevYear}
-              @tabularizer-next-year=${this._onNextYear}
-            ></year-navigator>`
-          : ''}
-        ${!isLoading && config && config.entities.length === 0
-          ? html`<p class="no-entities">${localize('card.no_entities', lang)}</p>`
-          : ''}
-        ${!isLoading && config && config.entities.length > 0
-          ? html`<year-table
-              .year=${selectedYear}
-              .visibleMonths=${this._visibleMonths(selectedYear)}
-              .entityConfigs=${config.entities}
-              .dailyValues=${yearStats?.dailyValues ?? this._emptyDailyValues}
-              .monthlySummaries=${yearStats?.monthlySummaries ?? this._emptyMonthlySummaries}
-              .entityMetadata=${yearStats?.entityMetadata ?? this._emptyEntityMetadata}
-              .entityErrors=${this._viewState.entityErrors}
-              .lang=${lang}
-              @thresholds-applied=${this._onThresholdsApplied}
-            ></year-table>
-            ${this._buildLegend(this._triggeredThresholds, lang)}`
-          : ''}
+        <div class="card-content">
+          ${!isLoading && config && config.entities.length === 0
+            ? html`<p class="no-entities">${localize('card.no_entities', lang)}</p>`
+            : ''}
+          ${!isLoading && config && config.entities.length > 0
+            ? html`<year-table
+                .year=${selectedYear}
+                .visibleMonths=${this._visibleMonths(selectedYear)}
+                .entityConfigs=${config.entities}
+                .dailyValues=${yearStats?.dailyValues ?? this._emptyDailyValues}
+                .monthlySummaries=${yearStats?.monthlySummaries ?? this._emptyMonthlySummaries}
+                .entityMetadata=${yearStats?.entityMetadata ?? this._emptyEntityMetadata}
+                .entityErrors=${this._viewState.entityErrors}
+                .lang=${lang}
+                @thresholds-applied=${this._onThresholdsApplied}
+              ></year-table>
+              ${this._buildLegend(this._triggeredThresholds, lang)}`
+            : ''}
+        </div>
+        <div class="bottom-bar">
+          ${config
+            ? html`<year-navigator
+                .year=${selectedYear}
+                .atCurrentYear=${atCurrentYear}
+                .atEarliestYear=${atEarliestYear}
+                .lang=${lang}
+                @tabularizer-prev-year=${this._onPrevYear}
+                @tabularizer-next-year=${this._onNextYear}
+              ></year-navigator>`
+            : ''}
+        </div>
       </ha-card>
     `;
   }

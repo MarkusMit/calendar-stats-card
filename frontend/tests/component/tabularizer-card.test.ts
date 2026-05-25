@@ -571,3 +571,99 @@ describe('TabularzerCard — threshold legend', () => {
     expect(card.shadowRoot!.querySelector('.legend')!.textContent).toContain('Summer day');
   });
 });
+
+// --- Floating bottom bar (008) ---
+
+describe('TabularzerCard — floating bottom bar', () => {
+  // T002
+  it('renders .bottom-bar element in shadow DOM', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      expect(card.shadowRoot!.querySelector('.bottom-bar')).not.toBeNull();
+    }, { timeout: 3000 });
+  });
+
+  // T003
+  it('year-navigator is a descendant of .bottom-bar', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      expect(card.shadowRoot!.querySelector('.bottom-bar year-navigator')).not.toBeNull();
+    }, { timeout: 3000 });
+  });
+
+  // T004
+  it('all year-navigator elements are inside .bottom-bar', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      const bar = card.shadowRoot!.querySelector('.bottom-bar');
+      expect(bar).not.toBeNull();
+      const navs = Array.from(card.shadowRoot!.querySelectorAll('year-navigator'));
+      expect(navs.length).toBeGreaterThan(0);
+      navs.forEach(nav => expect(bar!.contains(nav)).toBe(true));
+    }, { timeout: 3000 });
+  });
+
+  // T005
+  it('year-table is a descendant of .card-content', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      expect(card.shadowRoot!.querySelector('.card-content year-table')).not.toBeNull();
+    }, { timeout: 3000 });
+  });
+
+  // T006
+  it('year-changed event from .bottom-bar navigator updates selected year', async () => {
+    const currentYear = new Date().getFullYear();
+    const earliestStart = new Date(currentYear - 1, 0, 1).getTime();
+    const sendMsg = vi.fn()
+      .mockResolvedValueOnce([{ statistic_id: 'sensor.temp', start: earliestStart }])
+      .mockResolvedValue({});
+    const card = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      expect(card.shadowRoot!.querySelector('.bottom-bar year-navigator')).not.toBeNull();
+    }, { timeout: 3000 });
+    const nav = card.shadowRoot!.querySelector('.bottom-bar year-navigator')!;
+    nav.dispatchEvent(new CustomEvent('tabularizer-prev-year', { bubbles: true }));
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      expect(card.selectedYear).toBe(currentYear - 1);
+    }, { timeout: 3000 });
+  });
+
+  // T007: FR-007 — .bottom-bar CSS includes HA design tokens
+  it('.bottom-bar CSS includes HA design tokens and border-top (FR-007)', () => {
+    const cssText = String(TabularzerCard.styles);
+    expect(cssText).toContain('.bottom-bar');
+    expect(cssText).toContain('--ha-card-background');
+    expect(cssText).toContain('border-top');
+  });
+
+  // T010: US2 — legend inside .card-content, not .bottom-bar
+  it('legend is inside .card-content, not .bottom-bar', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'orange', name: 'Warm' };
+    await triggerThresholdsApplied(card, [rule]);
+    const bar = card.shadowRoot!.querySelector('.bottom-bar');
+    expect(bar).not.toBeNull();
+    expect(bar!.querySelector('.legend')).toBeNull();
+    const content = card.shadowRoot!.querySelector('.card-content');
+    expect(content).not.toBeNull();
+    expect(content!.querySelector('.legend')).not.toBeNull();
+  });
+
+  // T011: US2 — .card-content contains both year-table and .legend
+  it('.card-content contains both year-table and .legend when thresholds triggered', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'orange', name: 'Warm' };
+    await triggerThresholdsApplied(card, [rule]);
+    const content = card.shadowRoot!.querySelector('.card-content');
+    expect(content).not.toBeNull();
+    expect(content!.querySelector('year-table')).not.toBeNull();
+    expect(content!.querySelector('.legend')).not.toBeNull();
+  });
+});
