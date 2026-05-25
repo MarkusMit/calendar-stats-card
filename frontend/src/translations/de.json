@@ -23,5 +23,8 @@
     "min": "min",
     "avg": "Ø",
     "max": "max"
+  },
+  "legend": {
+    "title": "Legende"
   }
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { TabularzerCard } from '../../src/tabularizer-card';
 import type { HomeAssistant } from '../../src/types/ha-types';
-import type { CardConfig } from '../../src/types/card-config';
+import type { CardConfig, ThresholdRule } from '../../src/types/card-config';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -458,5 +458,116 @@ describe('TabularzerCard — predecessor entity IDs in fetch (T007)', () => {
     );
     expect(allFetchedIds).toContain('sensor.main');
     expect(allFetchedIds).toContain('sensor.old');
+  });
+});
+
+// --- Legend (T014) ---
+
+async function triggerThresholdsApplied(card: TabularzerCard, rules: ThresholdRule[]): Promise<void> {
+  let yearTable: Element | null = null;
+  await vi.waitFor(async () => {
+    await card.updateComplete;
+    yearTable = card.shadowRoot!.querySelector('year-table');
+    if (!yearTable) throw new Error('no year-table');
+  }, { timeout: 3000 });
+  yearTable!.dispatchEvent(new CustomEvent('thresholds-applied', {
+    bubbles: true,
+    composed: true,
+    detail: { rules },
+  }));
+  await card.updateComplete;
+}
+
+describe('TabularzerCard — threshold legend', () => {
+  it('no triggered thresholds → no legend', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await triggerThresholdsApplied(card, []);
+    expect(card.shadowRoot!.querySelector('.legend')).toBeNull();
+  });
+
+  it('unnamed triggered threshold → no legend', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'red' };
+    await triggerThresholdsApplied(card, [rule]);
+    expect(card.shadowRoot!.querySelector('.legend')).toBeNull();
+  });
+
+  it('named triggered threshold → legend shown with name', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    const rule: ThresholdRule = { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' };
+    await triggerThresholdsApplied(card, [rule]);
+    const legend = card.shadowRoot!.querySelector('.legend');
+    expect(legend).not.toBeNull();
+    expect(legend!.textContent).toContain('Summer day');
+  });
+
+  it('legend entry swatch has background_color style', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    const rule: ThresholdRule = { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' };
+    await triggerThresholdsApplied(card, [rule]);
+    const swatch = card.shadowRoot!.querySelector('.legend-swatch') as HTMLElement | null;
+    expect(swatch).not.toBeNull();
+    expect(swatch!.style.backgroundColor).toBeTruthy();
+  });
+
+  it('multiple named triggered thresholds → one entry each', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    const rules: ThresholdRule[] = [
+      { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' },
+      { operator: 'above', value: 30, background_color: 'red', name: 'Heat day' },
+    ];
+    await triggerThresholdsApplied(card, rules);
+    const entries = card.shadowRoot!.querySelectorAll('.legend-entry');
+    expect(entries.length).toBe(2);
+  });
+
+  it('duplicate names → deduplicated, first-seen wins', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    const rules: ThresholdRule[] = [
+      { operator: 'above', value: 25, background_color: 'orange', name: 'Warm' },
+      { operator: 'above', value: 30, background_color: 'red', name: 'Warm' },
+    ];
+    await triggerThresholdsApplied(card, rules);
+    const entries = card.shadowRoot!.querySelectorAll('.legend-entry');
+    expect(entries.length).toBe(1);
+    const swatch = entries[0]!.querySelector('.legend-swatch') as HTMLElement | null;
+    expect(swatch!.getAttribute('style')).toContain('orange');
+  });
+
+  it('legend title uses i18n — en: "Legend"', async () => {
+    const card = await createCard(CONFIG, makeHass({ language: 'en' }));
+    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'blue', name: 'Cool' };
+    await triggerThresholdsApplied(card, [rule]);
+    const title = card.shadowRoot!.querySelector('.legend-title');
+    expect(title?.textContent?.trim()).toBe('Legend');
+  });
+
+  it('legend title uses i18n — de: "Legende"', async () => {
+    const card = await createCard(CONFIG, makeHass({ language: 'de' }));
+    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'blue', name: 'Kühl' };
+    await triggerThresholdsApplied(card, [rule]);
+    const title = card.shadowRoot!.querySelector('.legend-title');
+    expect(title?.textContent?.trim()).toBe('Legende');
+  });
+
+  it('legend disappears after re-trigger with no named rules', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'blue', name: 'Cool' };
+    await triggerThresholdsApplied(card, [rule]);
+    expect(card.shadowRoot!.querySelector('.legend')).not.toBeNull();
+    await triggerThresholdsApplied(card, []);
+    expect(card.shadowRoot!.querySelector('.legend')).toBeNull();
+  });
+
+  it('mixed named + unnamed triggered → only named shown', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    const rules: ThresholdRule[] = [
+      { operator: 'above', value: 10, background_color: 'blue' },
+      { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' },
+    ];
+    await triggerThresholdsApplied(card, rules);
+    const entries = card.shadowRoot!.querySelectorAll('.legend-entry');
+    expect(entries.length).toBe(1);
+    expect(card.shadowRoot!.querySelector('.legend')!.textContent).toContain('Summer day');
   });
 });

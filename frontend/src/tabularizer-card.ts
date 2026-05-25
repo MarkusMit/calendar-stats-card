@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import type { CardConfig } from './types/card-config';
+import { ifDefined } from 'lit/directives/if-defined.js';
+import type { CardConfig, ThresholdRule } from './types/card-config';
 import type { HomeAssistant } from './types/ha-types';
 import type { ViewState, YearStatistics } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
@@ -16,6 +17,7 @@ import './components/year-navigator';
 export class TabularzerCard extends LitElement {
   @state() private _config: CardConfig | null = null;
   @state() private _hass: HomeAssistant | null = null;
+  @state() private _triggeredThresholds: ThresholdRule[] = [];
   @state() private _viewState: ViewState = {
     selectedYear: new Date().getFullYear(),
     earliestDataYear: null,
@@ -28,6 +30,10 @@ export class TabularzerCard extends LitElement {
   private _service = new StatisticsService();
   private _fetchAbortFlag = 0;
   private _warnedPredecessors = new Set<string>();
+  private readonly _emptyDailyValues = new Map();
+  private readonly _emptyMonthlySummaries = new Map();
+  private readonly _emptyEntityMetadata = new Map();
+  private _cachedVisibleMonths: { year: number; start: number; end: number; months: number[] } | null = null;
 
   static styles = css`
     :host {
@@ -40,6 +46,36 @@ export class TabularzerCard extends LitElement {
     .no-entities {
       color: var(--secondary-text-color);
       padding: 8px;
+    }
+    .legend {
+      margin-top: 8px;
+      padding: 4px 8px;
+      border-top: 1px solid var(--divider-color, #e0e0e0);
+    }
+    .legend-title {
+      font-size: 0.75em;
+      font-weight: 600;
+      color: var(--secondary-text-color);
+      margin-bottom: 4px;
+    }
+    .legend-entries {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .legend-entry {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.8em;
+    }
+    .legend-swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      border: 1px solid rgba(0,0,0,0.15);
+      flex-shrink: 0;
     }
   `;
 
@@ -103,12 +139,16 @@ export class TabularzerCard extends LitElement {
     const { earliestDataYear, earliestDataMonth } = this._viewState;
     const { year: currentYear, month: currentMonth } = this._currentYearMonth();
 
-    if (year < currentYear) {
-      const startMonth = (year === earliestDataYear && earliestDataMonth != null) ? earliestDataMonth : 1;
-      return Array.from({ length: 13 - startMonth }, (_, i) => startMonth + i);
-    }
-    // Current year: Jan through current month
-    return Array.from({ length: currentMonth }, (_, i) => i + 1);
+    const startMonth = (year < currentYear && year === earliestDataYear && earliestDataMonth != null)
+      ? earliestDataMonth : 1;
+    const endMonth = year < currentYear ? 12 : currentMonth;
+
+    const c = this._cachedVisibleMonths;
+    if (c && c.year === year && c.start === startMonth && c.end === endMonth) return c.months;
+
+    const months = Array.from({ length: endMonth - startMonth + 1 }, (_, i) => startMonth + i);
+    this._cachedVisibleMonths = { year, start: startMonth, end: endMonth, months };
+    return months;
   }
 
   private async _fetchYear(year: number): Promise<void> {
@@ -313,6 +353,41 @@ export class TabularzerCard extends LitElement {
     return this._visibleMonths(this._viewState.selectedYear).length;
   }
 
+  private _onThresholdsApplied(e: CustomEvent<{ rules: ThresholdRule[] }>): void {
+    const newRules = e.detail.rules;
+    const old = this._triggeredThresholds;
+    if (newRules.length !== old.length || newRules.some((r, i) => r !== old[i])) {
+      this._triggeredThresholds = newRules;
+    }
+  }
+
+  private _buildLegend(rules: ThresholdRule[], lang: string) {
+    const seen = new Set<string>();
+    const named: ThresholdRule[] = [];
+    for (const r of rules) {
+      if (r.name && !seen.has(r.name)) {
+        seen.add(r.name);
+        named.push(r);
+      }
+    }
+    if (named.length === 0) return '';
+    return html`
+      <div class="legend">
+        <div class="legend-title">${localize('legend.title', lang)}</div>
+        <div class="legend-entries">
+          ${named.map(r => html`
+            <span class="legend-entry">
+              <span class="legend-swatch" style=${ifDefined(
+                r.background_color ? `background-color:${r.background_color}` : undefined,
+              )}></span>
+              ${r.name}
+            </span>
+          `)}
+        </div>
+      </div>
+    `;
+  }
+
   render() {
     const { isLoading, selectedYear } = this._viewState;
     const config = this._config;
@@ -346,12 +421,14 @@ export class TabularzerCard extends LitElement {
               .year=${selectedYear}
               .visibleMonths=${this._visibleMonths(selectedYear)}
               .entityConfigs=${config.entities}
-              .dailyValues=${yearStats?.dailyValues ?? new Map()}
-              .monthlySummaries=${yearStats?.monthlySummaries ?? new Map()}
-              .entityMetadata=${yearStats?.entityMetadata ?? new Map()}
+              .dailyValues=${yearStats?.dailyValues ?? this._emptyDailyValues}
+              .monthlySummaries=${yearStats?.monthlySummaries ?? this._emptyMonthlySummaries}
+              .entityMetadata=${yearStats?.entityMetadata ?? this._emptyEntityMetadata}
               .entityErrors=${this._viewState.entityErrors}
               .lang=${lang}
-            ></year-table>`
+              @thresholds-applied=${this._onThresholdsApplied}
+            ></year-table>
+            ${this._buildLegend(this._triggeredThresholds, lang)}`
           : ''}
       </ha-card>
     `;

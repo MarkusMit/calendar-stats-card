@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { YearTable } from '../../src/components/year-table';
-import type { EntityConfig } from '../../src/types/card-config';
+import type { EntityConfig, ThresholdRule } from '../../src/types/card-config';
 import type { CumulativeDailyValue, MeasurementDailyValue, MonthlySummary, EntityMetadata } from '../../src/types/statistics';
 
 afterEach(() => {
@@ -663,5 +663,326 @@ describe('YearTable — label cell colors (ExpressionRowConfig)', () => {
     const el = await renderExprColor({ expression: 'sensor.a - sensor.b' });
     const labelCell = el.shadowRoot!.querySelector('td.label-column');
     expect(labelCell?.getAttribute('style')).toBeNull();
+  });
+});
+
+// T005 [US1][US4]: scalar threshold coloring
+describe('YearTable — scalar threshold coloring', () => {
+  const RAIN_ID = 'sensor.rain';
+
+  async function renderScalarThreshold(
+    thresholds: ThresholdRule[],
+    value: number,
+    opts: { staticText?: string; staticBg?: string } = {},
+  ) {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    const cfg: EntityConfig = {
+      entity: RAIN_ID,
+      ...(opts.staticText ? { text_color: opts.staticText } : {}),
+      ...(opts.staticBg ? { background_color: opts.staticBg } : {}),
+      thresholds,
+    };
+    el.entityConfigs = [cfg];
+    const dayVal: CumulativeDailyValue = {
+      kind: 'cumulative', entityId: RAIN_ID, date: '2025-01-01',
+      sum: value, partialCoverage: false,
+    };
+    el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('above: value > threshold → threshold background_color on data cell', async () => {
+    const el = await renderScalarThreshold(
+      [{ operator: 'above', value: 10, background_color: 'red' }], 11, { staticBg: 'gray' },
+    );
+    const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(day1?.getAttribute('style')).toContain('background-color:red');
+    expect(day1?.getAttribute('style')).not.toContain('background-color:gray');
+  });
+
+  it('above: value === threshold → no threshold; static color', async () => {
+    const el = await renderScalarThreshold(
+      [{ operator: 'above', value: 10, background_color: 'red' }], 10, { staticBg: 'gray' },
+    );
+    const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(day1?.getAttribute('style')).toContain('background-color:gray');
+    expect(day1?.getAttribute('style')).not.toContain('background-color:red');
+  });
+
+  it('equals-above: value === threshold → threshold color (boundary included)', async () => {
+    const el = await renderScalarThreshold(
+      [{ operator: 'equals-above', value: 10, background_color: 'orange' }], 10, { staticBg: 'gray' },
+    );
+    expect(el.shadowRoot!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:orange');
+  });
+
+  it('equals-below: value === threshold → threshold color (boundary included)', async () => {
+    const el = await renderScalarThreshold(
+      [{ operator: 'equals-below', value: 5, background_color: 'blue' }], 5, { staticBg: 'gray' },
+    );
+    expect(el.shadowRoot!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:blue');
+  });
+
+  it('below: value < threshold → threshold text_color applied', async () => {
+    const el = await renderScalarThreshold(
+      [{ operator: 'below', value: 0, text_color: 'cyan' }], -1, { staticText: 'black' },
+    );
+    const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(day1?.getAttribute('style')).toContain('color:cyan');
+    expect(day1?.getAttribute('style')).not.toContain('color:black');
+  });
+
+  it('below: value === threshold → no threshold; static color', async () => {
+    const el = await renderScalarThreshold(
+      [{ operator: 'below', value: 0, text_color: 'cyan' }], 0, { staticText: 'black' },
+    );
+    expect(el.shadowRoot!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('color:black');
+  });
+
+  it('no matching threshold → static color on data cell', async () => {
+    const el = await renderScalarThreshold(
+      [{ operator: 'above', value: 100, background_color: 'red' }], 5, { staticBg: 'gray' },
+    );
+    expect(el.shadowRoot!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:gray');
+  });
+
+  it('no thresholds → static color on data cell', async () => {
+    const el = await renderScalarThreshold([], 10, { staticBg: 'gray' });
+    expect(el.shadowRoot!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:gray');
+  });
+
+  it('[US4] partial override: threshold background_color only → threshold bg; static text_color preserved', async () => {
+    const el = await renderScalarThreshold(
+      [{ operator: 'above', value: 5, background_color: 'red' }], 10,
+      { staticText: 'black', staticBg: 'gray' },
+    );
+    const style = el.shadowRoot!.querySelectorAll('td.data-cell')[0]?.getAttribute('style') ?? '';
+    expect(style).toContain('color:black');
+    expect(style).toContain('background-color:red');
+    expect(style).not.toContain('background-color:gray');
+  });
+
+  it('[US4] partial override: threshold text_color only → threshold text; static background preserved', async () => {
+    const el = await renderScalarThreshold(
+      [{ operator: 'above', value: 5, text_color: 'white' }], 10,
+      { staticText: 'black', staticBg: 'gray' },
+    );
+    const style = el.shadowRoot!.querySelectorAll('td.data-cell')[0]?.getAttribute('style') ?? '';
+    expect(style).toContain('color:white');
+    expect(style).toContain('background-color:gray');
+  });
+
+  it('label cell uses static color (threshold not applied to label)', async () => {
+    const el = await renderScalarThreshold(
+      [{ operator: 'above', value: 5, background_color: 'red' }], 10, { staticBg: 'gray' },
+    );
+    const label = el.shadowRoot!.querySelector('td.label-column');
+    expect(label?.getAttribute('style')).toContain('background-color:gray');
+    expect(label?.getAttribute('style')).not.toContain('background-color:red');
+  });
+
+  it('pad cells use static color (no threshold applied)', async () => {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [2]; // Feb: days 29-31 are pad cells
+    el.entityConfigs = [{
+      entity: RAIN_ID, background_color: 'gray',
+      thresholds: [{ operator: 'above', value: 0, background_color: 'red' }],
+    }];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    const padCells = el.shadowRoot!.querySelectorAll('td.pad-cell');
+    expect(padCells.length).toBeGreaterThan(0);
+    for (const cell of padCells) {
+      expect(cell.getAttribute('style')).toContain('background-color:gray');
+      expect(cell.getAttribute('style')).not.toContain('background-color:red');
+    }
+  });
+
+  it('missing data cell → static color (no threshold)', async () => {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = [{
+      entity: RAIN_ID, background_color: 'gray',
+      thresholds: [{ operator: 'above', value: 0, background_color: 'red' }],
+    }];
+    el.dailyValues = new Map(); // no data
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(day1?.getAttribute('style')).toContain('background-color:gray');
+    expect(day1?.getAttribute('style')).not.toContain('background-color:red');
+  });
+});
+
+// T009 [US2][US3]: measurement threshold coloring
+describe('YearTable — measurement threshold coloring', () => {
+  async function renderMeasurementThreshold(
+    thresholds: ThresholdRule[],
+    minV: number, avgV: number, maxV: number,
+    opts: { staticBg?: string } = {},
+  ) {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = [{
+      entity: ENTITY_ID,
+      ...(opts.staticBg ? { background_color: opts.staticBg } : {}),
+      thresholds,
+    }];
+    const dayVal: MeasurementDailyValue = {
+      kind: 'measurement', entityId: ENTITY_ID, date: '2025-01-01',
+      min: minV, mean: avgV, max: maxV, partialCoverage: false,
+    };
+    el.dailyValues = new Map([[`${ENTITY_ID}::2025-01-01`, dayVal]]);
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('not-below fires on min cell; excluded from avg and max', async () => {
+    const el = await renderMeasurementThreshold(
+      [{ operator: 'not-below', value: 5, background_color: 'lime' }],
+      10, 15, 20, { staticBg: 'gray' },
+    );
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    expect(rows[0]!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:lime');
+    expect(rows[1]!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:gray');
+    expect(rows[2]!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:gray');
+  });
+
+  it('not-above fires on max cell; excluded from avg and min', async () => {
+    const el = await renderMeasurementThreshold(
+      [{ operator: 'not-above', value: 25, background_color: 'green' }],
+      10, 15, 20, { staticBg: 'gray' },
+    );
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    expect(rows[0]!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:gray');
+    expect(rows[1]!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:gray');
+    expect(rows[2]!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:green');
+  });
+
+  it('multi-level above on max: closest threshold wins', async () => {
+    const t1: ThresholdRule = { operator: 'above', value: 20, background_color: 'orange' };
+    const t2: ThresholdRule = { operator: 'above', value: 30, background_color: 'red' };
+    const el = await renderMeasurementThreshold([t1, t2], 10, 15, 35, { staticBg: 'gray' });
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    // max=35: dist(35,20)=15, dist(35,30)=5 → red
+    expect(rows[2]!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:red');
+  });
+
+  it('standard above operator fires on avg cells', async () => {
+    const el = await renderMeasurementThreshold(
+      [{ operator: 'above', value: 10, background_color: 'orange' }],
+      5, 15, 20, { staticBg: 'gray' },
+    );
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    expect(rows[1]!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:orange');
+  });
+
+  it('avg cell: not-below and not-above both excluded', async () => {
+    const el = await renderMeasurementThreshold(
+      [
+        { operator: 'not-below', value: 5, background_color: 'lime' },
+        { operator: 'not-above', value: 25, background_color: 'green' },
+      ],
+      10, 15, 20, { staticBg: 'gray' },
+    );
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    expect(rows[1]!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:gray');
+  });
+
+  it('not-below: min cell below threshold → no threshold color', async () => {
+    const el = await renderMeasurementThreshold(
+      [{ operator: 'not-below', value: 20, background_color: 'lime' }],
+      10, 15, 25, { staticBg: 'gray' },
+    );
+    const rows = el.shadowRoot!.querySelectorAll('tbody tr');
+    expect(rows[0]!.querySelectorAll('td.data-cell')[0]?.getAttribute('style')).toContain('background-color:gray');
+  });
+
+  it('summary cells use correct roles: summary-min/avg/max', async () => {
+    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'red' };
+    const summary: MonthlySummary = { entityId: ENTITY_ID, year: 2025, month: 1, min: 5, mean: 15, max: 25, total: null };
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = [{ entity: ENTITY_ID, thresholds: [rule] }];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map([[`${ENTITY_ID}::2025-1`, summary]]);
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
+    // min=5 → no threshold (5 not > 10); avg=15 → red; max=25 → red
+    expect(summaries[0]?.getAttribute('style')).toBeNull();
+    expect(summaries[1]?.getAttribute('style')).toContain('background-color:red');
+    expect(summaries[2]?.getAttribute('style')).toContain('background-color:red');
+  });
+
+  it('summary-min/max role respects not-below/not-above exclusions', async () => {
+    const nb: ThresholdRule = { operator: 'not-below', value: 5, background_color: 'lime' };
+    const na: ThresholdRule = { operator: 'not-above', value: 30, background_color: 'green' };
+    const summary: MonthlySummary = { entityId: ENTITY_ID, year: 2025, month: 1, min: 10, mean: 15, max: 20, total: null };
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = [{ entity: ENTITY_ID, thresholds: [nb, na] }];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map([[`${ENTITY_ID}::2025-1`, summary]]);
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
+    // summary-min: not-below:5 fires (10>=5), not-above excluded → lime
+    // summary-avg: not-below excluded, not-above excluded → null
+    // summary-max: not-above:30 fires (20<=30), not-below excluded → green
+    expect(summaries[0]?.getAttribute('style')).toContain('background-color:lime');
+    expect(summaries[1]?.getAttribute('style')).toBeNull();
+    expect(summaries[2]?.getAttribute('style')).toContain('background-color:green');
   });
 });

@@ -1,3 +1,19 @@
+export type ThresholdOperator =
+  | 'above' | 'equals-above' | 'equals-below' | 'below'
+  | 'not-below' | 'not-above';
+
+export type CellRole =
+  | 'min' | 'avg' | 'max' | 'scalar'
+  | 'summary-min' | 'summary-avg' | 'summary-max' | 'summary-scalar';
+
+export interface ThresholdRule {
+  operator: ThresholdOperator;
+  value: number;
+  name?: string;
+  text_color?: string;
+  background_color?: string;
+}
+
 export interface PredecessorConfig {
   entity: string;
   replaced_on?: string; // ISO date YYYY-MM-DD; predecessor covers dates strictly before this
@@ -16,6 +32,7 @@ export interface EntityRowConfig {
   show_max?: boolean;
   text_color?: string;
   background_color?: string;
+  thresholds?: ThresholdRule[];
   predecessors?: PredecessorConfig[];
 }
 
@@ -27,6 +44,7 @@ export interface ExpressionRowConfig {
   show_zero?: boolean;
   text_color?: string;
   background_color?: string;
+  thresholds?: ThresholdRule[];
 }
 
 export type EntityConfig = EntityRowConfig | ExpressionRowConfig;
