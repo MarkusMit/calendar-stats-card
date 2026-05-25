@@ -490,7 +490,7 @@ if (!window.customCards) {
 window.customCards.push({
   type: 'calendar-stats-card',
   name: 'Calendar Stats Card',
-  description: 'Dense monthly statistics table for Home Assistant entities',
+  description: localize('card.description', (navigator.language ?? 'en').split('-')[0]!),
 });
 
 declare global {

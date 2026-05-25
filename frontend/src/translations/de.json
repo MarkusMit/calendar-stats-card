@@ -1,7 +1,8 @@
 {
   "card": {
     "no_entities": "Keine Entitäten konfiguriert.",
-    "loading": "Laden…"
+    "loading": "Laden…",
+    "description": "Kompakte Monatsstatistiken für Home Assistant Entitäten"
   },
   "table": {
     "label": "Entität",
