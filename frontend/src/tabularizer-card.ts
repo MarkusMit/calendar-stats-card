@@ -58,6 +58,10 @@ export class TabularzerCard extends LitElement {
       border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.24);
     }
+    :host-context(hui-card-element-editor) .bottom-bar,
+    :host-context(ha-dialog) .bottom-bar {
+      display: none;
+    }
     .no-entities {
       color: var(--secondary-text-color);
       padding: 8px;
