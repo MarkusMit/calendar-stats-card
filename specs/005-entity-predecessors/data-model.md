@@ -77,9 +77,9 @@ export function resolvePredecessorData(
 - Output map contains all keys from input map (predecessor-keyed entries remain; main entity keys may be overwritten)
 - `entityId` field on resolved `DailyValue` is rewritten to `mainEntityId` so downstream monthly summary computation keys correctly
 - No mutation of input map
-- Console warnings: `console.warn('[tabularizer] predecessor ${id}: state_class or unit_of_measurement mismatch, skipping')`
+- Console warnings: `console.warn('[calendar-stats] predecessor ${id}: state_class or unit_of_measurement mismatch, skipping')`
 
-## Affected data flow in `tabularizer-card.ts`
+## Affected data flow in `calendar-stats-card.ts`
 
 ```
 entityIds  ←  now includes predecessor entity IDs

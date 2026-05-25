@@ -38,20 +38,20 @@ describe('YearNavigator — structure (T029)', () => {
     expect(el.shadowRoot!.textContent).toContain('›');
   });
 
-  it('left arrow click dispatches tabularizer-prev-year event', async () => {
+  it('left arrow click dispatches calendar-stats-prev-year event', async () => {
     const el = await renderNavigator({ year: 2024 });
     const spy = vi.fn();
-    el.addEventListener('tabularizer-prev-year', spy);
+    el.addEventListener('calendar-stats-prev-year', spy);
     const prevBtn = el.shadowRoot!.querySelector('button.prev') as HTMLButtonElement;
     expect(prevBtn).toBeTruthy();
     prevBtn.click();
     expect(spy).toHaveBeenCalledOnce();
   });
 
-  it('right arrow click dispatches tabularizer-next-year event', async () => {
+  it('right arrow click dispatches calendar-stats-next-year event', async () => {
     const el = await renderNavigator({ year: 2024 });
     const spy = vi.fn();
-    el.addEventListener('tabularizer-next-year', spy);
+    el.addEventListener('calendar-stats-next-year', spy);
     const nextBtn = el.shadowRoot!.querySelector('button.next') as HTMLButtonElement;
     expect(nextBtn).toBeTruthy();
     nextBtn.click();

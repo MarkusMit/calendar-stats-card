@@ -27,7 +27,7 @@
 
 ## Finding 4 — Metadata built from `hass.states`
 
-Entity metadata (`stateClass`, `unitOfMeasurement`, `deviceClass`) is built from `hass.states[entityId]?.attributes` in `tabularizer-card.ts`. Predecessor entity IDs included in `entityIds` will automatically have their metadata built.
+Entity metadata (`stateClass`, `unitOfMeasurement`, `deviceClass`) is built from `hass.states[entityId]?.attributes` in `calendar-stats-card.ts`. Predecessor entity IDs included in `entityIds` will automatically have their metadata built.
 
 - Decision: Use `metadataMap` (already built by the time `resolvePredecessorData` is called) for the FR-011 compatibility check.
 - Rationale: No additional API calls needed.
@@ -38,9 +38,9 @@ The current-month summary block (added in spec 004) reads from `dailyValues` key
 
 ## Finding 6 — Warned predecessors must be per-card-instance
 
-`TabularzerCard` is a custom element; multiple instances can exist per dashboard. Warning state (`_warnedPredecessors: Set<string>`) must be an instance variable, not a module-level singleton.
+`CalendarStatsCard` is a custom element; multiple instances can exist per dashboard. Warning state (`_warnedPredecessors: Set<string>`) must be an instance variable, not a module-level singleton.
 
-- Decision: Add `private _warnedPredecessors = new Set<string>()` to `TabularzerCard`.
+- Decision: Add `private _warnedPredecessors = new Set<string>()` to `CalendarStatsCard`.
 - Rationale: Prevents cross-card state pollution.
 
 ## Resolution algorithm (date range logic)

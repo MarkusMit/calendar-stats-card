@@ -2,9 +2,9 @@
 
 ## Element Registration
 
-**Custom element name**: `tabularizer-card`  
-**Lovelace card type** (YAML): `custom:tabularizer-card`  
-**Bundle file**: `tabularizer-card.js` (loaded as a Lovelace resource)
+**Custom element name**: `calendar-stats-card`  
+**Lovelace card type** (YAML): `custom:calendar-stats-card`  
+**Bundle file**: `calendar-stats-card.js` (loaded as a Lovelace resource)
 
 ## Lovelace Card Interface
 
@@ -42,8 +42,8 @@ The bundle registers the card in `window.customCards` for the HA card picker:
 ```javascript
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "tabularizer-card",
-  name: "Tabularizer",
+  type: "calendar-stats-card",
+  name: "CalendarStats",
   description: "Dense monthly statistics tables for HA entities",
 });
 ```

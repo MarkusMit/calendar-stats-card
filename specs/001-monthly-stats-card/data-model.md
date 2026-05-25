@@ -30,7 +30,7 @@ interface ExpressionRowConfig {
 
 ```typescript
 interface CardConfig {
-  type: string;              // "custom:tabularizer-card"
+  type: string;              // "custom:calendar-stats-card"
   entities: EntityConfig[];  // Union of EntityRowConfig | ExpressionRowConfig; order preserved; duplicates allowed; may be empty
 }
 ```

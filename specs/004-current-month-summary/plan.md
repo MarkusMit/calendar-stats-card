@@ -7,7 +7,7 @@
 
 HA's `recorder/statistics_during_period` with `period: 'month'` does not return an entry for the current in-progress month (the period has not ended). `transformMonthlyStats` only populates a `MonthlySummary` for months where HA returned raw data — so the current month gets no summary entry and the table shows empty summary/total cells.
 
-Fix: extract a `computeMonthlySummaryFromDailyValues` helper from the existing `transformMonthlyStats` measurement and cumulative computation branches; call it in `tabularizer-card.ts` for all non-expression entities for the current month, mirroring the approach already in place for expression rows (lines 219–235).
+Fix: extract a `computeMonthlySummaryFromDailyValues` helper from the existing `transformMonthlyStats` measurement and cumulative computation branches; call it in `calendar-stats-card.ts` for all non-expression entities for the current month, mirroring the approach already in place for expression rows (lines 219–235).
 
 ## Technical Context
 
@@ -19,7 +19,7 @@ Fix: extract a `computeMonthlySummaryFromDailyValues` helper from the existing `
 **Project Type**: HA Lovelace custom card  
 **Performance Goals**: No new async work; helper is pure synchronous computation over already-loaded `dailyValues`  
 **Constraints**: No new dependencies; no changes to HA API calls  
-**Scale/Scope**: Affects `tabularizer-card.ts` (orchestration) and `data-transform.ts` (computation); no UI component changes
+**Scale/Scope**: Affects `calendar-stats-card.ts` (orchestration) and `data-transform.ts` (computation); no UI component changes
 
 ## Constitution Check
 
@@ -37,7 +37,7 @@ All five principles pass. No Complexity Tracking entries required.
 
 `transformMonthlyStats` loops over `Object.entries(rawStats)` — the raw HA monthly API response. HA does not emit a monthly-period record until the period ends, so the current month is absent from `rawStats`. The function never reaches the computation branches for the current month.
 
-Expression rows bypass this by computing their own summaries in `tabularizer-card.ts` (lines 219–235) via `collectDailySums` — independent of HA monthly stats. Non-expression entities lack this fallback.
+Expression rows bypass this by computing their own summaries in `calendar-stats-card.ts` (lines 219–235) via `collectDailySums` — independent of HA monthly stats. Non-expression entities lack this fallback.
 
 **The computation logic for both measurement and cumulative branches already exists inside `transformMonthlyStats`; it just cannot be reached for months absent from `rawStats`.** The fix extracts that logic into a callable helper and invokes it for the current month.
 
@@ -59,7 +59,7 @@ export function computeMonthlySummaryFromDailyValues(
 
 `transformMonthlyStats` refactored to call this helper internally (no behavior change for complete months).
 
-In `tabularizer-card.ts`, after `transformMonthlyStats` and the expression-row loop, add a fill-in pass for the current month:
+In `calendar-stats-card.ts`, after `transformMonthlyStats` and the expression-row loop, add a fill-in pass for the current month:
 
 ```typescript
 // For current year: fill in missing summaries for the current (incomplete) month
@@ -103,7 +103,7 @@ frontend/
 ├── src/
 │   ├── services/
 │   │   └── data-transform.ts          ← extract helper, refactor internals
-│   └── tabularizer-card.ts            ← add current-month fill-in pass
+│   └── calendar-stats-card.ts            ← add current-month fill-in pass
 └── tests/
     └── unit/
         └── services/

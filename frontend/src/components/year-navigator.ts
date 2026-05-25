@@ -38,11 +38,11 @@ export class YearNavigator extends LitElement {
   `;
 
   private _onPrev() {
-    this.dispatchEvent(new CustomEvent('tabularizer-prev-year', { bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true, composed: true }));
   }
 
   private _onNext() {
-    this.dispatchEvent(new CustomEvent('tabularizer-next-year', { bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent('calendar-stats-next-year', { bubbles: true, composed: true }));
   }
 
   render() {

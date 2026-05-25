@@ -18,10 +18,10 @@ Relocate `year-navigator` from the top of `ha-card` to a floating bar anchored a
 **Storage**: N/A  
 **Testing**: Vitest 4 + happy-dom (component tests), threads (unit tests)  
 **Target Platform**: Home Assistant 2026.5.0+ Lovelace custom card  
-**Project Type**: Web component (single bundle, `frontend/dist/tabularizer-card.js`)  
+**Project Type**: Web component (single bundle, `frontend/dist/calendar-stats-card.js`)  
 **Performance Goals**: No regression in render time; bar appears on first paint  
 **Constraints**: No new JS dependencies; HA design tokens only; bar must not clip on narrow widths  
-**Scale/Scope**: Single-file main component change (`tabularizer-card.ts`); zero behavioral changes
+**Scale/Scope**: Single-file main component change (`calendar-stats-card.ts`); zero behavioral changes
 
 ---
 
@@ -55,11 +55,11 @@ specs/008-floating-bottom-nav/
 
 ```text
 frontend/src/
-└── tabularizer-card.ts     # ha-card CSS + render() restructuring
+└── calendar-stats-card.ts     # ha-card CSS + render() restructuring
 
 frontend/tests/
 └── component/
-    └── tabularizer-card.test.ts   # new/updated tests for bottom-bar
+    └── calendar-stats-card.test.ts   # new/updated tests for bottom-bar
 ```
 
 No new files in `frontend/src/`. `year-navigator.ts` and all other components are unchanged.
@@ -68,7 +68,7 @@ No new files in `frontend/src/`. `year-navigator.ts` and all other components ar
 
 ## Design
 
-### Layout Change (tabularizer-card.ts)
+### Layout Change (calendar-stats-card.ts)
 
 **ha-card CSS (before)**:
 ```css
@@ -137,7 +137,7 @@ No structural redesign required.
 
 All tests written RED before implementation (Constitution II).
 
-### New component tests (tabularizer-card.test.ts)
+### New component tests (calendar-stats-card.test.ts)
 
 | # | Test | Assert |
 |---|------|--------|

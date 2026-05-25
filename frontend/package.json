@@ -1,5 +1,5 @@
 {
-  "name": "tabularizer-card",
+  "name": "calendar-stats-card",
   "version": "0.1.0",
   "description": "Home Assistant Lovelace custom card for dense monthly statistics tables",
   "private": true,

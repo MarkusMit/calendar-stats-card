@@ -120,7 +120,7 @@ Merges static and threshold colors into an inline CSS style string:
 
 ## Legend Entry (derived)
 
-Not stored — computed in `tabularizer-card.ts` render method from triggered rules only.
+Not stored — computed in `calendar-stats-card.ts` render method from triggered rules only.
 
 ```typescript
 type LegendEntry = {
@@ -136,7 +136,7 @@ type LegendEntry = {
 - After rendering, dispatch a `thresholds-applied` CustomEvent (`bubbles: true, composed: true`) with `detail: { rules: ThresholdRule[] }` containing the accumulated list.
 
 **Communication to card**:
-- `tabularizer-card` listens for `thresholds-applied` on its shadow root.
+- `calendar-stats-card` listens for `thresholds-applied` on its shadow root.
 - On receipt, stores `detail.rules` in `@state() private _triggeredThresholds: ThresholdRule[]`.
 - This reactive state property triggers a re-render that includes the legend.
 

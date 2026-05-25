@@ -82,4 +82,4 @@ ha-card  [display: flex; flex-direction: column]
 
 ## No New State Fields
 
-`tabularizer-card.ts` gains no new `@state()` or `@property()` fields. All existing state (`_year`, `_triggeredThresholds`, etc.) is unchanged. The change is purely structural (DOM layout).
+`calendar-stats-card.ts` gains no new `@state()` or `@property()` fields. All existing state (`_year`, `_triggeredThresholds`, etc.) is unchanged. The change is purely structural (DOM layout).

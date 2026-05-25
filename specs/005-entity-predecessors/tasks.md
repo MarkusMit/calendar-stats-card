@@ -27,11 +27,11 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Wire predecessor support into `tabularizer-card.ts` at the call sites — required before any story's integration is testable.
+**Purpose**: Wire predecessor support into `calendar-stats-card.ts` at the call sites — required before any story's integration is testable.
 
 **⚠️ CRITICAL**: Must complete before story integration tasks (T008) can be verified end-to-end.
 
-- [x] T004 Add `private _warnedPredecessors = new Set<string>()` instance variable to `frontend/src/tabularizer-card.ts`
+- [x] T004 Add `private _warnedPredecessors = new Set<string>()` instance variable to `frontend/src/calendar-stats-card.ts`
 
 **Checkpoint**: Scaffolding complete. Story phases can now begin.
 
@@ -59,8 +59,8 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 ### Implementation for User Story 1
 
 - [x] T006 [US1] Implement date-based predecessor logic in `frontend/src/services/predecessor-resolver.ts`: sort dated predecessors ascending by `replaced_on`; for each date find active predecessor via `sortedDated.find(p => p.replaced_on > date)` algorithm; store resolved value under `${mainEntityId}::${date}` key with `entityId` field rewritten to main entity ID
-- [x] T007 [US1] Write failing component test in `frontend/tests/component/tabularizer-card.test.ts` verifying predecessor entity IDs appear in the `statistic_ids` array of the statistics fetch call when `predecessors` is configured
-- [x] T008 [US1] Update `frontend/src/tabularizer-card.ts`: (a) include predecessor entity IDs in `entityIds` collection; (b) replace `transformDailyStats(...)` assignment with `resolvePredecessorData(entityConfigs, transformDailyStats(...), metadataMap, _warnedPredecessors)`
+- [x] T007 [US1] Write failing component test in `frontend/tests/component/calendar-stats-card.test.ts` verifying predecessor entity IDs appear in the `statistic_ids` array of the statistics fetch call when `predecessors` is configured
+- [x] T008 [US1] Update `frontend/src/calendar-stats-card.ts`: (a) include predecessor entity IDs in `entityIds` collection; (b) replace `transformDailyStats(...)` assignment with `resolvePredecessorData(entityConfigs, transformDailyStats(...), metadataMap, _warnedPredecessors)`
 
 **Checkpoint**: User Story 1 fully functional. Entity with one dated predecessor shows continuous data across the replacement date.
 
@@ -127,7 +127,7 @@ Tests MUST be written and confirmed FAILING before any implementation code.
   - `console.warn` called at most once per predecessor ID per `warnedPredecessors` set instance
   - compatible predecessors (same stateClass + unit) are not warned and are used normally
   - predecessor entity ID absent from `metadataMap` (entity not in `hass.states`) → skipped silently, no crash, no `console.warn` (FR-008)
-- [x] T014 Implement compatibility check in `frontend/src/services/predecessor-resolver.ts`: before processing each predecessor, compare `metadataMap[pred.entity].stateClass` and `.unitOfMeasurement` against main entity; if `metadataMap` entry is absent, skip silently without warning (entity hasn't loaded yet); skip incompatible ones; call `console.warn('[tabularizer] predecessor ${id}: state_class or unit_of_measurement mismatch, skipping')` once per ID via `warnedPredecessors` set
+- [x] T014 Implement compatibility check in `frontend/src/services/predecessor-resolver.ts`: before processing each predecessor, compare `metadataMap[pred.entity].stateClass` and `.unitOfMeasurement` against main entity; if `metadataMap` entry is absent, skip silently without warning (entity hasn't loaded yet); skip incompatible ones; call `console.warn('[calendar-stats] predecessor ${id}: state_class or unit_of_measurement mismatch, skipping')` once per ID via `warnedPredecessors` set
 
 ### Multiple Undated Predecessors (FR-005 / FR-006)
 
@@ -139,7 +139,7 @@ Tests MUST be written and confirmed FAILING before any implementation code.
 
 ### Final Quality Gates
 
-- [x] T017 Run `npm test` from `frontend/` in WSL2 — confirm all tests pass (including predecessor-resolver.test.ts and tabularizer-card.test.ts)
+- [x] T017 Run `npm test` from `frontend/` in WSL2 — confirm all tests pass (including predecessor-resolver.test.ts and calendar-stats-card.test.ts)
 - [x] T018 Run `npm run build` from `frontend/` in WSL2 — confirm TypeScript compiles without errors
 - [x] T019 Run `npm run lint` from `frontend/` in WSL2 — confirm no lint violations
 
@@ -222,7 +222,7 @@ Task T006: Implement resolver logic
 # Confirm T005 tests PASS
 Task T007: Write failing component test
 # Confirm T007 FAILS
-Task T008: Wire into tabularizer-card.ts
+Task T008: Wire into calendar-stats-card.ts
 # Confirm T007 PASSES
 ```
 

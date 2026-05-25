@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { TabularzerCard } from '../../src/tabularizer-card';
+import { CalendarStatsCard } from '../../src/calendar-stats-card';
 import type { HomeAssistant } from '../../src/types/ha-types';
 import type { CardConfig, ThresholdRule } from '../../src/types/card-config';
 
@@ -21,12 +21,12 @@ function makeHass(overrides: Partial<HomeAssistant> = {}): HomeAssistant {
 }
 
 const CONFIG: CardConfig = {
-  type: 'custom:tabularizer-card',
+  type: 'custom:calendar-stats-card',
   entities: [{ entity: 'sensor.temp' }],
 };
 
-async function createCard(config: CardConfig = CONFIG, hass?: HomeAssistant): Promise<TabularzerCard> {
-  const el = new TabularzerCard();
+async function createCard(config: CardConfig = CONFIG, hass?: HomeAssistant): Promise<CalendarStatsCard> {
+  const el = new CalendarStatsCard();
   document.body.appendChild(el);
   await vi.waitFor(async () => {
     await el.updateComplete;
@@ -38,7 +38,7 @@ async function createCard(config: CardConfig = CONFIG, hass?: HomeAssistant): Pr
   return el;
 }
 
-describe('TabularzerCard — year/month logic', () => {
+describe('CalendarStatsCard — year/month logic', () => {
   it('defaults to current year on non-Jan-1 date', async () => {
     const el = await createCard(CONFIG, makeHass());
     const currentYear = new Date().getFullYear();
@@ -83,8 +83,8 @@ describe('TabularzerCard — year/month logic', () => {
 });
 
 // T036: localized display tests
-describe('TabularzerCard — localized display (T036)', () => {
-  async function getFirstTableRoot(card: TabularzerCard): Promise<ShadowRoot> {
+describe('CalendarStatsCard — localized display (T036)', () => {
+  async function getFirstTableRoot(card: CalendarStatsCard): Promise<ShadowRoot> {
     let root: ShadowRoot | null = null;
     await vi.waitFor(async () => {
       await card.updateComplete;
@@ -112,7 +112,7 @@ describe('TabularzerCard — localized display (T036)', () => {
   });
 
   it('no-entities placeholder uses de text', async () => {
-    const config = { type: 'custom:tabularizer-card', entities: [] };
+    const config = { type: 'custom:calendar-stats-card', entities: [] };
     const el = await createCard(config, makeHass({ selectedLanguage: 'de', language: 'de' }));
     await vi.waitFor(async () => {
       await el.updateComplete;
@@ -146,8 +146,8 @@ describe('TabularzerCard — localized display (T036)', () => {
 });
 
 // T033: name configuration tests
-describe('TabularzerCard — name configuration (T033)', () => {
-  async function getFirstTableRoot(card: TabularzerCard): Promise<ShadowRoot> {
+describe('CalendarStatsCard — name configuration (T033)', () => {
+  async function getFirstTableRoot(card: CalendarStatsCard): Promise<ShadowRoot> {
     let root: ShadowRoot | null = null;
     await vi.waitFor(async () => {
       await card.updateComplete;
@@ -161,7 +161,7 @@ describe('TabularzerCard — name configuration (T033)', () => {
   }
 
   it('name override → label column shows override text', async () => {
-    const config = { type: 'custom:tabularizer-card', entities: [{ entity: 'sensor.temp', name: 'My Override' }] };
+    const config = { type: 'custom:calendar-stats-card', entities: [{ entity: 'sensor.temp', name: 'My Override' }] };
     const hass = makeHass({ states: { 'sensor.temp': {
       entity_id: 'sensor.temp', state: '20',
       attributes: { friendly_name: 'Temperature', unit_of_measurement: '°C', state_class: 'measurement' },
@@ -174,7 +174,7 @@ describe('TabularzerCard — name configuration (T033)', () => {
   });
 
   it('no label override → falls back to HA friendly name', async () => {
-    const config = { type: 'custom:tabularizer-card', entities: [{ entity: 'sensor.temp' }] };
+    const config = { type: 'custom:calendar-stats-card', entities: [{ entity: 'sensor.temp' }] };
     const hass = makeHass({ states: { 'sensor.temp': {
       entity_id: 'sensor.temp', state: '20',
       attributes: { friendly_name: 'Outdoor Temp', unit_of_measurement: '°C', state_class: 'measurement' },
@@ -186,7 +186,7 @@ describe('TabularzerCard — name configuration (T033)', () => {
   });
 
   it('unit of measurement appended to label in label column', async () => {
-    const config = { type: 'custom:tabularizer-card', entities: [{ entity: 'sensor.temp' }] };
+    const config = { type: 'custom:calendar-stats-card', entities: [{ entity: 'sensor.temp' }] };
     const hass = makeHass({ states: { 'sensor.temp': {
       entity_id: 'sensor.temp', state: '20',
       attributes: { friendly_name: 'Temperature', unit_of_measurement: '°C', state_class: 'measurement' },
@@ -198,7 +198,7 @@ describe('TabularzerCard — name configuration (T033)', () => {
   });
 
   it('empty entities → no-entities placeholder shown, no year-table', async () => {
-    const config = { type: 'custom:tabularizer-card', entities: [] };
+    const config = { type: 'custom:calendar-stats-card', entities: [] };
     const el = await createCard(config, makeHass());
     await vi.waitFor(async () => {
       await el.updateComplete;
@@ -210,7 +210,7 @@ describe('TabularzerCard — name configuration (T033)', () => {
   });
 
   it('duplicate entity IDs → both labels rendered in year-table', async () => {
-    const config = { type: 'custom:tabularizer-card', entities: [
+    const config = { type: 'custom:calendar-stats-card', entities: [
       { entity: 'sensor.temp', name: 'Row A' },
       { entity: 'sensor.temp', name: 'Row B' },
     ] };
@@ -224,7 +224,7 @@ describe('TabularzerCard — name configuration (T033)', () => {
 });
 
 // T030: year navigation integration tests
-describe('TabularzerCard — year navigation (T030)', () => {
+describe('CalendarStatsCard — year navigation (T030)', () => {
   it('renders year-navigator component after fetch', async () => {
     const el = await createCard(CONFIG, makeHass());
     await vi.waitFor(async () => {
@@ -257,7 +257,7 @@ describe('TabularzerCard — year navigation (T030)', () => {
     }, { timeout: 3000 });
     const callsBefore = sendMsg.mock.calls.length;
     const nav = el.shadowRoot!.querySelector('year-navigator')!;
-    nav.dispatchEvent(new CustomEvent('tabularizer-prev-year', { bubbles: true }));
+    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       expect(sendMsg.mock.calls.length).toBeGreaterThan(callsBefore);
     }, { timeout: 3000 });
@@ -275,7 +275,7 @@ describe('TabularzerCard — year navigation (T030)', () => {
       expect(el.shadowRoot!.querySelector('year-navigator')).toBeTruthy();
     }, { timeout: 3000 });
     const nav = el.shadowRoot!.querySelector('year-navigator')!;
-    nav.dispatchEvent(new CustomEvent('tabularizer-prev-year', { bubbles: true }));
+    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       await el.updateComplete;
       const yearTable = el.shadowRoot!.querySelector('year-table');
@@ -298,7 +298,7 @@ describe('TabularzerCard — year navigation (T030)', () => {
       expect(el.shadowRoot!.querySelector('year-navigator')).toBeTruthy();
     }, { timeout: 3000 });
     const nav = el.shadowRoot!.querySelector('year-navigator')!;
-    nav.dispatchEvent(new CustomEvent('tabularizer-prev-year', { bubbles: true }));
+    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       await el.updateComplete;
       const yearTable = el.shadowRoot!.querySelector('year-table');
@@ -322,7 +322,7 @@ describe('TabularzerCard — year navigation (T030)', () => {
       expect(el.shadowRoot!.querySelector('year-navigator')).toBeTruthy();
     }, { timeout: 3000 });
     const nav = el.shadowRoot!.querySelector('year-navigator')!;
-    nav.dispatchEvent(new CustomEvent('tabularizer-prev-year', { bubbles: true }));
+    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       await el.updateComplete;
       const nav2 = el.shadowRoot!.querySelector('year-navigator') as (HTMLElement & { atEarliestYear: boolean }) | null;
@@ -332,8 +332,8 @@ describe('TabularzerCard — year navigation (T030)', () => {
 });
 
 // Expression rows
-describe('TabularzerCard — expression rows', () => {
-  async function getFirstTableRoot(card: TabularzerCard): Promise<ShadowRoot> {
+describe('CalendarStatsCard — expression rows', () => {
+  async function getFirstTableRoot(card: CalendarStatsCard): Promise<ShadowRoot> {
     let root: ShadowRoot | null = null;
     await vi.waitFor(async () => {
       await card.updateComplete;
@@ -388,7 +388,7 @@ describe('TabularzerCard — expression rows', () => {
 
   it('expression row shows evaluated sum in Jan 1 daily cell', async () => {
     const config: CardConfig = {
-      type: 'custom:tabularizer-card',
+      type: 'custom:calendar-stats-card',
       entities: [{ expression: '{{ sensor.a + sensor.b }}', name: 'Combined', unit: 'kWh' }],
     };
     const el = await createCard(config, makeExpressionHass());
@@ -405,7 +405,7 @@ describe('TabularzerCard — expression rows', () => {
 
   it('expression row total column shows sum of daily values', async () => {
     const config: CardConfig = {
-      type: 'custom:tabularizer-card',
+      type: 'custom:calendar-stats-card',
       entities: [{ expression: '{{ sensor.a + sensor.b }}', name: 'Combined', unit: 'kWh' }],
     };
     const el = await createCard(config, makeExpressionHass());
@@ -427,12 +427,12 @@ describe('TabularzerCard — expression rows', () => {
 });
 
 // T007: predecessor entity IDs included in statistics fetch
-describe('TabularzerCard — predecessor entity IDs in fetch (T007)', () => {
+describe('CalendarStatsCard — predecessor entity IDs in fetch (T007)', () => {
   it('predecessor entity IDs appear in statistic_ids of statistics fetch call', async () => {
     const sendMessagePromise = vi.fn().mockResolvedValue([]);
     const hass = makeHass({ connection: { sendMessagePromise } });
     const config: CardConfig = {
-      type: 'custom:tabularizer-card',
+      type: 'custom:calendar-stats-card',
       entities: [
         {
           entity: 'sensor.main',
@@ -463,7 +463,7 @@ describe('TabularzerCard — predecessor entity IDs in fetch (T007)', () => {
 
 // --- Legend (T014) ---
 
-async function triggerThresholdsApplied(card: TabularzerCard, rules: ThresholdRule[]): Promise<void> {
+async function triggerThresholdsApplied(card: CalendarStatsCard, rules: ThresholdRule[]): Promise<void> {
   let yearTable: Element | null = null;
   await vi.waitFor(async () => {
     await card.updateComplete;
@@ -478,7 +478,7 @@ async function triggerThresholdsApplied(card: TabularzerCard, rules: ThresholdRu
   await card.updateComplete;
 }
 
-describe('TabularzerCard — threshold legend', () => {
+describe('CalendarStatsCard — threshold legend', () => {
   it('no triggered thresholds → no legend', async () => {
     const card = await createCard(CONFIG, makeHass());
     await triggerThresholdsApplied(card, []);
@@ -574,7 +574,7 @@ describe('TabularzerCard — threshold legend', () => {
 
 // --- Floating bottom bar (008) ---
 
-describe('TabularzerCard — floating bottom bar', () => {
+describe('CalendarStatsCard — floating bottom bar', () => {
   // T002
   it('renders .bottom-bar element in shadow DOM', async () => {
     const card = await createCard(CONFIG, makeHass());
@@ -628,7 +628,7 @@ describe('TabularzerCard — floating bottom bar', () => {
       expect(card.shadowRoot!.querySelector('.bottom-bar year-navigator')).not.toBeNull();
     }, { timeout: 3000 });
     const nav = card.shadowRoot!.querySelector('.bottom-bar year-navigator')!;
-    nav.dispatchEvent(new CustomEvent('tabularizer-prev-year', { bubbles: true }));
+    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       await card.updateComplete;
       expect(card.selectedYear).toBe(currentYear - 1);
@@ -637,7 +637,7 @@ describe('TabularzerCard — floating bottom bar', () => {
 
   // T007: FR-007 — .bottom-bar CSS includes HA design tokens
   it('.bottom-bar CSS uses fixed positioning and HA design tokens (FR-007)', () => {
-    const cssText = String(TabularzerCard.styles);
+    const cssText = String(CalendarStatsCard.styles);
     expect(cssText).toContain('.bottom-bar');
     expect(cssText).toContain('position: fixed');
     expect(cssText).toContain('--ha-card-background');

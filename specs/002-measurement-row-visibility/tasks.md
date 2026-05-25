@@ -89,7 +89,7 @@
 
 ## Phase 4: Polish
 
-- [x] T010 [P] Run full test suite (`npm test`) and confirm all tests pass; run `npm run build` and confirm `frontend/dist/tabularizer-card.js` produced without errors; verify no TypeScript errors (`npx tsc --noEmit`)
+- [x] T010 [P] Run full test suite (`npm test`) and confirm all tests pass; run `npm run build` and confirm `frontend/dist/calendar-stats-card.js` produced without errors; verify no TypeScript errors (`npx tsc --noEmit`)
 
 ---
 

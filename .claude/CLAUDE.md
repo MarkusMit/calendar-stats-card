@@ -54,7 +54,7 @@ All commands run in WSL2, from the `frontend/` directory:
 
 ```bash
 npm install          # install dependencies
-npm run build        # bundle → frontend/dist/tabularizer-card.js
+npm run build        # bundle → frontend/dist/calendar-stats-card.js
 npm test             # Vitest (write failing tests first — TDD)
 npm run test:watch   # watch mode
 npm run test:coverage

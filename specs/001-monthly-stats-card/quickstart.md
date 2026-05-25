@@ -16,17 +16,17 @@ npm install
 
 ```bash
 npm run build
-# Output: frontend/dist/tabularizer-card.js
+# Output: frontend/dist/calendar-stats-card.js
 ```
 
 ## Deploy to Home Assistant
 
-1. Copy `frontend/dist/tabularizer-card.js` to `<ha-config>/www/tabularizer-card.js`
+1. Copy `frontend/dist/calendar-stats-card.js` to `<ha-config>/www/calendar-stats-card.js`
 2. Add to your dashboard's resource list:
 
 ```yaml
 resources:
-  - url: /local/tabularizer-card.js
+  - url: /local/calendar-stats-card.js
     type: module
 ```
 
@@ -54,7 +54,7 @@ npm run lint
 ## Card YAML Configuration
 
 ```yaml
-type: custom:tabularizer-card
+type: custom:calendar-stats-card
 entities:
   - entity: sensor.outdoor_temperature
     label: "Temperature"          # optional override; otherwise uses HA friendly name

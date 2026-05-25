@@ -85,11 +85,11 @@ description: "Task list for threshold-based cell coloring"
 > **Write first. Confirm failing before T014/T015.**
 
 - [ ] T013 [US5] Add `"legend": { "title": "Legend" }` to `frontend/src/translations/en.json` and `"legend": { "title": "Legende" }` to `frontend/src/translations/de.json`
-- [ ] T014 [US5] Write failing component tests for legend in `frontend/tests/component/tabularizer-card.test.ts`: legend present when ≥1 named threshold fires; absent when named thresholds configured but none triggered; absent when all named rules have no color fields; definition order preserved across triggered rules; name deduplication (first-defined triggered wins); swatch rendered for `background_color`; no swatch when only `text_color` set; `text_color` applied to label; both colors → swatch + colored label; i18n title rendered; `thresholds-applied` event drives legend update
+- [ ] T014 [US5] Write failing component tests for legend in `frontend/tests/component/calendar-stats-card.test.ts`: legend present when ≥1 named threshold fires; absent when named thresholds configured but none triggered; absent when all named rules have no color fields; definition order preserved across triggered rules; name deduplication (first-defined triggered wins); swatch rendered for `background_color`; no swatch when only `text_color` set; `text_color` applied to label; both colors → swatch + colored label; i18n title rendered; `thresholds-applied` event drives legend update
 
 ### Implementation
 
-- [ ] T015 [US5] Implement `_buildLegend(triggeredRules: ThresholdRule[])` helper and legend HTML/CSS in `frontend/src/components/tabularizer-card.ts`: listen for `thresholds-applied` CustomEvent from year-table/monthly-table; store triggered rules in `@state() _triggeredThresholds`; pass to `_buildLegend` which filters for named valid rules and deduplicates by name (first-seen); render legend strip with swatch + label after `<year-table>` inside `<ha-card>`; add legend CSS to static styles
+- [ ] T015 [US5] Implement `_buildLegend(triggeredRules: ThresholdRule[])` helper and legend HTML/CSS in `frontend/src/components/calendar-stats-card.ts`: listen for `thresholds-applied` CustomEvent from year-table/monthly-table; store triggered rules in `@state() _triggeredThresholds`; pass to `_buildLegend` which filters for named valid rules and deduplicates by name (first-seen); render legend strip with swatch + label after `<year-table>` inside `<ha-card>`; add legend CSS to static styles
 
 **Checkpoint**: `npm test` — T014 green. Legend appears only when ≥1 named threshold fires; absent when none triggered; correct entries in first-triggered order.
 

@@ -53,7 +53,7 @@ frontend/src/
     ├── predecessor-resolver.ts  # CREATE: resolvePredecessorData function
     └── (existing files unchanged)
 
-frontend/src/tabularizer-card.ts # MODIFY: include predecessor IDs in fetch; call resolver
+frontend/src/calendar-stats-card.ts # MODIFY: include predecessor IDs in fetch; call resolver
 
 frontend/tests/unit/services/
     └── predecessor-resolver.test.ts  # CREATE: unit tests (TDD)
@@ -106,7 +106,7 @@ Resolution algorithm (per entity row with predecessors):
 
 4. Dates to consider: union of all date keys present for `mainEntityId` and any predecessor entity ID.
 
-### Step 3 — `tabularizer-card.ts` changes
+### Step 3 — `calendar-stats-card.ts` changes
 
 **a. Predecessor entity IDs in fetch:**
 ```typescript

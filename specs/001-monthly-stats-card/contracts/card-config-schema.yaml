@@ -1,8 +1,8 @@
-# Tabularizer Card — YAML Configuration Schema
-# Lovelace card type: custom:tabularizer-card
+# Calendar Stats Card — YAML Configuration Schema
+# Lovelace card type: custom:calendar-stats-card
 #
 # Minimal example:
-#   type: custom:tabularizer-card
+#   type: custom:calendar-stats-card
 #   entities:
 #     - entity: sensor.outdoor_temperature
 #       name: "Temperature"
@@ -10,9 +10,9 @@
 #     - entity: sensor.precipitation_gauge
 
 type:
-  description: REQUIRED. Must be the literal string "custom:tabularizer-card".
+  description: REQUIRED. Must be the literal string "custom:calendar-stats-card".
   type: string
-  const: custom:tabularizer-card
+  const: custom:calendar-stats-card
 
 entities:
   description: |

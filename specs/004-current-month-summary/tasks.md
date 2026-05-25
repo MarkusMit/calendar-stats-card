@@ -44,7 +44,7 @@
   - Move the cumulative-branch computation (currently lines ~186–204) into this function; return `null` when `allSums.length === 0`
   - Refactor `transformMonthlyStats` to call `computeMonthlySummaryFromDailyValues` for both branches — behavior for complete months unchanged; existing tests must still pass
 
-- [X] T003 [US1] Add current-month fill-in pass in `frontend/src/tabularizer-card.ts`:
+- [X] T003 [US1] Add current-month fill-in pass in `frontend/src/calendar-stats-card.ts`:
   - Import `computeMonthlySummaryFromDailyValues` from `./services/data-transform`
   - After the expression-row monthly summary loop (currently ~line 235), add a fill-in block:
     - Only when `year === currentYear` (use the already-computed `currentYear` / `currentMonth` values from `this._currentYearMonth()`)
@@ -60,7 +60,7 @@
 
 ## Phase 3: Polish
 
-- [X] T004 Run full test suite (`npm test`) and confirm all tests pass; run `npm run build` and confirm `frontend/dist/tabularizer-card.js` produced without errors; verify no TypeScript errors (`npx tsc --noEmit`)
+- [X] T004 Run full test suite (`npm test`) and confirm all tests pass; run `npm run build` and confirm `frontend/dist/calendar-stats-card.js` produced without errors; verify no TypeScript errors (`npx tsc --noEmit`)
 
 ---
 
@@ -77,7 +77,7 @@
 
 1. T001 tests confirmed FAILING
 2. T002: extract helper in `data-transform.ts` → T001 tests now pass
-3. T003: fill-in pass in `tabularizer-card.ts` → end-to-end path complete
+3. T003: fill-in pass in `calendar-stats-card.ts` → end-to-end path complete
 4. Full suite green before Polish
 
 ---
@@ -95,5 +95,5 @@
 
 - `computeMonthlySummaryFromDailyValues` is a pure function — easy to unit test in isolation
 - No component changes needed (`year-table` and `monthly-table` render whatever `monthlySummaries` provides)
-- The `metadataMap` in `tabularizer-card.ts` already has `stateClass` and `deviceClass` for all entities — no additional data fetching required
+- The `metadataMap` in `calendar-stats-card.ts` already has `stateClass` and `deviceClass` for all entities — no additional data fetching required
 - Conventional Commits: `type(scope): subject`

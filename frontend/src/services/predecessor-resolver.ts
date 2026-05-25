@@ -26,7 +26,7 @@ export function resolvePredecessorData(
       const ok = stateClassOk && unitOk;
       if (!ok && !warnedPredecessors.has(pred.entity)) {
         console.warn(
-          `[tabularizer] predecessor ${pred.entity}: state_class or unit_of_measurement mismatch, skipping`,
+          `[calendar-stats] predecessor ${pred.entity}: state_class or unit_of_measurement mismatch, skipping`,
         );
         warnedPredecessors.add(pred.entity);
       }

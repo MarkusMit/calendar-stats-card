@@ -50,13 +50,13 @@
 
 ## Decision 5: Legend Placement
 
-**Decision**: Rendered in `tabularizer-card.ts` after `<year-table>`, inside `<ha-card>`.
+**Decision**: Rendered in `calendar-stats-card.ts` after `<year-table>`, inside `<ha-card>`.
 
 **Rationale**: The root card component is the only component with access to the full `CardConfig.entities` list. Legend is card-level (single combined legend); placing it inside `year-table` would require threading full config through unnecessarily. Pattern matches `year-navigator` placement.
 
 **Alternatives considered**:
 - Render inside `year-table.ts` — rejected; year-table doesn't own the full entity config list.
-- Separate `<threshold-legend>` custom element — rejected; YAGNI. The legend logic is simple enough to inline in `tabularizer-card.ts` render.
+- Separate `<threshold-legend>` custom element — rejected; YAGNI. The legend logic is simple enough to inline in `calendar-stats-card.ts` render.
 
 ---
 

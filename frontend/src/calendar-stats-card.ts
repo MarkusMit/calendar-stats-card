@@ -13,8 +13,8 @@ import './components/loading-overlay';
 import './components/year-table';
 import './components/year-navigator';
 
-@customElement('tabularizer-card')
-export class TabularzerCard extends LitElement {
+@customElement('calendar-stats-card')
+export class CalendarStatsCard extends LitElement {
   @state() private _config: CardConfig | null = null;
   @state() private _hass: HomeAssistant | null = null;
   @state() private _triggeredThresholds: ThresholdRule[] = [];
@@ -123,7 +123,7 @@ export class TabularzerCard extends LitElement {
 
   setConfig(config: CardConfig): void {
     if (!Array.isArray(config.entities)) {
-      throw new Error('tabularizer-card: "entities" must be an array');
+      throw new Error('calendar-stats-card: "entities" must be an array');
     }
     this._config = config;
   }
@@ -467,8 +467,8 @@ export class TabularzerCard extends LitElement {
                 .atCurrentYear=${atCurrentYear}
                 .atEarliestYear=${atEarliestYear}
                 .lang=${lang}
-                @tabularizer-prev-year=${this._onPrevYear}
-                @tabularizer-next-year=${this._onNextYear}
+                @calendar-stats-prev-year=${this._onPrevYear}
+                @calendar-stats-next-year=${this._onNextYear}
               ></year-navigator>`
             : ''}
         </div>` : ''}
@@ -479,7 +479,7 @@ export class TabularzerCard extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'tabularizer-card': TabularzerCard;
+    'calendar-stats-card': CalendarStatsCard;
   }
 }
 
@@ -488,8 +488,8 @@ if (!window.customCards) {
   window.customCards = [];
 }
 window.customCards.push({
-  type: 'tabularizer-card',
-  name: 'Tabularizer Card',
+  type: 'calendar-stats-card',
+  name: 'Calendar Stats Card',
   description: 'Dense monthly statistics table for Home Assistant entities',
 });
 

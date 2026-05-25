@@ -4,7 +4,7 @@
 
 ## Summary
 
-Adds threshold-based per-cell color overrides to the tabularizer card. Each data cell is independently evaluated against a list of `ThresholdRule` entries on its entity config; when multiple rules match, the closest threshold value wins. Named threshold rules render a combined card-level legend. Config is additive: new `thresholds` list on `EntityRowConfig`/`ExpressionRowConfig`; `text_color`/`background_color` field names are reused on each rule (no schema migration, no breaking change).
+Adds threshold-based per-cell color overrides to the calendar-stats card. Each data cell is independently evaluated against a list of `ThresholdRule` entries on its entity config; when multiple rules match, the closest threshold value wins. Named threshold rules render a combined card-level legend. Config is additive: new `thresholds` list on `EntityRowConfig`/`ExpressionRowConfig`; `text_color`/`background_color` field names are reused on each rule (no schema migration, no breaking change).
 
 ## Technical Context
 
@@ -24,7 +24,7 @@ Adds threshold-based per-cell color overrides to the tabularizer card. Each data
 - [x] **II. Test-First** — TDD enforced; failing tests written before every implementation unit. Threshold resolver unit-tested in isolation; component tests cover cell coloring and legend.
 - [x] **III. Density & Data Fidelity** — No table layout changes. Legend is a single compact strip rendered only when named thresholds are configured; no decorative whitespace.
 - [x] **IV. i18n from Day One** — `legend.title` added to `en.json` and `de.json` at introduction; rendered via `localize()`.
-- [x] **V. Simplicity** — Additive-only config change. Threshold resolver is a new service with single responsibility. Legend inlined in `tabularizer-card.ts` (no new custom element). No YAGNI abstractions.
+- [x] **V. Simplicity** — Additive-only config change. Threshold resolver is a new service with single responsibility. Legend inlined in `calendar-stats-card.ts` (no new custom element). No YAGNI abstractions.
 
 *No violations. Complexity Tracking table not required.*
 
@@ -54,7 +54,7 @@ frontend/src/
 ├── components/
 │   ├── year-table.ts           # Modified: per-cell threshold style computation
 │   ├── monthly-table.ts        # Modified: per-cell threshold style computation
-│   └── tabularizer-card.ts     # Modified: legend rendering
+│   └── calendar-stats-card.ts     # Modified: legend rendering
 └── translations/
     ├── en.json                 # Modified: add "legend": { "title": "Legend" }
     └── de.json                 # Modified: add "legend": { "title": "Legende" }
@@ -65,7 +65,7 @@ frontend/tests/
 └── component/
     ├── year-table.test.ts           # Modified: threshold color tests
     ├── monthly-table.test.ts        # Modified: threshold color tests
-    └── tabularizer-card.test.ts     # Modified: legend tests
+    └── calendar-stats-card.test.ts     # Modified: legend tests
 ```
 
 ## Implementation Design
@@ -130,9 +130,9 @@ Add `thresholds?: ThresholdRule[]` to both `EntityRowConfig` and `ExpressionRowC
 
 Cells with no data value (missing, empty, pad beyond month end): use `staticStyle` — no threshold evaluation.
 
-### 4. Legend Rendering (tabularizer-card.ts)
+### 4. Legend Rendering (calendar-stats-card.ts)
 
-**Triggered-thresholds architecture**: year-table and monthly-table each accumulate every non-`undefined` `ThresholdRule` returned by `resolveThreshold` during their render pass (object-identity deduplication, first-seen order). After rendering, each dispatches a `thresholds-applied` CustomEvent (`bubbles: true, composed: true`) with `detail: { rules: ThresholdRule[] }`. `tabularizer-card` listens on its shadow root and stores the result in `@state() private _triggeredThresholds: ThresholdRule[] = []`, which triggers legend re-render.
+**Triggered-thresholds architecture**: year-table and monthly-table each accumulate every non-`undefined` `ThresholdRule` returned by `resolveThreshold` during their render pass (object-identity deduplication, first-seen order). After rendering, each dispatches a `thresholds-applied` CustomEvent (`bubbles: true, composed: true`) with `detail: { rules: ThresholdRule[] }`. `calendar-stats-card` listens on its shadow root and stores the result in `@state() private _triggeredThresholds: ThresholdRule[] = []`, which triggers legend re-render.
 
 Add legend collection and render after `<year-table>` inside `<ha-card>`:
 
@@ -150,7 +150,7 @@ private _buildLegend(triggeredRules: ThresholdRule[]): Array<{name: string; text
 }
 ```
 
-Legend CSS in `tabularizer-card.ts` static styles:
+Legend CSS in `calendar-stats-card.ts` static styles:
 ```css
 .threshold-legend {
   display: flex; flex-wrap: wrap; align-items: center;
@@ -183,5 +183,5 @@ Legend entry rendering:
 6. **monthly-table tests** — Identical coverage to step 4 for `monthly-table.ts`.
 7. **monthly-table implementation** — Update `monthly-table.ts` identically.
 8. **i18n strings** — Add `legend.title` to `en.json` and `de.json`.
-9. **Legend tests** — Failing tests for `tabularizer-card.ts`: legend appears when ≥1 named threshold; absent when none; definition order preserved; deduplicated by name; swatch rendered for background_color; text-color-only entry has no swatch.
-10. **Legend implementation** — Implement `_buildLegend()` and legend HTML/CSS in `tabularizer-card.ts`.
+9. **Legend tests** — Failing tests for `calendar-stats-card.ts`: legend appears when ≥1 named threshold; absent when none; definition order preserved; deduplicated by name; swatch rendered for background_color; text-color-only entry has no swatch.
+10. **Legend implementation** — Implement `_buildLegend()` and legend HTML/CSS in `calendar-stats-card.ts`.

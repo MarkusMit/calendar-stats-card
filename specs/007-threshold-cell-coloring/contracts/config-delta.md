@@ -39,7 +39,7 @@ thresholds:
 ## Full Example
 
 ```yaml
-type: custom:tabularizer-card
+type: custom:calendar-stats-card
 entities:
   - entity: sensor.outside_temperature
     text_color: "var(--primary-text-color)"

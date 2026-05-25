@@ -5,7 +5,7 @@
 
 ## Summary
 
-Build a Home Assistant Lovelace custom card (`custom:tabularizer-card`) that fetches entity statistics via the HA WebSocket API (`recorder/statistics_during_period`) and renders them as dense monthly tables. Each configured entity is one row per monthly table; columns cover day 1 through last day of month plus a sticky label column, a summary column (min/avg/max), and a total column (cumulative entities only). Year navigation (`‹ YYYY ›`) allows browsing past years bounded by the earliest year with recorded data. Locale is auto-detected from `hass.selectedLanguage`; supported: `en` and `de`.
+Build a Home Assistant Lovelace custom card (`custom:calendar-stats-card`) that fetches entity statistics via the HA WebSocket API (`recorder/statistics_during_period`) and renders them as dense monthly tables. Each configured entity is one row per monthly table; columns cover day 1 through last day of month plus a sticky label column, a summary column (min/avg/max), and a total column (cumulative entities only). Year navigation (`‹ YYYY ›`) allows browsing past years bounded by the earliest year with recorded data. Locale is auto-detected from `hass.selectedLanguage`; supported: `en` and `de`.
 
 **Stack**: TypeScript 5.6+ + Lit 3.2 bundled by Rollup 4; tested with Vitest + happy-dom + @open-wc/testing.
 
@@ -16,7 +16,7 @@ Build a Home Assistant Lovelace custom card (`custom:tabularizer-card`) that fet
 **Storage**: N/A — reads from HA statistics WebSocket API  
 **Testing**: Vitest, happy-dom environment, @open-wc/testing component helpers, @vitest/coverage-v8 coverage  
 **Target Platform**: HA Lovelace browser runtime, HA 2026.5.0+  
-**Project Type**: HA Lovelace custom card (single ES module bundle `tabularizer-card.js`)  
+**Project Type**: HA Lovelace custom card (single ES module bundle `calendar-stats-card.js`)  
 **Performance Goals**: <3s per year-view (initial load + every year navigation), ≤10 entities (SC-007)  
 **Constraints**: Dense layout (4px cell padding, zero decorative gap); no internal vertical scroll (FR-035); horizontal scroll per monthly table (FR-026); sticky label column (FR-027); UTF-8 LF line endings  
 **Scale/Scope**: Up to 10 entities (soft performance ceiling), 12 months, 2 locales (en, de)
@@ -41,7 +41,7 @@ All commands run in WSL2, from the `frontend/` directory.
 # Install dependencies (first time)
 npm install
 
-# Build → frontend/dist/tabularizer-card.js
+# Build → frontend/dist/calendar-stats-card.js
 npm run build
 
 # Test (Vitest — write failing tests first per TDD)
@@ -81,7 +81,7 @@ specs/001-monthly-stats-card/
 ```text
 frontend/
 ├── src/
-│   ├── tabularizer-card.ts           # Root custom element (LitElement)
+│   ├── calendar-stats-card.ts           # Root custom element (LitElement)
 │   ├── components/
 │   │   ├── year-navigator.ts         # ‹ YYYY › navigation bar
 │   │   ├── year-table.ts             # Primary grid: all months of a year in one table
@@ -110,7 +110,7 @@ frontend/
 │   └── component/
 │       ├── year-navigator.test.ts
 │       ├── monthly-table.test.ts
-│       └── tabularizer-card.test.ts
+│       └── calendar-stats-card.test.ts
 ├── dist/                             # Build output (gitignored)
 ├── package.json
 ├── rollup.config.js
@@ -118,10 +118,10 @@ frontend/
 └── vitest.config.ts
 
 # HA deployment:
-# frontend/dist/tabularizer-card.js → <ha-config>/www/tabularizer-card.js
+# frontend/dist/calendar-stats-card.js → <ha-config>/www/calendar-stats-card.js
 ```
 
-**Structure Decision**: Single frontend project (no backend). Rollup bundles `frontend/src/` → `frontend/dist/tabularizer-card.js` as a single ES module. Tests live in `frontend/tests/`, mirroring the `src/` structure.
+**Structure Decision**: Single frontend project (no backend). Rollup bundles `frontend/src/` → `frontend/dist/calendar-stats-card.js` as a single ES module. Tests live in `frontend/tests/`, mirroring the `src/` structure.
 
 ## Key Design Decisions
 

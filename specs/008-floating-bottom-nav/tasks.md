@@ -45,17 +45,17 @@ The following requirements are satisfied structurally by the flex-column layout 
 
 > **⚠️ Write these FIRST. Run `npm test` and confirm each new test FAILS before writing any implementation.**
 
-- [x] T002 [US1] Write failing test: `shadowRoot.querySelector('.bottom-bar')` is not null in `frontend/tests/component/tabularizer-card.test.ts`
-- [x] T003 [US1] Write failing test: `year-navigator` is a descendant of `.bottom-bar` (not top-level `ha-card` child) in `frontend/tests/component/tabularizer-card.test.ts`
-- [x] T004 [US1] Write failing test: no `year-navigator` exists outside `.bottom-bar` in `frontend/tests/component/tabularizer-card.test.ts`
-- [x] T005 [US1] Write failing test: `year-table` is a descendant of `.card-content` in `frontend/tests/component/tabularizer-card.test.ts`
-- [x] T006 [US1] Write failing test: `year-changed` event dispatched from `.bottom-bar`'s `year-navigator` still updates the card's displayed year in `frontend/tests/component/tabularizer-card.test.ts`
-- [x] T007 [US1] Write failing test: `.bottom-bar` element has `border-top` style and `background` style containing HA CSS token (`--ha-card-background` or `--card-background-color`) — covers FR-007 in `frontend/tests/component/tabularizer-card.test.ts`
+- [x] T002 [US1] Write failing test: `shadowRoot.querySelector('.bottom-bar')` is not null in `frontend/tests/component/calendar-stats-card.test.ts`
+- [x] T003 [US1] Write failing test: `year-navigator` is a descendant of `.bottom-bar` (not top-level `ha-card` child) in `frontend/tests/component/calendar-stats-card.test.ts`
+- [x] T004 [US1] Write failing test: no `year-navigator` exists outside `.bottom-bar` in `frontend/tests/component/calendar-stats-card.test.ts`
+- [x] T005 [US1] Write failing test: `year-table` is a descendant of `.card-content` in `frontend/tests/component/calendar-stats-card.test.ts`
+- [x] T006 [US1] Write failing test: `year-changed` event dispatched from `.bottom-bar`'s `year-navigator` still updates the card's displayed year in `frontend/tests/component/calendar-stats-card.test.ts`
+- [x] T007 [US1] Write failing test: `.bottom-bar` element has `border-top` style and `background` style containing HA CSS token (`--ha-card-background` or `--card-background-color`) — covers FR-007 in `frontend/tests/component/calendar-stats-card.test.ts`
 
 ### Implementation for User Story 1
 
-- [x] T008 [US1] Add CSS for `ha-card` (flex column; `overflow: hidden` removed per research Decision 6), `.card-content` (`flex: 1 1 0; min-height: 0; overflow: auto; padding: 8px`), and `.bottom-bar` (flex center, HA design tokens: `--ha-card-background`, `--divider-color`, upward shadow) in `frontend/src/tabularizer-card.ts`
-- [x] T009 [US1] Restructure `render()`: wrap `year-table` + `_buildLegend()` in `<div class="card-content">`; move `<year-navigator>` (with all existing bindings unchanged) into `<div class="bottom-bar">` in `frontend/src/tabularizer-card.ts`
+- [x] T008 [US1] Add CSS for `ha-card` (flex column; `overflow: hidden` removed per research Decision 6), `.card-content` (`flex: 1 1 0; min-height: 0; overflow: auto; padding: 8px`), and `.bottom-bar` (flex center, HA design tokens: `--ha-card-background`, `--divider-color`, upward shadow) in `frontend/src/calendar-stats-card.ts`
+- [x] T009 [US1] Restructure `render()`: wrap `year-table` + `_buildLegend()` in `<div class="card-content">`; move `<year-navigator>` (with all existing bindings unchanged) into `<div class="bottom-bar">` in `frontend/src/calendar-stats-card.ts`
 
 **Checkpoint**: Run `npm test`. All T002–T007 tests must now pass. Year navigation must work visually.
 
@@ -71,10 +71,10 @@ The following requirements are satisfied structurally by the flex-column layout 
 
 > **⚠️ Write these FIRST. Confirm FAILING before implementation.**
 
-- [x] T010 [US2] Write failing test: when named thresholds are triggered, `.legend` element is a descendant of `.card-content` (not of `.bottom-bar`) in `frontend/tests/component/tabularizer-card.test.ts`
-- [x] T011 [US2] Write failing test: when named thresholds are triggered, `.card-content` contains both a `year-table` descendant and a `.legend` descendant in `frontend/tests/component/tabularizer-card.test.ts`
+- [x] T010 [US2] Write failing test: when named thresholds are triggered, `.legend` element is a descendant of `.card-content` (not of `.bottom-bar`) in `frontend/tests/component/calendar-stats-card.test.ts`
+- [x] T011 [US2] Write failing test: when named thresholds are triggered, `.card-content` contains both a `year-table` descendant and a `.legend` descendant in `frontend/tests/component/calendar-stats-card.test.ts`
 
-**Checkpoint**: Run `npm test`. T010–T011 should already pass after T009 placed `_buildLegend()` inside `.card-content`. If not, fix legend placement in `frontend/src/tabularizer-card.ts`.
+**Checkpoint**: Run `npm test`. T010–T011 should already pass after T009 placed `_buildLegend()` inside `.card-content`. If not, fix legend placement in `frontend/src/calendar-stats-card.ts`.
 
 ---
 
@@ -106,7 +106,7 @@ The following requirements are satisfied structurally by the flex-column layout 
 ### Parallel Opportunities
 
 - T002–T007 are all additions to the same test file — write sequentially
-- T008 and T009 both modify `tabularizer-card.ts` — write sequentially
+- T008 and T009 both modify `calendar-stats-card.ts` — write sequentially
 - T010–T011 are additions to the same test file — write sequentially
 
 ---
@@ -132,7 +132,7 @@ The following requirements are satisfied structurally by the flex-column layout 
 
 ## Notes
 
-- All tasks touch at most 2 files: `tabularizer-card.ts` (implementation) + `tabularizer-card.test.ts` (tests)
+- All tasks touch at most 2 files: `calendar-stats-card.ts` (implementation) + `calendar-stats-card.test.ts` (tests)
 - No new source files, no new dependencies, no new `@state()` fields
 - `year-navigator.ts` and all other components are **unchanged**
 - `overflow: hidden` removed from `ha-card` per research Decision 6; `.card-content { overflow: auto }` provides equivalent clipping
