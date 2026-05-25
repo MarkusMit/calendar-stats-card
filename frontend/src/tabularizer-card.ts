@@ -5,6 +5,7 @@ import type { HomeAssistant } from './types/ha-types';
 import type { ViewState, YearStatistics } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
 import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues } from './services/data-transform';
+import { resolvePredecessorData } from './services/predecessor-resolver';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
 import { localize } from './localize/localize';
 import './components/loading-overlay';
@@ -26,6 +27,7 @@ export class TabularzerCard extends LitElement {
 
   private _service = new StatisticsService();
   private _fetchAbortFlag = 0;
+  private _warnedPredecessors = new Set<string>();
 
   static styles = css`
     :host {
@@ -117,9 +119,14 @@ export class TabularzerCard extends LitElement {
     this.requestUpdate();
 
     const entityIds = [...new Set(
-      this._config.entities.flatMap((cfg) =>
-        'entity' in cfg ? [cfg.entity] : extractEntityIds(cfg.expression),
-      ),
+      this._config.entities.flatMap((cfg) => {
+        if ('entity' in cfg) {
+          const ids = [cfg.entity];
+          if (cfg.predecessors) ids.push(...cfg.predecessors.map((p) => p.entity));
+          return ids;
+        }
+        return extractEntityIds(cfg.expression);
+      }),
     )];
     const dailyStartTime = `${year - 1}-12-31T00:00:00Z`;
     const startTime = `${year}-01-01T00:00:00Z`;
@@ -174,7 +181,12 @@ export class TabularzerCard extends LitElement {
 
       const tz = this._hass.config.time_zone;
       const nowMs = Date.now();
-      const dailyValues = transformDailyStats(dailyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, tz, nowMs, {});
+      const dailyValues = resolvePredecessorData(
+        this._config.entities,
+        transformDailyStats(dailyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, tz, nowMs, {}),
+        metadataMap,
+        this._warnedPredecessors,
+      );
 
       // Compute expression daily values from constituent entity daily values
       const todayStr = new Intl.DateTimeFormat('en-CA', {
