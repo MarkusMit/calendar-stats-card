@@ -54,8 +54,9 @@ export class TabularzerCard extends LitElement {
       align-items: center;
       padding: 4px 8px;
       background: var(--ha-card-background, var(--card-background-color, white));
-      border-radius: var(--ha-card-border-radius, 24px);
-      box-shadow: var(--ha-card-box-shadow, 0px 2px 4px rgba(0, 0, 0, 0.3));
+      border-radius: 24px;
+      border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.24);
     }
     .no-entities {
       color: var(--secondary-text-color);
