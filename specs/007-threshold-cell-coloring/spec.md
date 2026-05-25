@@ -12,6 +12,7 @@
 - Q: Where should the threshold name legend appear — card-level combined, per-entity, or per-month? → A: Single combined legend at the bottom of the card, merging all named thresholds from all entities.
 - Q: What visual format does each legend entry use? → A: Small colored swatch (background_color; or colored text label if only text_color is set) + name text.
 - Q: In what order do legend entries appear when multiple named thresholds exist? → A: Order of first appearance across entities (config definition order).
+- Q: What are the config field names for threshold colors? → A: `text_color` and `background_color` — same flat naming as existing static row colors (spec 003). No renaming, no breaking change. Thresholds are a peer list on the entity config, not nested under `text`/`background`.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -93,28 +94,29 @@ A user configures named thresholds on a temperature entity: "Summer day" for max
 
 **Why this priority**: Completes the coloring feature for shared dashboards — colors are meaningless without a key. Names also allow the same threshold to be referenced consistently across multiple entities.
 
-**Independent Test**: Configure one entity with `above: 25, name: "Summer day", background_color: "orange"` and one entity with no named thresholds. Open the card; verify a legend section appears at the bottom showing exactly one entry ("Summer day" with an orange swatch). Remove the name; verify the legend disappears entirely.
+**Independent Test**: Configure one entity with `above: 25, name: "Summer day", background_color: "orange"` and one entity with no named thresholds. Open the card with data containing at least one day where the value exceeds 25; verify a legend section appears at the bottom showing exactly one entry ("Summer day" with an orange swatch). View a period where no values exceed 25; verify no legend appears. Remove the name; verify the legend disappears.
 
 **Acceptance Scenarios**:
 
-1. **Given** at least one threshold rule with a `name` field on any entity, **When** the card renders, **Then** a legend section appears at the bottom of the card.
+1. **Given** at least one named threshold rule matches a visible cell value during rendering, **When** the card renders, **Then** a legend section appears at the bottom of the card.
 2. **Given** no threshold rules have a `name` field, **When** the card renders, **Then** no legend section appears.
-3. **Given** threshold rules with names from two different entities, **When** the card renders, **Then** the legend contains entries for all named thresholds from both entities combined.
-4. **Given** two threshold rules on different entities sharing the same name and same colors, **When** the card renders, **Then** the legend shows that name exactly once (deduplicated).
+3. **Given** named threshold rules triggered from two different entities, **When** the card renders, **Then** the legend contains combined entries from both entities in definition order.
+4. **Given** two threshold rules on different entities sharing the same name, both triggered, **When** the card renders, **Then** the legend shows that name exactly once (first-defined wins).
 5. **Given** a threshold rule with a name but no `text_color` or `background_color` (ignored per FR-011), **When** the card renders, **Then** that name does NOT appear in the legend.
+6. **Given** named threshold rules are configured but none match any visible cell value in the current view, **When** the card renders, **Then** no legend section appears.
 
 ---
 
 ### Edge Cases
 
-- Threshold tie (two thresholds equidistant from the value): the threshold with the higher numeric threshold value wins.
+- Threshold tie (two thresholds equidistant from the value): the threshold with the higher numeric threshold value wins. When two equidistant matching thresholds also share the same numeric threshold value, the first-defined rule (config definition order) wins.
 - Threshold rule with neither `text_color` nor `background_color`: rule is silently ignored; no error.
 - Cell with no numeric value (missing data, null): no threshold is evaluated; cell renders with static or default styling.
-- `not-below` / `not-above` on an entity with only a single daily value (scalar measurement): behavior follows the same cell-targeting logic as for range entities.
+- `not-below` / `not-above` on a cumulative/expression entity (single daily value, cell role `'scalar'`): both operators apply — the single daily value is treated as both the minimum and maximum for targeting purposes.
 - Thresholds configured on an expression row: supported with identical behavior to entity rows.
 - Named threshold with no colors (silently ignored per FR-011): not shown in legend.
 - Two entities share same threshold name but different colors: first-defined entry wins in the legend (definition order); no error.
-- Named threshold that never triggers in current view: still shown in legend (legend is a reference key, not a triggered-only summary).
+- Named threshold that never triggers in the current view: NOT shown in legend; the legend shows only rules that matched at least one visible cell during the current render.
 - Threshold with only `text_color` set and a static `background_color` present: threshold overrides `text_color`, static `background_color` still applies.
 - Threshold with only `background_color` set and a static `text_color` present: threshold overrides `background_color`, static `text_color` still applies.
 
@@ -122,21 +124,21 @@ A user configures named thresholds on a temperature entity: "Summer day" for max
 
 ### Functional Requirements
 
-- **FR-001**: Each entity and expression row configuration MUST support an optional list of threshold rules; each rule specifies an operator, a numeric threshold value, an optional `name`, and at least one of optional `text_color` or `background_color`.
+- **FR-001**: Each entity and expression row configuration MUST support an optional list of threshold rules; each rule specifies an operator, a numeric threshold value, an optional `name`, and at least one of optional `text_color` or `background_color`. These field names are identical to the existing static row color fields on `EntityRowConfig` and `ExpressionRowConfig`.
 - **FR-002**: Supported operators MUST include `above` (cell value strictly greater than threshold), `equals-above` (cell value ≥ threshold), `equals-below` (cell value ≤ threshold), and `below` (cell value strictly less than threshold).
 - **FR-003**: Supported operators MUST include `not-below` and `not-above`; `not-below` applies only to min-value cells and fires when that cell's value is ≥ the threshold; `not-above` applies only to max-value cells and fires when that cell's value is ≤ the threshold. On scalar entities with a single daily value, that value is treated as both min and max, so both operators apply to it.
 - **FR-004**: Multiple threshold rules of the same operator type MUST be supported on a single entity.
 - **FR-005**: When multiple threshold rules match a cell value, the rule whose threshold value is numerically closest to the cell value MUST be applied; all non-matching rules are ignored.
-- **FR-006**: When two matching rules are equidistant from the cell value, the rule with the higher numeric threshold value MUST win.
+- **FR-006**: When two matching rules are equidistant from the cell value, the rule with the higher numeric threshold value MUST win. When two equidistant matching rules also share the same numeric threshold value, the first-defined rule (config definition order) MUST win.
 - **FR-007**: A threshold color (`text_color` or `background_color`) MUST override the corresponding static row color for the matched cell; colors not specified in the threshold rule fall back to the static row color or default.
 - **FR-008**: When no threshold rule matches a cell value, the static row color (if configured) MUST apply to that cell unchanged.
 - **FR-009**: Threshold rules MUST be evaluated per cell independently; a threshold match on one cell MUST NOT affect any other cell in the same row or table.
 - **FR-010**: Cells with no numeric value (missing data) MUST NOT be evaluated against threshold rules and MUST render with static or default styling only.
 - **FR-011**: Threshold rules with neither `text_color` nor `background_color` specified MUST be silently ignored; they MUST NOT cause an error, affect other rules, or appear in the legend.
-- **FR-012**: When at least one threshold rule across any entity in the card has a `name` field (and is not ignored per FR-011), the card MUST render a legend section at the bottom of the card.
+- **FR-012**: When at least one valid named threshold rule fires (matches a cell value) during rendering of the current view, the card MUST render a legend section at the bottom of the card.
 - **FR-013**: The legend MUST combine named threshold entries from all entities into a single list; entries from the same name appearing in multiple entities MUST be deduplicated (first-defined wins).
-- **FR-014**: Named threshold rules that are never triggered in the current view MUST still appear in the legend.
-- **FR-015**: When no threshold rule in the card has a `name` field, the legend MUST NOT be rendered.
+- **FR-014**: Named threshold rules that do not fire during rendering of the current view MUST NOT appear in the legend; only rules that matched at least one visible cell are eligible for legend display.
+- **FR-015**: When no valid named threshold rule fires during the current render (including the case where named rules are configured but none match any visible cell value), the legend MUST NOT be rendered.
 - **FR-016**: Each legend entry MUST display a colored swatch using `background_color` if set, paired with the threshold name as a text label; if only `text_color` is set (no `background_color`), the name label MUST be rendered in that text color instead of a filled swatch.
 - **FR-017**: Legend entries MUST be ordered by first appearance across all entities, following config definition order; duplicate names are deduplicated on first occurrence.
 
@@ -156,7 +158,7 @@ A user configures named thresholds on a temperature entity: "Summer day" for max
 - **SC-003**: For entities with multiple threshold rules, the correct "closest threshold" rule is applied for all tested value ranges — verified by automated tests covering at least 5 distinct value bands per operator combination.
 - **SC-004**: When a threshold matches, the threshold color overrides the static row color for the matched cell; non-matched cells retain static row colors — verified by automated tests.
 - **SC-005**: `not-below` and `not-above` threshold rules produce correct results for boundary values — 100% automated test pass rate.
-- **SC-006**: The legend appears if and only if at least one valid named threshold exists in the card configuration — verified by automated tests covering present/absent name scenarios.
+- **SC-006**: The legend appears if and only if at least one valid named threshold fires during rendering of the current view — verified by automated tests covering triggered/not-triggered/absent-name scenarios.
 - **SC-007**: A user can identify what each cell color means by reading the legend without accessing the card configuration.
 
 ## Assumptions
