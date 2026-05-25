@@ -2,7 +2,7 @@
   "card": {
     "no_entities": "No entities configured.",
     "loading": "Loading…",
-    "description": "Dense monthly statistics table for Home Assistant entities"
+    "description": "Monthly statistics tables for your Home Assistant entities"
   },
   "table": {
     "label": "Entity",
