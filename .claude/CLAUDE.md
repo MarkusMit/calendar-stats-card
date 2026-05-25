@@ -47,7 +47,7 @@ Supported from day one: `en`, `de`.
 ## Build & Test Commands
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/005-entity-predecessors/plan.md](../specs/005-entity-predecessors/plan.md)
+Active feature plan: [specs/006-day-header-sunday/plan.md](../specs/006-day-header-sunday/plan.md)
 <!-- SPECKIT END -->
 
 All commands run in WSL2, from the `frontend/` directory:
