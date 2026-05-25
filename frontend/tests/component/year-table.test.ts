@@ -517,6 +517,110 @@ describe('YearTable — label cell colors (EntityRowConfig)', () => {
   });
 });
 
+// T004 [US2]: Sunday header highlighting
+describe('YearTable — Sunday header highlighting', () => {
+  async function renderYearTableForSunday(month: number) {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [month];
+    el.entityConfigs = [{ entity: ENTITY_ID }];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('shadow root not ready');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('January 2025: th.sunday text values = exactly [5, 12, 19, 26]', async () => {
+    const el = await renderYearTableForSunday(1);
+    const sundays = el.shadowRoot!.querySelectorAll('th.sunday');
+    const nums = Array.from(sundays).map((th) => parseInt(th.textContent!.trim(), 10));
+    expect(nums).toEqual([5, 12, 19, 26]);
+  });
+
+  it('February 2025: th.sunday text values = exactly [2, 9, 16, 23]', async () => {
+    const el = await renderYearTableForSunday(2);
+    const sundays = el.shadowRoot!.querySelectorAll('th.sunday');
+    const nums = Array.from(sundays).map((th) => parseInt(th.textContent!.trim(), 10));
+    expect(nums).toEqual([2, 9, 16, 23]);
+  });
+
+  it('two-month render: January and February Sundays correct independently', async () => {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1, 2];
+    el.entityConfigs = [{ entity: ENTITY_ID }];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('shadow root not ready');
+    }, { timeout: 3000 });
+    const theads = el.shadowRoot!.querySelectorAll('thead');
+    const janSundays = Array.from(theads[0]!.querySelectorAll('th.sunday')).map(
+      (th) => parseInt(th.textContent!.trim(), 10),
+    );
+    const febSundays = Array.from(theads[1]!.querySelectorAll('th.sunday')).map(
+      (th) => parseInt(th.textContent!.trim(), 10),
+    );
+    expect(janSundays).toEqual([5, 12, 19, 26]);
+    expect(febSundays).toEqual([2, 9, 16, 23]);
+  });
+});
+
+// T001 [US1]: day headers present on every month
+describe('YearTable — day headers present on every month', () => {
+  async function renderYearTableMonths(visibleMonths: number[]) {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = visibleMonths;
+    el.entityConfigs = [{ entity: ENTITY_ID }];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('shadow root not ready');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('2nd month in a 2-month render shows 28 numeric day headers (February 2025)', async () => {
+    const el = await renderYearTableMonths([1, 2]);
+    const theads = el.shadowRoot!.querySelectorAll('thead');
+    const febThs = Array.from(theads[1]!.querySelectorAll('th')).filter(
+      (th) => /^\d+$/.test(th.textContent?.trim() ?? ''),
+    );
+    expect(febThs.length).toBe(28);
+    const dayNums = febThs.map((th) => parseInt(th.textContent!.trim(), 10));
+    expect(dayNums).toEqual(Array.from({ length: 28 }, (_, i) => i + 1));
+  });
+
+  it('February 2025 as sole month: header has exactly 28 numeric th + 3 pad-cell th', async () => {
+    const el = await renderYearTableMonths([2]);
+    const thead = el.shadowRoot!.querySelector('thead')!;
+    const numericThs = Array.from(thead.querySelectorAll('th')).filter(
+      (th) => /^\d+$/.test(th.textContent?.trim() ?? ''),
+    );
+    const padThs = thead.querySelectorAll('th.pad-cell');
+    expect(numericThs.length).toBe(28);
+    expect(padThs.length).toBe(3);
+  });
+});
+
 // T004: ExpressionRowConfig label cell colors
 describe('YearTable — label cell colors (ExpressionRowConfig)', () => {
   async function renderExprColor(cfg: EntityConfig) {

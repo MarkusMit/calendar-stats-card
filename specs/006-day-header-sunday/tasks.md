@@ -26,13 +26,13 @@
 
 > **Write tests first — confirm they FAIL before touching implementation**
 
-- [ ] T001 [US1] Add failing tests "YearTable — day headers present on every month" in `frontend/tests/component/year-table.test.ts`:
+- [x] T001 [US1] Add failing tests "YearTable — day headers present on every month" in `frontend/tests/component/year-table.test.ts`:
   - render with `visibleMonths = [1,2,3,4]`, assert 4th `thead` (January, 31 days) contains exactly 31 `<th>` elements with numeric text 1–31
   - render with `visibleMonths = [2]` (February 2025, 28 days), assert header contains exactly 28 numeric `<th>` elements + 3 pad-cell `<th>` elements
 
 ### Implementation for User Story 1
 
-- [ ] T002 [US1] Refactor `year-table.ts` render(): move `dayHeaders` generation inside `visibleMonths.map()` loop, generate per-month (days 1–N as `<th>`, days beyond month length as `<th class="pad-cell">`), remove `showDayNumbers`/`i % 3 === 0` variable and the compact fallback branch — `frontend/src/components/year-table.ts`
+- [x] T002 [US1] Refactor `year-table.ts` render(): move `dayHeaders` generation inside `visibleMonths.map()` loop, generate per-month (days 1–N as `<th>`, days beyond month length as `<th class="pad-cell">`), remove `showDayNumbers`/`i % 3 === 0` variable and the compact fallback branch — `frontend/src/components/year-table.ts`
 
 **Checkpoint**: T001 test passes. All 12 months now show day headers. No other tests regress.
 
@@ -48,20 +48,20 @@
 
 > **Write tests first — confirm they FAIL before touching implementation**
 
-- [ ] T003 [P] [US2] Add failing tests "MonthlyTable — Sunday header highlighting" in `frontend/tests/component/monthly-table.test.ts`:
+- [x] T003 [P] [US2] Add failing tests "MonthlyTable — Sunday header highlighting" in `frontend/tests/component/monthly-table.test.ts`:
   - January 2025: `.day-cell-header` count = 31 (existing behavior guard)
   - January 2025: `th.sunday` text values = exactly [5, 12, 19, 26] (count AND values, not just count)
   - January 2025: day 1 `<th>` does NOT have `.sunday` class
   - February 2025 (28 days): `th.sunday` text values = exactly [2, 9, 16, 23]; pad-cell `<th>` elements carry no `.sunday` class
-- [ ] T004 [P] [US2] Add failing tests "YearTable — Sunday header highlighting" in `frontend/tests/component/year-table.test.ts`:
+- [x] T004 [P] [US2] Add failing tests "YearTable — Sunday header highlighting" in `frontend/tests/component/year-table.test.ts`:
   - January 2025: `th.sunday` count = 4, text = 5, 12, 19, 26
   - February 2025: `th.sunday` text = 2, 9, 16, 23
   - Two-month render: each month's Sunday cells are correct independently
 
 ### Implementation for User Story 2
 
-- [ ] T005 [P] [US2] Add Sunday detection to `monthly-table.ts` day header loop: `const isSunday = new Date(this.year, this.month - 1, d).getDay() === 0;`, apply `${isSunday ? 'sunday' : ''}` to `<th class="day-cell-header ...">`, add `th.sunday { font-weight: bold; }` to `static styles` — `frontend/src/components/monthly-table.ts`
-- [ ] T006 [US2] Add Sunday detection to `year-table.ts` per-month header loop (requires T002 complete): `const isSunday = new Date(this.year, month - 1, d).getDay() === 0;`, apply `.sunday` class to `<th>` for valid days, add `th.sunday { font-weight: bold; }` to `static styles` — `frontend/src/components/year-table.ts`
+- [x] T005 [P] [US2] Add Sunday detection to `monthly-table.ts` day header loop: `const isSunday = new Date(this.year, this.month - 1, d).getDay() === 0;`, apply `${isSunday ? 'sunday' : ''}` to `<th class="day-cell-header ...">`, add `th.sunday { font-weight: bold; }` to `static styles` — `frontend/src/components/monthly-table.ts`
+- [x] T006 [US2] Add Sunday detection to `year-table.ts` per-month header loop (requires T002 complete): `const isSunday = new Date(this.year, month - 1, d).getDay() === 0;`, apply `.sunday` class to `<th>` for valid days, add `th.sunday { font-weight: bold; }` to `static styles` — `frontend/src/components/year-table.ts`
 
 **Checkpoint**: T003 and T004 tests pass. Both components bold correct Sunday headers for any month/year combination.
 
@@ -69,7 +69,7 @@
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T007 Run full Vitest suite and confirm zero regressions in `frontend/` — `npm test`
+- [x] T007 Run full Vitest suite and confirm zero regressions in `frontend/` — `npm test`
 
 ---
 

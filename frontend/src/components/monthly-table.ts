@@ -89,6 +89,9 @@ export class MonthlyTable extends LitElement {
     td.label-column[colspan="2"] {
       border-right: 1px solid var(--divider-color, #ccc);
     }
+    th.sunday {
+      font-weight: bold;
+    }
   `;
 
   override updated() {
@@ -259,7 +262,8 @@ export class MonthlyTable extends LitElement {
       if (d > days) {
         dayHeaders.push(html`<th class="pad-cell"></th>`);
       } else {
-        dayHeaders.push(html`<th class="day-cell-header">${d}</th>`);
+        const isSunday = new Date(this.year, this.month - 1, d).getDay() === 0;
+        dayHeaders.push(html`<th class="day-cell-header${isSunday ? ' sunday' : ''}">${d}</th>`);
       }
     }
 

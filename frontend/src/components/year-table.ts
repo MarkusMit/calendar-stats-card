@@ -74,7 +74,6 @@ export class YearTable extends LitElement {
       text-align: center;
       padding: 1px 3px;
       background: var(--secondary-background-color, #f0f0f0);
-      border-top: 2px solid var(--divider-color, #ccc);
       border-bottom: 1px solid var(--divider-color, #ccc);
     }
     .month-header-row th.month-name {
@@ -86,6 +85,9 @@ export class YearTable extends LitElement {
       position: sticky;
       left: 0;
       z-index: 1;
+    }
+    .month-header-row th.pad-cell {
+      opacity: 1;
     }
     .col-header th {
       text-align: center;
@@ -132,6 +134,9 @@ export class YearTable extends LitElement {
     td.sub-label,
     td.label-column[colspan="2"] {
       border-right: 1px solid var(--divider-color, #ccc);
+    }
+    th.sunday {
+      font-weight: bold;
     }
   `;
 
@@ -303,30 +308,27 @@ export class YearTable extends LitElement {
     const hasCumulative = this.hasCumulative();
     const hasMeasurement = this.hasMeasurement();
 
-    const dayHeaders: ReturnType<typeof html>[] = [];
-    for (let d = 1; d <= TOTAL_DAYS; d++) {
-      dayHeaders.push(html`<th>${d}</th>`);
-    }
-
     return html`
       <div class="table-container">
         <table>
-          ${this.visibleMonths.map((month, i) => {
+          ${this.visibleMonths.map((month) => {
             const days = this.daysInMonth(month);
-            const totalCols = 1 + (hasMeasurement ? 1 : 0) + TOTAL_DAYS + 1 + (hasCumulative ? 1 : 0);
-            const showDayNumbers = i % 3 === 0;
+            const dayHeaders = [];
+            for (let d = 1; d <= TOTAL_DAYS; d++) {
+              if (d > days) {
+                dayHeaders.push(html`<th class="pad-cell"></th>`);
+              } else {
+                const isSunday = new Date(this.year, month - 1, d).getDay() === 0;
+                dayHeaders.push(html`<th class="${isSunday ? 'sunday' : ''}">${d}</th>`);
+              }
+            }
             return html`
               <thead>
                 <tr class="month-header-row">
-                  ${showDayNumbers ? html`
-                    <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this.monthName(month)}</th>
-                    ${dayHeaders}
-                    <th class="summary-column">${localize('table.summary', this.lang)}</th>
-                    ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
-                  ` : html`
-                    <th class="month-name">${this.monthName(month)}</th>
-                    <th colspan="${totalCols - 1}"></th>
-                  `}
+                  <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this.monthName(month)}</th>
+                  ${dayHeaders}
+                  <th class="summary-column">${localize('table.summary', this.lang)}</th>
+                  ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
                 </tr>
               </thead>
               <tbody>

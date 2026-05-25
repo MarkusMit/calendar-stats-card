@@ -897,6 +897,40 @@ describe('MonthlyTable — label cell colors (EntityRowConfig)', () => {
   });
 });
 
+// T003 [US2]: Sunday header highlighting
+describe('MonthlyTable — Sunday header highlighting', () => {
+  it('January 2025: .day-cell-header count = 31 (existing behavior guard)', async () => {
+    const el = await renderTable(1, 2025);
+    const headers = el.shadowRoot!.querySelectorAll('.day-cell-header');
+    expect(headers.length).toBe(31);
+  });
+
+  it('January 2025: th.sunday text values = exactly [5, 12, 19, 26]', async () => {
+    const el = await renderTable(1, 2025);
+    const sundays = el.shadowRoot!.querySelectorAll('th.sunday');
+    const nums = Array.from(sundays).map((th) => parseInt(th.textContent!.trim(), 10));
+    expect(nums).toEqual([5, 12, 19, 26]);
+  });
+
+  it('January 2025: day 1 th does NOT have .sunday class', async () => {
+    const el = await renderTable(1, 2025);
+    const allDayHeaders = el.shadowRoot!.querySelectorAll('.day-cell-header');
+    const day1 = Array.from(allDayHeaders).find(
+      (th) => th.textContent?.trim() === '1',
+    );
+    expect(day1?.classList.contains('sunday')).toBe(false);
+  });
+
+  it('February 2025: th.sunday text values = exactly [2, 9, 16, 23]; pad-cells have no .sunday', async () => {
+    const el = await renderTable(2, 2025);
+    const sundays = el.shadowRoot!.querySelectorAll('th.sunday');
+    const nums = Array.from(sundays).map((th) => parseInt(th.textContent!.trim(), 10));
+    expect(nums).toEqual([2, 9, 16, 23]);
+    const padSundays = el.shadowRoot!.querySelectorAll('th.pad-cell.sunday');
+    expect(padSundays.length).toBe(0);
+  });
+});
+
 // T005: ExpressionRowConfig label cell colors
 describe('MonthlyTable — label cell colors (ExpressionRowConfig)', () => {
   async function renderExprColor(cfg: EntityConfig) {
