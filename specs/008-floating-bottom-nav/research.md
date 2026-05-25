@@ -5,18 +5,19 @@
 
 ---
 
-## Decision 1: Layout Strategy — Flex Column vs. Overlay Positioning
+## Decision 1: Layout Strategy — Block Flow (revised after implementation)
 
-**Decision**: Flex column on `ha-card`.
+**Decision**: Natural block flow. `.card-content` then `.bottom-bar` as sequential block children of `ha-card`.
 
-**Rationale**: The spec's "bottom padding = max(legend height, bar height)" formula was written assuming an overlay approach (position:absolute/sticky). A flex-column layout is strictly superior: the `.card-content` wrapper becomes a flex child that fills remaining height, the `.bottom-bar` is a second flex child anchored at the bottom. No z-index fighting, no overlap, no explicit padding calculation needed — the layout engine enforces separation automatically.
+**Rationale**: `ha-card` is a shadow DOM custom element. Its `:host { display: block }` takes precedence over our `display: flex` rule applied from the parent shadow DOM (authority conflict in shadow DOM cascade). As a result, the flex container had `height: auto` — `.card-content` with `flex: 1 1 0` collapsed to zero, clipping the table. Block flow is the correct approach: document order places the bar after all content, so it is always at the card's bottom. No overlap, no collapsing, no height dependency.
 
-**Alternatives considered**:
-- `position: sticky; bottom: 0` on bar — requires a scrollable ancestor; `ha-card` is not a scroll container, so sticky collapses to static.
-- `position: absolute; bottom: 0` with `position: relative` on `ha-card` — `ha-card` already has `overflow: hidden` which clips absolute children; removing it changes table horizontal scroll behavior.
-- Flex column — no layout hacks, no dynamic height measurement, bar always adjacent to content.
+**Alternatives considered and ruled out**:
+- `position: sticky; bottom: 0` on bar — requires a scrollable ancestor; `ha-card` is not a scroll container so sticky collapses to static.
+- `position: absolute; bottom: 0` — `overflow: hidden` on `ha-card` clips absolute children below the border box.
+- Flex column — fails because `ha-card`'s shadow DOM `:host` overrides external `display: flex`; flex container has `height: auto`, so flex children don't distribute space correctly (`.card-content` collapses to zero).
+- `.card-wrapper` inner div with `height: 100%` — requires `ha-card` to have a defined height, which HA's masonry layout does not guarantee.
 
-**Implication for FR-005/FR-006**: Both requirements (bottom spacing) are satisfied automatically. The flex child `.card-content` shrinks to exactly (card height − bar height); no data row can be hidden. Dynamic bar height growth (FR-008) is also automatic.
+**Implication for FR-005/FR-006**: Both satisfied automatically by document order. Bar is after table and legend; no data row can be obscured. No JS height measurement needed.
 
 ---
 
