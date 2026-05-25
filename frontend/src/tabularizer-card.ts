@@ -48,7 +48,7 @@ export class TabularzerCard extends LitElement {
     .bottom-bar {
       position: fixed;
       bottom: max(16px, var(--safe-area-inset-bottom, 0px));
-      left: 16px;
+      right: 16px;
       z-index: 5;
       display: flex;
       align-items: center;
