@@ -40,17 +40,12 @@ export class TabularzerCard extends LitElement {
       display: block;
     }
     ha-card {
-      display: flex;
-      flex-direction: column;
+      overflow: hidden;
     }
     .card-content {
-      flex: 1 1 0;
-      min-height: 0;
-      overflow: auto;
       padding: 8px;
     }
     .bottom-bar {
-      flex: 0 0 auto;
       display: flex;
       align-items: center;
       justify-content: center;
