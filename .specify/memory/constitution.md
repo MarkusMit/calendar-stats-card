@@ -27,7 +27,7 @@ implementation. The constitution is being corrected to match what was always the
 no existing implementation is affected.
 -->
 
-# Tabularizer Constitution
+# CalendarStats Constitution
 
 ## Core Principles
 
