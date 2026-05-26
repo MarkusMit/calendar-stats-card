@@ -54,6 +54,10 @@ export class ExpressionRowEditor extends LitElement {
 
   _handleFormulaBlur(value: string): void {
     this._dirtyFormula = value;
+    if (!value.trim()) {
+      this._formulaError = null;
+      return;
+    }
     const lang = this.lang ?? 'en';
     let entityIds: string[];
     try {

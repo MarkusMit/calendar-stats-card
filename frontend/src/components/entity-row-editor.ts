@@ -83,7 +83,7 @@ export class EntityRowEditor extends LitElement {
           data-field="entity"
           .hass=${this.hass}
           .value=${entity}
-          .label=${localize('editor.predecessor_entity', lang)}
+          .label=${localize('editor.entity_row', lang)}
           allow-custom-entity
           @value-changed=${(e: CustomEvent) => this._handleFieldChange('entity', e.detail.value)}
         ></ha-entity-picker>
