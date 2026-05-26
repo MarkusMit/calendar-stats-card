@@ -46,7 +46,7 @@ export class CalendarStatsCardEditor extends LitElement {
       gap: 8px;
       padding: 8px 0;
     }
-    .entity-picker-row ha-entity-picker {
+    .entity-picker-row ha-selector {
       flex: 1;
     }
     .row-item {
@@ -228,14 +228,13 @@ export class CalendarStatsCardEditor extends LitElement {
           </div>
         ` : html`
           <div class="entity-picker-row">
-            <ha-entity-picker
+            <ha-selector
               .hass=${this.hass}
-              .label=${localize('editor.entity_row', lang)}
-              allow-custom-entity
+              .selector=${{ entity: {} }}
               @value-changed=${(e: CustomEvent) => {
                 if (e.detail.value) this._addEntityRow(e.detail.value as string);
               }}
-            ></ha-entity-picker>
+            ></ha-selector>
             <mwc-button @click=${() => { this._addingEntityRow = false; }}>✕</mwc-button>
           </div>
         `}

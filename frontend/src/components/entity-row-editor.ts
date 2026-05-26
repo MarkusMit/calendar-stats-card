@@ -79,14 +79,14 @@ export class EntityRowEditor extends LitElement {
 
     return html`
       <div class="row-fields">
-        <ha-entity-picker
+        <ha-selector
           data-field="entity"
           .hass=${this.hass}
-          .value=${entity}
+          .selector=${{ entity: {} }}
+          .value=${entity || null}
           .label=${localize('editor.entity_row', lang)}
-          allow-custom-entity
           @value-changed=${(e: CustomEvent) => this._handleFieldChange('entity', e.detail.value)}
-        ></ha-entity-picker>
+        ></ha-selector>
 
         ${stale ? html`
           <div class="stale-entity" data-stale>
