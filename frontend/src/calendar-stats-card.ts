@@ -12,6 +12,7 @@ import { localize } from './localize/localize';
 import './components/loading-overlay';
 import './components/year-table';
 import './components/year-navigator';
+import './components/calendar-stats-card-editor';
 
 @customElement('calendar-stats-card')
 export class CalendarStatsCard extends LitElement {
@@ -126,7 +127,7 @@ export class CalendarStatsCard extends LitElement {
   }
 
   static getStubConfig(): CardConfig {
-    return { type: 'calendar-stats-card', entities: [] };
+    return { type: 'custom:calendar-stats-card', entities: [] };
   }
 
   setConfig(config: CardConfig): void {
