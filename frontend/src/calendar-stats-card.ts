@@ -104,21 +104,29 @@ export class CalendarStatsCard extends LitElement {
     // Walk the composed DOM tree (crossing shadow root boundaries) to detect editor context.
     // :host-context() cannot cross shadow DOM boundaries, so JS traversal is required.
     const editorTags = new Set(['hui-card-element-editor', 'hui-dialog-edit-card', 'ha-dialog']);
-    let node: Node | null = this;
-    while (node) {
-      const parent: Node | null = node.parentNode;
-      if (parent) {
-        node = parent;
-      } else if (node instanceof ShadowRoot) {
-        node = node.host;
-      } else {
-        break;
-      }
-      if (node instanceof Element && editorTags.has(node.tagName.toLowerCase())) {
+    let ancestor: Node | null = this.parentNode;
+    while (ancestor) {
+      if (ancestor instanceof Element && editorTags.has(ancestor.tagName.toLowerCase())) {
         this._inEditor = true;
         return;
       }
+      const parent: Node | null = ancestor.parentNode;
+      if (parent) {
+        ancestor = parent;
+      } else if (ancestor instanceof ShadowRoot) {
+        ancestor = ancestor.host;
+      } else {
+        break;
+      }
     }
+  }
+
+  static getConfigElement(): HTMLElement {
+    return document.createElement('calendar-stats-card-editor');
+  }
+
+  static getStubConfig(): CardConfig {
+    return { type: 'calendar-stats-card', entities: [] };
   }
 
   setConfig(config: CardConfig): void {

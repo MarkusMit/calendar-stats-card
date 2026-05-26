@@ -27,5 +27,49 @@
   },
   "legend": {
     "title": "Legend"
+  },
+  "editor": {
+    "add_row": "Add row",
+    "entity_row": "Entity row",
+    "expression_row": "Expression row",
+    "no_rows": "No rows yet — add your first row above",
+    "remove_row": "Remove row",
+    "advanced": "Advanced",
+    "name": "Display name",
+    "precision": "Precision (decimal places)",
+    "factor": "Factor",
+    "unit": "Unit",
+    "show_zero": "Show zero-value days",
+    "show_min": "Show minimum",
+    "show_avg": "Show average",
+    "show_max": "Show maximum",
+    "text_color": "Text color",
+    "background_color": "Background color",
+    "formula": "Formula",
+    "thresholds": "Thresholds",
+    "add_threshold": "Add threshold",
+    "remove_threshold": "Remove threshold",
+    "threshold_operator": "Operator",
+    "threshold_value": "Value",
+    "threshold_name": "Label (optional)",
+    "predecessors": "Predecessors",
+    "add_predecessor": "Add predecessor",
+    "remove_predecessor": "Remove predecessor",
+    "predecessor_entity": "Entity ID",
+    "predecessor_replaced_on": "Replaced on",
+    "predecessor_factor": "Factor (optional)",
+    "entity_not_found": "Entity not found",
+    "invalid_expression_syntax": "Invalid expression syntax",
+    "entity_not_found_in_expression": "Entity not found: {entity}"
+  },
+  "threshold": {
+    "operators": {
+      "above": "Above (>)",
+      "equals_above": "At least (≥)",
+      "equals_below": "At most (≤)",
+      "below": "Below (<)",
+      "not_below": "Not below (≥)",
+      "not_above": "Not above (≤)"
+    }
   }
 }

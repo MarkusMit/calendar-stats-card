@@ -27,5 +27,49 @@
   },
   "legend": {
     "title": "Legende"
+  },
+  "editor": {
+    "add_row": "Zeile hinzufügen",
+    "entity_row": "Entitätszeile",
+    "expression_row": "Ausdruckszeile",
+    "no_rows": "Noch keine Zeilen — fügen Sie oben Ihre erste Zeile hinzu",
+    "remove_row": "Zeile entfernen",
+    "advanced": "Erweitert",
+    "name": "Anzeigename",
+    "precision": "Genauigkeit (Dezimalstellen)",
+    "factor": "Faktor",
+    "unit": "Einheit",
+    "show_zero": "Nullwerttage anzeigen",
+    "show_min": "Minimum anzeigen",
+    "show_avg": "Durchschnitt anzeigen",
+    "show_max": "Maximum anzeigen",
+    "text_color": "Textfarbe",
+    "background_color": "Hintergrundfarbe",
+    "formula": "Formel",
+    "thresholds": "Grenzwerte",
+    "add_threshold": "Grenzwert hinzufügen",
+    "remove_threshold": "Grenzwert entfernen",
+    "threshold_operator": "Operator",
+    "threshold_value": "Wert",
+    "threshold_name": "Bezeichnung (optional)",
+    "predecessors": "Vorgänger",
+    "add_predecessor": "Vorgänger hinzufügen",
+    "remove_predecessor": "Vorgänger entfernen",
+    "predecessor_entity": "Entitäts-ID",
+    "predecessor_replaced_on": "Ersetzt am",
+    "predecessor_factor": "Faktor (optional)",
+    "entity_not_found": "Entität nicht gefunden",
+    "invalid_expression_syntax": "Ungültige Ausdruckssyntax",
+    "entity_not_found_in_expression": "Entität nicht gefunden: {entity}"
+  },
+  "threshold": {
+    "operators": {
+      "above": "Darüber (>)",
+      "equals_above": "Mindestens (≥)",
+      "equals_below": "Höchstens (≤)",
+      "below": "Darunter (<)",
+      "not_below": "Nicht darunter (≥)",
+      "not_above": "Nicht darüber (≤)"
+    }
   }
 }

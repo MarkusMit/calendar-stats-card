@@ -667,3 +667,18 @@ describe('CalendarStatsCard — floating bottom bar', () => {
     expect(content!.querySelector('.legend')).not.toBeNull();
   });
 });
+
+// T002: HA editor protocol
+describe('CalendarStatsCard — editor protocol (T002)', () => {
+  it('getConfigElement returns element with tag calendar-stats-card-editor', () => {
+    const el = CalendarStatsCard.getConfigElement();
+    expect(el.tagName.toLowerCase()).toBe('calendar-stats-card-editor');
+  });
+
+  it('getStubConfig returns valid CardConfig with empty entities', () => {
+    const stub = CalendarStatsCard.getStubConfig();
+    expect(stub.type).toBe('calendar-stats-card');
+    expect(Array.isArray(stub.entities)).toBe(true);
+    expect(stub.entities).toHaveLength(0);
+  });
+});
