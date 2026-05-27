@@ -6,21 +6,17 @@ import { localize } from '../localize/localize';
 import { extractEntityIds } from '../services/expression-evaluator';
 import './threshold-list-editor';
 
-const EXPRESSION_ROW_SCHEMA = [
+const EXPRESSION_ROW_SCHEMA_MAIN = [
   { name: 'expression', selector: { text: { multiline: true } } },
   { name: 'name', selector: { text: {} } },
   { name: 'unit', selector: { text: {} } },
   { name: 'precision', selector: { number: { min: 0, step: 1, mode: 'box' } } },
-  {
-    name: 'advanced',
-    type: 'expandable',
-    flatten: true,
-    schema: [
-      { name: 'show_zero', selector: { boolean: {} } },
-      { name: 'text_color', selector: { text: {} } },
-      { name: 'background_color', selector: { text: {} } },
-    ],
-  },
+];
+
+const EXPRESSION_ROW_SCHEMA_ADVANCED = [
+  { name: 'show_zero', selector: { boolean: {} } },
+  { name: 'text_color', selector: { text: {} } },
+  { name: 'background_color', selector: { text: {} } },
 ];
 
 @customElement('calendar-stats-expression-row-editor')
@@ -40,6 +36,9 @@ export class ExpressionRowEditor extends LitElement {
       color: var(--error-color, red);
       font-size: 0.85em;
       padding: 4px 0;
+    }
+    .advanced-content {
+      padding: 8px 0;
     }
   `;
 
@@ -68,7 +67,6 @@ export class ExpressionRowEditor extends LitElement {
       name: localize('editor.name', this.lang),
       unit: localize('editor.unit', this.lang),
       precision: localize('editor.precision', this.lang),
-      advanced: localize('editor.advanced', this.lang),
       show_zero: localize('editor.show_zero', this.lang),
       text_color: localize('editor.text_color', this.lang),
       background_color: localize('editor.background_color', this.lang),
@@ -111,17 +109,28 @@ export class ExpressionRowEditor extends LitElement {
       <ha-form
         .hass=${this.hass}
         .data=${this.config}
-        .schema=${EXPRESSION_ROW_SCHEMA}
+        .schema=${EXPRESSION_ROW_SCHEMA_MAIN}
         .computeLabel=${this._computeLabel}
         @value-changed=${this._handleFormChanged}
       ></ha-form>
       ${this._formulaError ? html`
         <div class="formula-error">${this._formulaError}</div>
       ` : ''}
-      <calendar-stats-threshold-list-editor
-        .thresholds=${this.config?.thresholds ?? []}
-        .lang=${lang}
-      ></calendar-stats-threshold-list-editor>
+      <ha-expansion-panel .header=${localize('editor.advanced', lang)}>
+        <div class="advanced-content">
+          <ha-form
+            .hass=${this.hass}
+            .data=${this.config}
+            .schema=${EXPRESSION_ROW_SCHEMA_ADVANCED}
+            .computeLabel=${this._computeLabel}
+            @value-changed=${this._handleFormChanged}
+          ></ha-form>
+          <calendar-stats-threshold-list-editor
+            .thresholds=${this.config?.thresholds ?? []}
+            .lang=${lang}
+          ></calendar-stats-threshold-list-editor>
+        </div>
+      </ha-expansion-panel>
     `;
   }
 }

@@ -7,25 +7,21 @@ import './threshold-list-editor';
 import './predecessor-list-editor';
 import type { PredecessorConfig } from '../types/card-config';
 
-const ENTITY_ROW_SCHEMA = [
+const ENTITY_ROW_SCHEMA_MAIN = [
   { name: 'entity', selector: { entity: {} } },
   { name: 'name', selector: { text: {} } },
   { name: 'precision', selector: { number: { min: 0, step: 1, mode: 'box' } } },
-  {
-    name: 'advanced',
-    type: 'expandable',
-    flatten: true,
-    schema: [
-      { name: 'factor', selector: { number: { step: 0.001, mode: 'box' } } },
-      { name: 'unit', selector: { text: {} } },
-      { name: 'show_zero', selector: { boolean: {} } },
-      { name: 'show_min', selector: { boolean: {} } },
-      { name: 'show_avg', selector: { boolean: {} } },
-      { name: 'show_max', selector: { boolean: {} } },
-      { name: 'text_color', selector: { text: {} } },
-      { name: 'background_color', selector: { text: {} } },
-    ],
-  },
+];
+
+const ENTITY_ROW_SCHEMA_ADVANCED = [
+  { name: 'factor', selector: { number: { step: 0.001, mode: 'box' } } },
+  { name: 'unit', selector: { text: {} } },
+  { name: 'show_zero', selector: { boolean: {} } },
+  { name: 'show_min', selector: { boolean: {} } },
+  { name: 'show_avg', selector: { boolean: {} } },
+  { name: 'show_max', selector: { boolean: {} } },
+  { name: 'text_color', selector: { text: {} } },
+  { name: 'background_color', selector: { text: {} } },
 ];
 
 @customElement('calendar-stats-entity-row-editor')
@@ -38,6 +34,9 @@ export class EntityRowEditor extends LitElement {
   static styles = css`
     :host {
       display: block;
+    }
+    .advanced-content {
+      padding: 8px 0;
     }
   `;
 
@@ -74,7 +73,6 @@ export class EntityRowEditor extends LitElement {
       entity: localize('editor.entity_row', this.lang),
       name: localize('editor.name', this.lang),
       precision: localize('editor.precision', this.lang),
-      advanced: localize('editor.advanced', this.lang),
       factor: localize('editor.factor', this.lang),
       unit: localize('editor.unit', this.lang),
       show_zero: localize('editor.show_zero', this.lang),
@@ -102,19 +100,30 @@ export class EntityRowEditor extends LitElement {
       <ha-form
         .hass=${this.hass}
         .data=${this.config}
-        .schema=${ENTITY_ROW_SCHEMA}
+        .schema=${ENTITY_ROW_SCHEMA_MAIN}
         .computeLabel=${this._computeLabel}
         @value-changed=${this._handleFormChanged}
       ></ha-form>
-      <calendar-stats-threshold-list-editor
-        .thresholds=${this.config?.thresholds ?? []}
-        .lang=${lang}
-      ></calendar-stats-threshold-list-editor>
-      <calendar-stats-predecessor-list-editor
-        .hass=${this.hass}
-        .predecessors=${this.config?.predecessors ?? []}
-        .lang=${lang}
-      ></calendar-stats-predecessor-list-editor>
+      <ha-expansion-panel .header=${localize('editor.advanced', lang)}>
+        <div class="advanced-content">
+          <ha-form
+            .hass=${this.hass}
+            .data=${this.config}
+            .schema=${ENTITY_ROW_SCHEMA_ADVANCED}
+            .computeLabel=${this._computeLabel}
+            @value-changed=${this._handleFormChanged}
+          ></ha-form>
+          <calendar-stats-threshold-list-editor
+            .thresholds=${this.config?.thresholds ?? []}
+            .lang=${lang}
+          ></calendar-stats-threshold-list-editor>
+          <calendar-stats-predecessor-list-editor
+            .hass=${this.hass}
+            .predecessors=${this.config?.predecessors ?? []}
+            .lang=${lang}
+          ></calendar-stats-predecessor-list-editor>
+        </div>
+      </ha-expansion-panel>
     `;
   }
 }
