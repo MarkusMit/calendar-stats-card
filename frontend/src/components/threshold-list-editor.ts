@@ -14,12 +14,53 @@ export class ThresholdListEditor extends LitElement {
     :host {
       display: block;
     }
+    .section-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--secondary-text-color, rgba(0,0,0,0.54));
+      padding: 8px 0 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
     .threshold-rule {
-      border-bottom: 1px solid var(--divider-color, #e0e0e0);
-      padding: 8px 0;
+      border: 1px solid var(--divider-color, rgba(0,0,0,0.12));
+      border-radius: 4px;
+      padding: 8px;
+      margin-bottom: 8px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .field label {
+      font-size: 11px;
+      color: var(--secondary-text-color, rgba(0,0,0,0.54));
+    }
+    .field input,
+    .field select {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--divider-color, rgba(0,0,0,0.38));
+      padding: 4px 2px;
+      font-size: 14px;
+      color: var(--primary-text-color, rgba(0,0,0,0.87));
+      outline: none;
+      font-family: inherit;
+    }
+    .field input:focus,
+    .field select:focus {
+      border-bottom: 2px solid var(--primary-color, #03a9f4);
+    }
+    .rule-actions {
+      display: flex;
+      justify-content: flex-end;
     }
   `;
 
@@ -53,73 +94,73 @@ export class ThresholdListEditor extends LitElement {
 
   render() {
     const lang = this.lang;
+    if (this.thresholds.length === 0 && true) {
+      // Always render, even empty, so the add button shows
+    }
 
     return html`
-      <div>
-        ${this.thresholds.map((rule, i) => html`
-          <div class="threshold-rule">
-            <ha-select
-              data-field="operator"
-              .label=${localize('editor.threshold_operator', lang)}
+      <div class="section-title">${localize('editor.thresholds', lang)}</div>
+      ${this.thresholds.map((rule, i) => html`
+        <div class="threshold-rule">
+          <div class="field">
+            <label>${localize('editor.threshold_operator', lang)}</label>
+            <select
               .value=${rule.operator}
-              @selected=${(e: CustomEvent) => this._handleRuleChange(i, 'operator', e.detail.value)}
+              @change=${(e: Event) => this._handleRuleChange(i, 'operator', (e.target as HTMLSelectElement).value)}
             >
               ${OPERATORS.map((op) => html`
-                <ha-list-item .value=${op}>${this._operatorLabel(op)}</ha-list-item>
+                <option value=${op} ?selected=${rule.operator === op}>${this._operatorLabel(op)}</option>
               `)}
-            </ha-select>
-
-            <ha-textfield
-              data-field="value"
-              .label=${localize('editor.threshold_value', lang)}
-              .value=${String(rule.value)}
+            </select>
+          </div>
+          <div class="field">
+            <label>${localize('editor.threshold_value', lang)}</label>
+            <input
               type="number"
               step="any"
+              .value=${String(rule.value)}
               @change=${(e: Event) => {
                 const v = parseFloat((e.target as HTMLInputElement).value);
                 this._handleRuleChange(i, 'value', isNaN(v) ? 0 : v);
               }}
-            ></ha-textfield>
-
-            <ha-textfield
-              data-field="threshold_name"
-              .label=${localize('editor.threshold_name', lang)}
+            />
+          </div>
+          <div class="field">
+            <label>${localize('editor.threshold_name', lang)}</label>
+            <input
+              type="text"
               .value=${rule.name ?? ''}
               @change=${(e: Event) => this._handleRuleChange(i, 'name', (e.target as HTMLInputElement).value)}
-            ></ha-textfield>
-
-            <ha-textfield
-              data-field="threshold_text_color"
-              .label=${localize('editor.text_color', lang)}
+            />
+          </div>
+          <div class="field">
+            <label>${localize('editor.text_color', lang)}</label>
+            <input
+              type="text"
               .value=${rule.text_color ?? ''}
               @change=${(e: Event) => this._handleRuleChange(i, 'text_color', (e.target as HTMLInputElement).value)}
-            ></ha-textfield>
-
-            <ha-textfield
-              data-field="threshold_background_color"
-              .label=${localize('editor.background_color', lang)}
+            />
+          </div>
+          <div class="field">
+            <label>${localize('editor.background_color', lang)}</label>
+            <input
+              type="text"
               .value=${rule.background_color ?? ''}
               @change=${(e: Event) => this._handleRuleChange(i, 'background_color', (e.target as HTMLInputElement).value)}
-            ></ha-textfield>
-
+            />
+          </div>
+          <div class="rule-actions">
             <ha-icon-button
-              data-action="remove-threshold"
               .label=${localize('editor.remove_threshold', lang)}
               @click=${() => this._removeThreshold(i)}
-            >
-              <ha-icon icon="mdi:delete"></ha-icon>
-            </ha-icon-button>
+            ><ha-icon icon="mdi:delete"></ha-icon></ha-icon-button>
           </div>
-        `)}
-
-        <mwc-button
-          data-action="add-threshold"
-          @click=${() => this._addThreshold()}
-        >
-          <ha-icon icon="mdi:plus"></ha-icon>
-          ${localize('editor.add_threshold', lang)}
-        </mwc-button>
-      </div>
+        </div>
+      `)}
+      <mwc-button @click=${() => this._addThreshold()}>
+        <ha-icon icon="mdi:plus"></ha-icon>
+        ${localize('editor.add_threshold', lang)}
+      </mwc-button>
     `;
   }
 }

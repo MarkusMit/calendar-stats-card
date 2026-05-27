@@ -14,12 +14,47 @@ export class PredecessorListEditor extends LitElement {
     :host {
       display: block;
     }
+    .section-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--secondary-text-color, rgba(0,0,0,0.54));
+      padding: 8px 0 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
     .predecessor-entry {
-      border-bottom: 1px solid var(--divider-color, #e0e0e0);
-      padding: 8px 0;
+      border: 1px solid var(--divider-color, rgba(0,0,0,0.12));
+      border-radius: 4px;
+      padding: 8px;
+      margin-bottom: 8px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .field label {
+      font-size: 11px;
+      color: var(--secondary-text-color, rgba(0,0,0,0.54));
+    }
+    .field input {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--divider-color, rgba(0,0,0,0.38));
+      padding: 4px 2px;
+      font-size: 14px;
+      color: var(--primary-text-color, rgba(0,0,0,0.87));
+      outline: none;
+      font-family: inherit;
+    }
+    .field input:focus {
+      border-bottom: 2px solid var(--primary-color, #03a9f4);
     }
     .stale-entity {
       display: flex;
@@ -27,6 +62,10 @@ export class PredecessorListEditor extends LitElement {
       gap: 4px;
       color: var(--warning-color, orange);
       font-size: 0.85em;
+    }
+    .entry-actions {
+      display: flex;
+      justify-content: flex-end;
     }
   `;
 
@@ -61,64 +100,63 @@ export class PredecessorListEditor extends LitElement {
     const lang = this.lang;
 
     return html`
-      <div>
-        ${this.predecessors.map((entry, i) => html`
-          <div class="predecessor-entry">
-            <ha-textfield
-              data-field="predecessor_entity"
-              .label=${localize('editor.predecessor_entity', lang)}
+      <div class="section-title">${localize('editor.predecessors', lang)}</div>
+      ${this.predecessors.map((entry, i) => html`
+        <div class="predecessor-entry">
+          <div class="field">
+            <label>${localize('editor.predecessor_entity', lang)}</label>
+            <input
+              type="text"
               .value=${entry.entity}
               @change=${(e: Event) => this._handleEntryChange(i, 'entity', (e.target as HTMLInputElement).value)}
-            ></ha-textfield>
+            />
+          </div>
 
-            ${this._isStale(entry) ? html`
-              <div class="stale-entity" data-stale>
-                <ha-icon icon="mdi:alert-circle"></ha-icon>
-                ${localize('editor.entity_not_found', lang)}
-              </div>
-            ` : ''}
+          ${this._isStale(entry) ? html`
+            <div class="stale-entity" data-stale>
+              <ha-icon icon="mdi:alert-circle"></ha-icon>
+              ${localize('editor.entity_not_found', lang)}
+            </div>
+          ` : ''}
 
-            <ha-textfield
-              data-field="predecessor_replaced_on"
-              .label=${localize('editor.predecessor_replaced_on', lang)}
-              .value=${entry.replaced_on ?? ''}
+          <div class="field">
+            <label>${localize('editor.predecessor_replaced_on', lang)}</label>
+            <input
+              type="text"
               placeholder="YYYY-MM-DD"
+              .value=${entry.replaced_on ?? ''}
               @change=${(e: Event) => {
                 const v = (e.target as HTMLInputElement).value.trim();
                 this._handleEntryChange(i, 'replaced_on', v || undefined);
               }}
-            ></ha-textfield>
+            />
+          </div>
 
-            <ha-textfield
-              data-field="predecessor_factor"
-              .label=${localize('editor.predecessor_factor', lang)}
-              .value=${String(entry.factor ?? '')}
+          <div class="field">
+            <label>${localize('editor.predecessor_factor', lang)}</label>
+            <input
               type="number"
               step="any"
+              .value=${String(entry.factor ?? '')}
               @change=${(e: Event) => {
                 const v = parseFloat((e.target as HTMLInputElement).value);
                 this._handleEntryChange(i, 'factor', isNaN(v) ? undefined : v);
               }}
-            ></ha-textfield>
+            />
+          </div>
 
+          <div class="entry-actions">
             <ha-icon-button
-              data-action="remove-predecessor"
               .label=${localize('editor.remove_predecessor', lang)}
               @click=${() => this._removePredecessor(i)}
-            >
-              <ha-icon icon="mdi:delete"></ha-icon>
-            </ha-icon-button>
+            ><ha-icon icon="mdi:delete"></ha-icon></ha-icon-button>
           </div>
-        `)}
-
-        <mwc-button
-          data-action="add-predecessor"
-          @click=${() => this._addPredecessor()}
-        >
-          <ha-icon icon="mdi:plus"></ha-icon>
-          ${localize('editor.add_predecessor', lang)}
-        </mwc-button>
-      </div>
+        </div>
+      `)}
+      <mwc-button @click=${() => this._addPredecessor()}>
+        <ha-icon icon="mdi:plus"></ha-icon>
+        ${localize('editor.add_predecessor', lang)}
+      </mwc-button>
     `;
   }
 }

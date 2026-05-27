@@ -7,6 +7,27 @@ import './threshold-list-editor';
 import './predecessor-list-editor';
 import type { PredecessorConfig } from '../types/card-config';
 
+const ENTITY_ROW_SCHEMA = [
+  { name: 'entity', selector: { entity: {} } },
+  { name: 'name', selector: { text: {} } },
+  { name: 'precision', selector: { number: { min: 0, step: 1, mode: 'box' } } },
+  {
+    name: 'advanced',
+    type: 'expandable',
+    flatten: true,
+    schema: [
+      { name: 'factor', selector: { number: { step: 0.001, mode: 'box' } } },
+      { name: 'unit', selector: { text: {} } },
+      { name: 'show_zero', selector: { boolean: {} } },
+      { name: 'show_min', selector: { boolean: {} } },
+      { name: 'show_avg', selector: { boolean: {} } },
+      { name: 'show_max', selector: { boolean: {} } },
+      { name: 'text_color', selector: { text: {} } },
+      { name: 'background_color', selector: { text: {} } },
+    ],
+  },
+];
+
 @customElement('calendar-stats-entity-row-editor')
 export class EntityRowEditor extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
@@ -18,27 +39,14 @@ export class EntityRowEditor extends LitElement {
     :host {
       display: block;
     }
-    .row-fields {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 8px 0;
-    }
-    .stale-entity {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      color: var(--warning-color, orange);
-      font-size: 0.85em;
-    }
   `;
 
   private _onThresholdsChanged = (e: Event): void => {
-    this._handleFieldChange('thresholds', (e as CustomEvent<{ thresholds: ThresholdRule[] }>).detail.thresholds);
+    this._dispatchRowChanged({ thresholds: (e as CustomEvent<{ thresholds: ThresholdRule[] }>).detail.thresholds });
   };
 
   private _onPredecessorsChanged = (e: Event): void => {
-    this._handleFieldChange('predecessors', (e as CustomEvent<{ predecessors: PredecessorConfig[] }>).detail.predecessors);
+    this._dispatchRowChanged({ predecessors: (e as CustomEvent<{ predecessors: PredecessorConfig[] }>).detail.predecessors });
   };
 
   connectedCallback(): void {
@@ -53,12 +61,34 @@ export class EntityRowEditor extends LitElement {
     this.removeEventListener('predecessors-changed', this._onPredecessorsChanged);
   }
 
-  _handleFieldChange(field: string, value: unknown): void {
-    const { entity, name, precision, ...rest } = this.config as EntityRowConfig & Record<string, unknown>;
-    const updated: EntityRowConfig & Record<string, unknown> = { entity, name, precision, ...rest, [field]: value };
-    if (value === undefined || value === null || value === '') {
-      delete updated[field];
-    }
+  private _dispatchRowChanged(patch: Partial<EntityRowConfig>): void {
+    this.dispatchEvent(new CustomEvent('row-changed', {
+      detail: { index: this.index, config: { ...this.config, ...patch } },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  private _computeLabel = (schema: { name: string }) => {
+    const labels: Record<string, string> = {
+      entity: localize('editor.entity_row', this.lang),
+      name: localize('editor.name', this.lang),
+      precision: localize('editor.precision', this.lang),
+      advanced: localize('editor.advanced', this.lang),
+      factor: localize('editor.factor', this.lang),
+      unit: localize('editor.unit', this.lang),
+      show_zero: localize('editor.show_zero', this.lang),
+      show_min: localize('editor.show_min', this.lang),
+      show_avg: localize('editor.show_avg', this.lang),
+      show_max: localize('editor.show_max', this.lang),
+      text_color: localize('editor.text_color', this.lang),
+      background_color: localize('editor.background_color', this.lang),
+    };
+    return labels[schema.name] ?? schema.name;
+  };
+
+  private _handleFormChanged(ev: CustomEvent): void {
+    const updated = { ...this.config, ...(ev.detail.value as Record<string, unknown>) };
     this.dispatchEvent(new CustomEvent('row-changed', {
       detail: { index: this.index, config: updated },
       bubbles: true,
@@ -66,132 +96,25 @@ export class EntityRowEditor extends LitElement {
     }));
   }
 
-  private _isStale(): boolean {
-    return this.hass != null && this.config?.entity != null && !this.hass.states[this.config.entity];
-  }
-
   render() {
     const lang = this.lang ?? 'en';
-    const entity = this.config?.entity ?? '';
-    const name = this.config?.name ?? '';
-    const precision = this.config?.precision ?? '';
-    const stale = this._isStale();
-
     return html`
-      <div class="row-fields">
-        <ha-selector
-          data-field="entity"
-          .hass=${this.hass}
-          .selector=${{ entity: {} }}
-          .value=${entity || null}
-          .label=${localize('editor.entity_row', lang)}
-          @value-changed=${(e: CustomEvent) => this._handleFieldChange('entity', e.detail.value)}
-        ></ha-selector>
-
-        ${stale ? html`
-          <div class="stale-entity" data-stale>
-            <ha-icon icon="mdi:alert-circle"></ha-icon>
-            ${localize('editor.entity_not_found', lang)}
-          </div>
-        ` : ''}
-
-        <ha-textfield
-          data-field="name"
-          .label=${localize('editor.name', lang)}
-          .value=${name}
-          @change=${(e: Event) => this._handleFieldChange('name', (e.target as HTMLInputElement).value)}
-        ></ha-textfield>
-
-        <ha-textfield
-          data-field="precision"
-          .label=${localize('editor.precision', lang)}
-          .value=${String(precision)}
-          type="number"
-          min="0"
-          step="1"
-          @change=${(e: Event) => {
-            const v = parseInt((e.target as HTMLInputElement).value, 10);
-            this._handleFieldChange('precision', isNaN(v) ? undefined : v);
-          }}
-        ></ha-textfield>
-
-        <ha-expansion-panel
-          data-section="advanced"
-          .header=${localize('editor.advanced', lang)}
-        >
-          <ha-textfield
-            data-field="factor"
-            .label=${localize('editor.factor', lang)}
-            .value=${String(this.config?.factor ?? '')}
-            type="number"
-            step="any"
-            @change=${(e: Event) => {
-              const v = parseFloat((e.target as HTMLInputElement).value);
-              this._handleFieldChange('factor', isNaN(v) ? undefined : v);
-            }}
-          ></ha-textfield>
-
-          <ha-textfield
-            data-field="unit"
-            .label=${localize('editor.unit', lang)}
-            .value=${this.config?.unit ?? ''}
-            @change=${(e: Event) => this._handleFieldChange('unit', (e.target as HTMLInputElement).value)}
-          ></ha-textfield>
-
-          <ha-checkbox
-            data-field="show_zero"
-            .checked=${this.config?.show_zero ?? false}
-            @change=${(e: Event) => this._handleFieldChange('show_zero', (e.target as HTMLInputElement).checked)}
-          ></ha-checkbox>
-          <label>${localize('editor.show_zero', lang)}</label>
-
-          <ha-checkbox
-            data-field="show_min"
-            .checked=${this.config?.show_min ?? true}
-            @change=${(e: Event) => this._handleFieldChange('show_min', (e.target as HTMLInputElement).checked)}
-          ></ha-checkbox>
-          <label>${localize('editor.show_min', lang)}</label>
-
-          <ha-checkbox
-            data-field="show_avg"
-            .checked=${this.config?.show_avg ?? true}
-            @change=${(e: Event) => this._handleFieldChange('show_avg', (e.target as HTMLInputElement).checked)}
-          ></ha-checkbox>
-          <label>${localize('editor.show_avg', lang)}</label>
-
-          <ha-checkbox
-            data-field="show_max"
-            .checked=${this.config?.show_max ?? true}
-            @change=${(e: Event) => this._handleFieldChange('show_max', (e.target as HTMLInputElement).checked)}
-          ></ha-checkbox>
-          <label>${localize('editor.show_max', lang)}</label>
-
-          <ha-textfield
-            data-field="text_color"
-            .label=${localize('editor.text_color', lang)}
-            .value=${this.config?.text_color ?? ''}
-            @change=${(e: Event) => this._handleFieldChange('text_color', (e.target as HTMLInputElement).value)}
-          ></ha-textfield>
-
-          <ha-textfield
-            data-field="background_color"
-            .label=${localize('editor.background_color', lang)}
-            .value=${this.config?.background_color ?? ''}
-            @change=${(e: Event) => this._handleFieldChange('background_color', (e.target as HTMLInputElement).value)}
-          ></ha-textfield>
-
-          <calendar-stats-threshold-list-editor
-            .thresholds=${this.config?.thresholds ?? []}
-            .lang=${lang}
-          ></calendar-stats-threshold-list-editor>
-
-          <calendar-stats-predecessor-list-editor
-            .hass=${this.hass}
-            .predecessors=${this.config?.predecessors ?? []}
-            .lang=${lang}
-          ></calendar-stats-predecessor-list-editor>
-        </ha-expansion-panel>
-      </div>
+      <ha-form
+        .hass=${this.hass}
+        .data=${this.config}
+        .schema=${ENTITY_ROW_SCHEMA}
+        .computeLabel=${this._computeLabel}
+        @value-changed=${this._handleFormChanged}
+      ></ha-form>
+      <calendar-stats-threshold-list-editor
+        .thresholds=${this.config?.thresholds ?? []}
+        .lang=${lang}
+      ></calendar-stats-threshold-list-editor>
+      <calendar-stats-predecessor-list-editor
+        .hass=${this.hass}
+        .predecessors=${this.config?.predecessors ?? []}
+        .lang=${lang}
+      ></calendar-stats-predecessor-list-editor>
     `;
   }
 }

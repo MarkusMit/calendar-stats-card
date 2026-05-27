@@ -6,6 +6,23 @@ import { localize } from '../localize/localize';
 import { extractEntityIds } from '../services/expression-evaluator';
 import './threshold-list-editor';
 
+const EXPRESSION_ROW_SCHEMA = [
+  { name: 'expression', selector: { text: { multiline: true } } },
+  { name: 'name', selector: { text: {} } },
+  { name: 'unit', selector: { text: {} } },
+  { name: 'precision', selector: { number: { min: 0, step: 1, mode: 'box' } } },
+  {
+    name: 'advanced',
+    type: 'expandable',
+    flatten: true,
+    schema: [
+      { name: 'show_zero', selector: { boolean: {} } },
+      { name: 'text_color', selector: { text: {} } },
+      { name: 'background_color', selector: { text: {} } },
+    ],
+  },
+];
+
 @customElement('calendar-stats-expression-row-editor')
 export class ExpressionRowEditor extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
@@ -13,27 +30,26 @@ export class ExpressionRowEditor extends LitElement {
   @property({ type: Number }) index = 0;
   @property() lang = 'en';
 
-  @state() _dirtyFormula = '';
   @state() _formulaError: string | null = null;
 
   static styles = css`
     :host {
       display: block;
     }
-    .row-fields {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 8px 0;
-    }
     .formula-error {
       color: var(--error-color, red);
       font-size: 0.85em;
+      padding: 4px 0;
     }
   `;
 
   private _onThresholdsChanged = (e: Event): void => {
-    this._handleNonFormulaFieldChange('thresholds', (e as CustomEvent<{ thresholds: ThresholdRule[] }>).detail.thresholds);
+    const thresholds = (e as CustomEvent<{ thresholds: ThresholdRule[] }>).detail.thresholds;
+    this.dispatchEvent(new CustomEvent('row-changed', {
+      detail: { index: this.index, config: { ...this.config, thresholds } },
+      bubbles: true,
+      composed: true,
+    }));
   };
 
   connectedCallback(): void {
@@ -46,47 +62,42 @@ export class ExpressionRowEditor extends LitElement {
     this.removeEventListener('thresholds-changed', this._onThresholdsChanged);
   }
 
-  willUpdate(changedProps: Map<string, unknown>): void {
-    if (changedProps.has('config') && this.config) {
-      this._dirtyFormula = this.config.expression ?? '';
-    }
-  }
+  private _computeLabel = (schema: { name: string }) => {
+    const labels: Record<string, string> = {
+      expression: localize('editor.formula', this.lang),
+      name: localize('editor.name', this.lang),
+      unit: localize('editor.unit', this.lang),
+      precision: localize('editor.precision', this.lang),
+      advanced: localize('editor.advanced', this.lang),
+      show_zero: localize('editor.show_zero', this.lang),
+      text_color: localize('editor.text_color', this.lang),
+      background_color: localize('editor.background_color', this.lang),
+    };
+    return labels[schema.name] ?? schema.name;
+  };
 
-  _handleFormulaBlur(value: string): void {
-    this._dirtyFormula = value;
-    if (!value.trim()) {
-      this._formulaError = null;
-      return;
-    }
-    const lang = this.lang ?? 'en';
-    let entityIds: string[];
-    try {
-      entityIds = extractEntityIds(value);
-    } catch {
-      this._formulaError = localize('editor.invalid_expression_syntax', lang);
-      return;
-    }
-    for (const id of entityIds) {
-      if (this.hass && !this.hass.states[id]) {
-        this._formulaError = localize('editor.entity_not_found_in_expression', lang).replace('{entity}', id);
-        return;
+  private _handleFormChanged(ev: CustomEvent): void {
+    const formData = ev.detail.value as Record<string, unknown>;
+    const expression = (formData['expression'] as string) ?? '';
+
+    if (expression.trim()) {
+      try {
+        const entityIds = extractEntityIds(expression);
+        this._formulaError = null;
+        for (const id of entityIds) {
+          if (this.hass && !this.hass.states[id]) {
+            this._formulaError = localize('editor.entity_not_found_in_expression', this.lang).replace('{entity}', id);
+            break;
+          }
+        }
+      } catch {
+        this._formulaError = localize('editor.invalid_expression_syntax', this.lang);
       }
+    } else {
+      this._formulaError = null;
     }
-    this._formulaError = null;
-    const rest = { ...(this.config as ExpressionRowConfig & Record<string, unknown>) } as Record<string, unknown>;
-    delete rest['expression'];
-    this.dispatchEvent(new CustomEvent('row-changed', {
-      detail: { index: this.index, config: { ...rest, expression: value } },
-      bubbles: true,
-      composed: true,
-    }));
-  }
 
-  _handleNonFormulaFieldChange(field: string, value: unknown): void {
-    const updated = { ...this.config, [field]: value } as ExpressionRowConfig & Record<string, unknown>;
-    if (value === undefined || value === null || value === '') {
-      delete updated[field];
-    }
+    const updated = { ...this.config, ...formData };
     this.dispatchEvent(new CustomEvent('row-changed', {
       detail: { index: this.index, config: updated },
       bubbles: true,
@@ -96,83 +107,21 @@ export class ExpressionRowEditor extends LitElement {
 
   render() {
     const lang = this.lang ?? 'en';
-    const formula = this._dirtyFormula || this.config?.expression || '';
-    const name = this.config?.name ?? '';
-    const unit = this.config?.unit ?? '';
-    const precision = this.config?.precision ?? '';
-
     return html`
-      <div class="row-fields">
-        <ha-textarea
-          data-field="expression"
-          .label=${localize('editor.formula', lang)}
-          .value=${formula}
-          placeholder="{{ sensor.a - sensor.b }}"
-          @blur=${(e: FocusEvent) => this._handleFormulaBlur((e.target as HTMLTextAreaElement).value)}
-        ></ha-textarea>
-
-        ${this._formulaError ? html`
-          <div class="formula-error">${this._formulaError}</div>
-        ` : ''}
-
-        <ha-textfield
-          data-field="name"
-          .label=${localize('editor.name', lang)}
-          .value=${name}
-          @change=${(e: Event) => this._handleNonFormulaFieldChange('name', (e.target as HTMLInputElement).value)}
-        ></ha-textfield>
-
-        <ha-textfield
-          data-field="unit"
-          .label=${localize('editor.unit', lang)}
-          .value=${unit}
-          @change=${(e: Event) => this._handleNonFormulaFieldChange('unit', (e.target as HTMLInputElement).value)}
-        ></ha-textfield>
-
-        <ha-textfield
-          data-field="precision"
-          .label=${localize('editor.precision', lang)}
-          .value=${String(precision)}
-          type="number"
-          min="0"
-          step="1"
-          @change=${(e: Event) => {
-            const v = parseInt((e.target as HTMLInputElement).value, 10);
-            this._handleNonFormulaFieldChange('precision', isNaN(v) ? undefined : v);
-          }}
-        ></ha-textfield>
-
-        <ha-expansion-panel
-          data-section="advanced"
-          .header=${localize('editor.advanced', lang)}
-        >
-          <ha-checkbox
-            data-field="show_zero"
-            .checked=${this.config?.show_zero ?? false}
-            @change=${(e: Event) => this._handleNonFormulaFieldChange('show_zero', (e.target as HTMLInputElement).checked)}
-          ></ha-checkbox>
-          <label>${localize('editor.show_zero', lang)}</label>
-
-          <ha-textfield
-            data-field="text_color"
-            .label=${localize('editor.text_color', lang)}
-            .value=${this.config?.text_color ?? ''}
-            @change=${(e: Event) => this._handleNonFormulaFieldChange('text_color', (e.target as HTMLInputElement).value)}
-          ></ha-textfield>
-
-          <ha-textfield
-            data-field="background_color"
-            .label=${localize('editor.background_color', lang)}
-            .value=${this.config?.background_color ?? ''}
-            @change=${(e: Event) => this._handleNonFormulaFieldChange('background_color', (e.target as HTMLInputElement).value)}
-          ></ha-textfield>
-
-          <calendar-stats-threshold-list-editor
-            .thresholds=${this.config?.thresholds ?? []}
-            .lang=${lang}
-          ></calendar-stats-threshold-list-editor>
-        </ha-expansion-panel>
-      </div>
+      <ha-form
+        .hass=${this.hass}
+        .data=${this.config}
+        .schema=${EXPRESSION_ROW_SCHEMA}
+        .computeLabel=${this._computeLabel}
+        @value-changed=${this._handleFormChanged}
+      ></ha-form>
+      ${this._formulaError ? html`
+        <div class="formula-error">${this._formulaError}</div>
+      ` : ''}
+      <calendar-stats-threshold-list-editor
+        .thresholds=${this.config?.thresholds ?? []}
+        .lang=${lang}
+      ></calendar-stats-threshold-list-editor>
     `;
   }
 }
