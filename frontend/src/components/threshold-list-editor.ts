@@ -5,6 +5,15 @@ import { localize } from '../localize/localize';
 
 const OPERATORS: ThresholdOperator[] = ['above', 'equals-above', 'equals-below', 'below', 'not-below', 'not-above'];
 
+const OPERATOR_SYMBOL: Record<ThresholdOperator, string> = {
+  'above': '>',
+  'equals-above': '≥',
+  'equals-below': '≤',
+  'below': '<',
+  'not-below': '≥',
+  'not-above': '≤',
+};
+
 @customElement('calendar-stats-threshold-list-editor')
 export class ThresholdListEditor extends LitElement {
   @property({ attribute: false }) thresholds: ThresholdRule[] = [];
@@ -22,14 +31,11 @@ export class ThresholdListEditor extends LitElement {
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    .threshold-rule {
-      border: 1px solid var(--divider-color, rgba(0,0,0,0.12));
-      border-radius: 4px;
-      padding: 8px;
-      margin-bottom: 8px;
+    .threshold-fields {
       display: flex;
       flex-direction: column;
       gap: 8px;
+      padding: 8px 0;
     }
     .field {
       display: flex;
@@ -58,9 +64,14 @@ export class ThresholdListEditor extends LitElement {
     .field select:focus {
       border-bottom: 2px solid var(--primary-color, #03a9f4);
     }
-    .rule-actions {
+    .panel-header {
       display: flex;
-      justify-content: flex-end;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+    .panel-header-label {
+      font-size: 14px;
     }
   `;
 
@@ -76,7 +87,8 @@ export class ThresholdListEditor extends LitElement {
     this._dispatchChange([...this.thresholds, { operator: 'above', value: 0 }]);
   }
 
-  _removeThreshold(index: number): void {
+  _removeThreshold(index: number, e: Event): void {
+    e.stopPropagation();
     this._dispatchChange(this.thresholds.filter((_, i) => i !== index));
   }
 
@@ -92,70 +104,75 @@ export class ThresholdListEditor extends LitElement {
     return localize(`threshold.operators.${key}`, this.lang);
   }
 
+  private _panelHeader(rule: ThresholdRule): string {
+    const symbol = OPERATOR_SYMBOL[rule.operator] ?? rule.operator;
+    const base = `${symbol} ${rule.value}`;
+    return rule.name ? `${rule.name} (${base})` : base;
+  }
+
   render() {
     const lang = this.lang;
-    if (this.thresholds.length === 0 && true) {
-      // Always render, even empty, so the add button shows
-    }
 
     return html`
       <div class="section-title">${localize('editor.thresholds', lang)}</div>
       ${this.thresholds.map((rule, i) => html`
-        <div class="threshold-rule">
-          <div class="field">
-            <label>${localize('editor.threshold_operator', lang)}</label>
-            <select
-              .value=${rule.operator}
-              @change=${(e: Event) => this._handleRuleChange(i, 'operator', (e.target as HTMLSelectElement).value)}
-            >
-              ${OPERATORS.map((op) => html`
-                <option value=${op} ?selected=${rule.operator === op}>${this._operatorLabel(op)}</option>
-              `)}
-            </select>
-          </div>
-          <div class="field">
-            <label>${localize('editor.threshold_value', lang)}</label>
-            <input
-              type="number"
-              step="any"
-              .value=${String(rule.value)}
-              @change=${(e: Event) => {
-                const v = parseFloat((e.target as HTMLInputElement).value);
-                this._handleRuleChange(i, 'value', isNaN(v) ? 0 : v);
-              }}
-            />
-          </div>
-          <div class="field">
-            <label>${localize('editor.threshold_name', lang)}</label>
-            <input
-              type="text"
-              .value=${rule.name ?? ''}
-              @change=${(e: Event) => this._handleRuleChange(i, 'name', (e.target as HTMLInputElement).value)}
-            />
-          </div>
-          <div class="field">
-            <label>${localize('editor.text_color', lang)}</label>
-            <input
-              type="text"
-              .value=${rule.text_color ?? ''}
-              @change=${(e: Event) => this._handleRuleChange(i, 'text_color', (e.target as HTMLInputElement).value)}
-            />
-          </div>
-          <div class="field">
-            <label>${localize('editor.background_color', lang)}</label>
-            <input
-              type="text"
-              .value=${rule.background_color ?? ''}
-              @change=${(e: Event) => this._handleRuleChange(i, 'background_color', (e.target as HTMLInputElement).value)}
-            />
-          </div>
-          <div class="rule-actions">
+        <ha-expansion-panel
+          .header=${this._panelHeader(rule)}
+          outlined
+        >
+          <div class="threshold-fields">
+            <div class="field">
+              <label>${localize('editor.threshold_operator', lang)}</label>
+              <select
+                @change=${(e: Event) => this._handleRuleChange(i, 'operator', (e.target as HTMLSelectElement).value)}
+              >
+                ${OPERATORS.map((op) => html`
+                  <option value=${op} ?selected=${rule.operator === op}>${this._operatorLabel(op)}</option>
+                `)}
+              </select>
+            </div>
+            <div class="field">
+              <label>${localize('editor.threshold_value', lang)}</label>
+              <input
+                type="number"
+                step="any"
+                .value=${String(rule.value)}
+                @change=${(e: Event) => {
+                  const v = parseFloat((e.target as HTMLInputElement).value);
+                  this._handleRuleChange(i, 'value', isNaN(v) ? 0 : v);
+                }}
+              />
+            </div>
+            <div class="field">
+              <label>${localize('editor.threshold_name', lang)}</label>
+              <input
+                type="text"
+                .value=${rule.name ?? ''}
+                @change=${(e: Event) => this._handleRuleChange(i, 'name', (e.target as HTMLInputElement).value)}
+              />
+            </div>
+            <div class="field">
+              <label>${localize('editor.text_color', lang)}</label>
+              <input
+                type="text"
+                .value=${rule.text_color ?? ''}
+                @change=${(e: Event) => this._handleRuleChange(i, 'text_color', (e.target as HTMLInputElement).value)}
+              />
+            </div>
+            <div class="field">
+              <label>${localize('editor.background_color', lang)}</label>
+              <input
+                type="text"
+                .value=${rule.background_color ?? ''}
+                @change=${(e: Event) => this._handleRuleChange(i, 'background_color', (e.target as HTMLInputElement).value)}
+              />
+            </div>
             <ha-icon-button
               .label=${localize('editor.remove_threshold', lang)}
-              @click=${() => this._removeThreshold(i)}
+              @click=${(e: Event) => this._removeThreshold(i, e)}
             ><ha-icon icon="mdi:delete"></ha-icon></ha-icon-button>
           </div>
-        </div>
+        </ha-expansion-panel>
       `)}
       <mwc-button @click=${() => this._addThreshold()}>
         <ha-icon icon="mdi:plus"></ha-icon>
