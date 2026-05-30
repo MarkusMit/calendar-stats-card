@@ -216,7 +216,9 @@ export class CalendarStatsCard extends LitElement {
       }),
     )];
     const dailyStartTime = `${year - 1}-12-31T00:00:00Z`;
-    const startTime = `${year}-01-01T00:00:00Z`;
+    // Monthly fetch extends back to Dec 1 of the prior year so January's HA-sum-delta
+    // can subtract sum[Dec of prev year] for the cross-year boundary (feature 011 FR-007).
+    const monthlyStartTime = `${year - 1}-12-01T00:00:00Z`;
     const endTime = `${year + 1}-01-01T00:00:00Z`;
 
     try {
@@ -233,7 +235,7 @@ export class CalendarStatsCard extends LitElement {
 
       const [dailyRaw, monthlyRaw] = await Promise.all([
         this._service.fetchDailyStats(this._hass, entityIds, dailyStartTime, endTime),
-        this._service.fetchMonthlyStats(this._hass, entityIds, startTime, endTime),
+        this._service.fetchMonthlyStats(this._hass, entityIds, monthlyStartTime, endTime),
       ]);
 
       if (token !== this._fetchAbortFlag) return;
@@ -312,7 +314,7 @@ export class CalendarStatsCard extends LitElement {
         }
       }
 
-      const monthlySummaries = transformMonthlyStats(monthlyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, dailyValues, this._config.entities);
+      const monthlySummaries = transformMonthlyStats(monthlyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, dailyValues, this._config.entities, year);
 
       // Compute expression monthly summaries from expression daily values.
       // min/mean/max exclude zero-value days when the row's show_zero is false (FR-003);

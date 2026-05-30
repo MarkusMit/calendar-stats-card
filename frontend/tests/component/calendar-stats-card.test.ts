@@ -461,6 +461,39 @@ describe('CalendarStatsCard — predecessor entity IDs in fetch (T007)', () => {
   });
 });
 
+// Feature 011 T018 — monthly fetch range starts at Dec 1 of the prior year (US2 cross-year delta)
+describe('CalendarStatsCard — monthly fetch range (feature 011 T018)', () => {
+  it('monthly stats request start_time = `${year-1}-12-01T00:00:00Z`', async () => {
+    const sendMessagePromise = vi.fn().mockResolvedValue([]);
+    const hass = makeHass({ connection: { sendMessagePromise } });
+    const config: CardConfig = {
+      type: 'custom:calendar-stats-card',
+      entities: [{ entity: 'sensor.energy' }],
+    };
+
+    await createCard(config, hass);
+
+    await vi.waitFor(() => {
+      expect(sendMessagePromise).toHaveBeenCalled();
+    }, { timeout: 3000 });
+
+    const monthlyCalls = sendMessagePromise.mock.calls.filter((c: unknown[]) => {
+      const msg = c[0] as Record<string, unknown>;
+      return msg?.type === 'recorder/statistics_during_period' && msg?.period === 'month';
+    });
+    expect(monthlyCalls.length).toBeGreaterThan(0);
+
+    const currentYear = new Date().getFullYear();
+    // On Jan 1 the card defaults to previous year (per spec 001 FR-001), so viewing year may be currentYear or currentYear - 1.
+    // In either case the monthly fetch's start_time must be Dec 1 of (viewing year − 1).
+    const monthlyMsg = monthlyCalls[0]![0] as Record<string, unknown>;
+    const startTime = monthlyMsg.start_time as string;
+    const expectedThisYear = `${currentYear - 1}-12-01T00:00:00Z`;
+    const expectedPrevYear = `${currentYear - 2}-12-01T00:00:00Z`;
+    expect([expectedThisYear, expectedPrevYear]).toContain(startTime);
+  });
+});
+
 // --- Legend (T014) ---
 
 async function triggerThresholdsApplied(card: CalendarStatsCard, rules: ThresholdRule[]): Promise<void> {
