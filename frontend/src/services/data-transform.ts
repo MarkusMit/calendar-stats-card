@@ -6,6 +6,7 @@ import type {
   EntityMetadata,
   MonthlySummary,
 } from '../types/statistics';
+import type { EntityConfig } from '../types/card-config';
 import type { RawStats } from './statistics-service';
 
 function dateStringInTz(timestampMs: number, timeZone: string): string {
@@ -135,7 +136,7 @@ export function computeMonthlySummaryFromDailyValues(
   year: number,
   month: number,
   isMeasurement: boolean,
-  isPrecipitation: boolean,
+  excludeZero: boolean,
   dailyValues: Map<string, DailyValue>,
 ): MonthlySummary | null {
   if (isMeasurement) {
@@ -165,9 +166,10 @@ export function computeMonthlySummaryFromDailyValues(
       total: null,
     };
   } else {
-    // Cumulative: all stats computed from daily values (correctly handles year boundary)
-    const filteredSums = collectDailySums(entityId, year, month, dailyValues, isPrecipitation);
-    const allSums = isPrecipitation
+    // Cumulative: min/mean/max optionally exclude zero-value days per row's show_zero;
+    // total is always the sum of ALL days (zero days contribute 0 anyway).
+    const filteredSums = collectDailySums(entityId, year, month, dailyValues, excludeZero);
+    const allSums = excludeZero
       ? collectDailySums(entityId, year, month, dailyValues, false)
       : filteredSums;
 
@@ -189,32 +191,46 @@ export function computeMonthlySummaryFromDailyValues(
  * Transform raw HA monthly-period statistics into a map of MonthlySummary entries.
  * Key format: `${entityId}::${year}-${month}`
  */
+/**
+ * Build the summary-map key for a row. Includes row index so duplicate entity rows with
+ * different show_zero settings each get their own summary (no first-write-wins collision).
+ */
+export function rowSummaryKey(rowIndex: number, rowKey: string, year: number, month: number): string {
+  return `${rowIndex}::${rowKey}::${year}-${month}`;
+}
+
 export function transformMonthlyStats(
   rawStats: RawStats,
   metadataMap: Record<string, EntityMetadata>,
   dailyValues: Map<string, DailyValue>,
+  entityConfigs: EntityConfig[],
 ): Map<string, MonthlySummary> {
   const result = new Map<string, MonthlySummary>();
 
-  for (const [entityId, entries] of Object.entries(rawStats)) {
+  // Iterate per row (not per entityId) so duplicate entity rows with different show_zero each
+  // produce an independent summary keyed by row index.
+  entityConfigs.forEach((cfg, rowIndex) => {
+    if (!('entity' in cfg)) return; // expression rows handled by caller
+    const entityId = cfg.entity;
     const meta = metadataMap[entityId];
-    if (!meta) continue;
+    if (!meta) return;
+    const entries = rawStats[entityId];
+    if (!entries) return;
 
     const isMeasurement = meta.stateClass === 'measurement';
-    const isPrecipitation = meta.deviceClass === 'precipitation';
-
+    const excludeZero = cfg.show_zero === false;
     const sorted = [...entries].sort((a, b) => a.start - b.start);
 
     for (const entry of sorted) {
       const date = new Date(entry.start);
       const year = date.getUTCFullYear();
       const month = date.getUTCMonth() + 1;
-      const key = `${entityId}::${year}-${month}`;
+      const key = rowSummaryKey(rowIndex, entityId, year, month);
 
-      const summary = computeMonthlySummaryFromDailyValues(entityId, year, month, isMeasurement, isPrecipitation, dailyValues);
+      const summary = computeMonthlySummaryFromDailyValues(entityId, year, month, isMeasurement, excludeZero, dailyValues);
       result.set(key, summary ?? { entityId, year, month, min: null, mean: null, max: null, total: null });
     }
-  }
+  });
 
   return result;
 }

@@ -6,6 +6,7 @@ import { rowKey } from '../types/card-config';
 import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
+import { rowSummaryKey } from '../services/data-transform';
 
 @customElement('monthly-table')
 export class MonthlyTable extends LitElement {
@@ -137,7 +138,7 @@ export class MonthlyTable extends LitElement {
     });
   }
 
-  private renderEntityRow(cfg: EntityConfig, hasMeasurement: boolean) {
+  private renderEntityRow(cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean) {
     const key = rowKey(cfg);
     const meta = this.entityMetadata.get(key);
     const days = this.daysInMonth();
@@ -149,7 +150,7 @@ export class MonthlyTable extends LitElement {
     const hasError = this.entityErrors.has(key);
     const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: cfg.precision ?? 20, minimumFractionDigits: cfg.precision ?? 0 });
     const isMeasurement = meta?.stateClass === 'measurement';
-    const summaryKey = `${key}::${this.year}-${this.month}`;
+    const summaryKey = rowSummaryKey(rowIndex, key, this.year, this.month);
     const summary = this.monthlySummaries.get(summaryKey);
 
     const colorParts: string[] = [];
@@ -368,7 +369,7 @@ export class MonthlyTable extends LitElement {
             </tr>
           </thead>
           <tbody>
-            ${this.entityConfigs.map((cfg) => this.renderEntityRow(cfg, hasMeasurement))}
+            ${this.entityConfigs.map((cfg, i) => this.renderEntityRow(cfg, i, hasMeasurement))}
           </tbody>
         </table>
       </div>

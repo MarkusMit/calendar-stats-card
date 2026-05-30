@@ -36,7 +36,7 @@
     "precision": "Precision (decimal places)",
     "factor": "Factor",
     "unit": "Unit",
-    "show_zero": "Show zero-value days",
+    "show_zero": "Include zero-value days",
     "show_min": "Show minimum",
     "show_avg": "Show average",
     "show_max": "Show maximum",

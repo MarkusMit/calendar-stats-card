@@ -36,7 +36,7 @@
     "precision": "Genauigkeit (Dezimalstellen)",
     "factor": "Faktor",
     "unit": "Einheit",
-    "show_zero": "Nullwerttage anzeigen",
+    "show_zero": "Nullwerttage einbeziehen",
     "show_min": "Minimum anzeigen",
     "show_avg": "Durchschnitt anzeigen",
     "show_max": "Maximum anzeigen",

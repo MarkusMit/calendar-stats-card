@@ -151,6 +151,10 @@ A user with a German HA installation sees month names and UI text in German. An 
 - Q: How should completed days with partial hourly coverage be rendered? → A: `measurement` entities (e.g., temperature): show a cell-level coverage indicator when the day has fewer than 24 hours of data (incomplete min/avg/max). Cumulative entities: show a cell-level indicator when gaps fall at the start or end of the day (daily sum is unreliable). `total_increasing` / `total` entities with mid-day gaps only: render silently without indicator.
 - Q: Should the monthly summary and total columns be computed from daily cells or sourced from HA's native monthly-period statistics? → A: Use HA's native monthly-period statistics directly; monthly columns are authoritative and independent of the daily cells (may not equal the arithmetic sum of visible daily values).
 
+### Session 2026-05-30 (superseded by feature 010)
+
+- Q: Is FR-016's `device_class: precipitation` auto-exclusion rule still in force? → A: No — superseded by feature `010-precip-show-zero`. FR-016's original text is retained for historical record but no longer reflects shipping behaviour. The current rule (see `specs/010-precip-show-zero/spec.md` FR-002, FR-007 and constitution v2.0.0 Principle III): zero-value days are excluded from monthly min/avg/max only when the row's `show_zero` option is set to `false`. Default behaviour (`show_zero: true` or omitted) includes every recorded day regardless of `device_class`. `measurement` entities are unaffected. Counter-reset clamp-to-zero days are treated uniformly with naturally-zero days. FR-010's reference to "zero-exclusion applied (see FR-016)" should be read with this clarification in scope.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
