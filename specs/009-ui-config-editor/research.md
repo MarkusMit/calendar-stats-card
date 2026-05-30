@@ -20,7 +20,7 @@ static getConfigElement(): HTMLElement {
 }
 
 static getStubConfig(): CardConfig {
-  return { type: 'calendar-stats-card', entities: [] };
+  return { type: 'custom:calendar-stats-card', entities: [] };
 }
 ```
 
@@ -34,22 +34,28 @@ static getStubConfig(): CardConfig {
 
 | Component | Use case | FR |
 |---|---|---|
-| `ha-entity-picker` | Main entity ID selection per entity row | FR-002 |
-| `ha-sortable` | Drag-and-drop row reordering (wraps SortableJS) | FR-004 |
-| `ha-expansion-panel` | "Advanced" collapsible section and nested Thresholds/Predecessors sub-sections | FR-006, FR-007, FR-015, FR-016 |
-| `ha-textfield` | Name, unit, precision, factor, predecessor entity ID text input, predecessor factor, color fallback | FR-005, FR-006, FR-007, FR-015, FR-016 |
-| `ha-select` + `ha-list-item` | Threshold operator dropdown (6 values) | FR-015 |
-| `ha-color-picker` | Color input for row-level and per-threshold colors | FR-015 |
-| `ha-date-input` | Predecessor `replaced_on` ISO date | FR-016 |
-| `ha-icon-button` | Remove row / threshold / predecessor buttons | FR-003 |
-| `ha-checkbox` | Boolean toggles: show_zero, show_min, show_avg, show_max | FR-006, FR-007 |
+| `ha-form` | Schema-driven main + Advanced field rendering for both row editors (selectors: `entity`, `text`, `number`, `boolean`, `text` with `multiline: true` for the formula) | FR-005, FR-006, FR-007 |
+| `ha-entity-picker` | Inline entity ID selector per entity row in the main list view and the `+ Entity` chip flow | FR-002, FR-018 |
+| `ha-selector` | (Implementation note) `ha-form`'s `entity` selector internally renders `ha-selector` with `{ entity: {} }` — required because direct `ha-entity-picker` instances rendered zero-height in our shadow DOM context before the preload workaround (FR-019) was added |
+| `ha-sortable` | Drag-and-drop row reordering via `handle-selector=".drag-handle"`; emits `item-moved` `{ oldIndex, newIndex }` | FR-004 |
+| `ha-expansion-panel` | "Advanced" collapsible section per row editor; also wraps each individual threshold rule (header = `> value` or `name (> value)`) | FR-006, FR-007, FR-015 |
+| `ha-formfield` + `ha-checkbox` | One-row strip of `show_zero` / `show_min` / `show_avg` / `show_max` toggles inside Advanced (entity-row editor only) | FR-006 |
+| Plain `<select>` + `<input>` | Threshold operator, value, name, color fields (HA's `ha-select` / `ha-color-picker` not used in current impl) | FR-015 |
+| Plain `<input>` | Predecessor entity ID (text), `replaced_on` (text with `YYYY-MM-DD` placeholder), `factor` (number) — `ha-date-input` substitution allowed but not used | FR-016 |
+| `ha-icon-button` | Per-row delete + pencil-to-detail; back-arrow in detail header; threshold + predecessor delete | FR-003, FR-018 |
+| `ha-svg-icon` | Drag-handle icon per row | FR-004 |
 
 **`ha-sortable` drag-and-drop**:
+- Wraps the row-list `<div>` and uses `handle-selector=".drag-handle"` so only the handle icon initiates a drag
 - Emits `item-moved` CustomEvent with `{ oldIndex: number, newIndex: number }` detail
 - Handler: splice `_entities` array then dispatch `config-changed`
-- Up/down `ha-icon-button` controls provide keyboard fallback with same splice logic
+- No separate up/down `ha-icon-button` controls — accessibility relies on `ha-sortable`'s built-in keyboard support
 
-**`ha-color-picker` note**: Renders a full HSL canvas picker. If not registered (edge case), fall back to `ha-textfield` accepting any CSS color string.
+**Color picker fallback**: The current implementation does not instantiate `ha-color-picker` anywhere; all color fields (row-level and per-threshold) use plain text inputs. The MAY-substitute clause (FR-015) is preserved for a future swap.
+
+**Date picker fallback**: Same — `ha-date-input` is not instantiated; `replaced_on` uses a plain text input with a `YYYY-MM-DD` placeholder. MAY-substitute clause preserved (FR-016).
+
+**`ha-entity-picker` preload**: Direct `ha-entity-picker` instances render zero-height in our shadow DOM context unless HA has registered the element. The root editor's `connectedCallback` calls `window.loadCardHelpers()` → `createCardElement({ type: 'entities', entities: [] })` → `constructor.getConfigElement()` to force registration, then awaits `customElements.whenDefined('ha-entity-picker')`. Until the element is defined, an `editor.loading` placeholder is shown in place of the row list (FR-019).
 
 **Alternative rejected**: Custom input elements, third-party color pickers — violate FR-014 and Constitution Principle I.
 
@@ -104,7 +110,7 @@ const { type, entities, ...rest } = config;
 this._rest = rest;
 
 // On dispatch:
-const newConfig = { type: 'calendar-stats-card', entities: [...this._entities], ...this._rest };
+const newConfig = { type: 'custom:calendar-stats-card', entities: [...this._entities], ...this._rest };
 ```
 
 **Per-row preservation**:

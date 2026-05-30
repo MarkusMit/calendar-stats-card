@@ -33,9 +33,10 @@ A user adds, removes, and reorders entity and expression rows in a single unifie
 
 **Acceptance Scenarios**:
 
-1. **Given** the editor is open, **When** the user clicks "Add row" and selects "Entity row", **Then** an entity-search field appears and the chosen entity is appended to the unified list.
-2. **Given** the editor shows multiple entity rows, **When** the user drags row A below row B, **Then** the card preview updates to reflect the new order.
-3. **Given** an entity row exists, **When** the user deletes it, **Then** it disappears from both the editor list and the card preview.
+1. **Given** the editor is open, **When** the user clicks the `+ Entity` chip, **Then** an inline `ha-entity-picker` row appears; selecting an entity ID appends an entity row to the unified list and returns to the chip row.
+2. **Given** the editor shows multiple entity rows, **When** the user drags row A below row B by its drag handle, **Then** the card preview updates to reflect the new order.
+3. **Given** an entity row exists, **When** the user clicks its delete icon, **Then** it disappears from both the editor list and the card preview.
+4. **Given** an entity row exists, **When** the user clicks its pencil icon, **Then** the editor swaps to a detail view showing the back arrow, row label, type badge, and the entity-row sub-editor.
 
 ---
 
@@ -66,8 +67,8 @@ A user adds expression rows (arithmetic over entity IDs) through the visual edit
 
 **Acceptance Scenarios**:
 
-1. **Given** the editor, **When** the user clicks "Add row" and selects "Expression row", **Then** a text field for the formula and fields for name/unit/precision appear.
-2. **Given** an invalid formula, **When** the user leaves the formula field (on blur), **Then** a validation message describes the error without discarding the input.
+1. **Given** the editor, **When** the user clicks the `+ Expression` chip, **Then** a draft expression row is appended and its detail page opens with multi-line formula, name, unit, and precision fields visible.
+2. **Given** an invalid formula, **When** the user leaves the formula field (on blur), **Then** a validation message describes the error without discarding the input, and no `config-changed` event fires.
 
 ---
 
@@ -81,9 +82,9 @@ A user adds, edits, and removes threshold rules on a row to apply conditional co
 
 **Acceptance Scenarios**:
 
-1. **Given** an entity row's Advanced section is open, **When** the user expands "Thresholds" and clicks "Add threshold", **Then** a new rule appears with operator (dropdown), numeric value, name, text_color, and background_color fields.
-2. **Given** a threshold rule with operator "above" and value 30, **When** the user sets a `text_color`, **Then** the card preview immediately applies that colour to cells where the value exceeds 30.
-3. **Given** a threshold rule, **When** the user removes it, **Then** it disappears from both the editor Thresholds list and the card preview styling.
+1. **Given** an entity row's Advanced section is open, **When** the user clicks the `+ Add threshold` chip, **Then** a new collapsible threshold panel appears with header `> 0` and fields for operator (dropdown), numeric value, name, text_color, and background_color.
+2. **Given** a threshold rule with operator "above" and value 30, **When** the user sets a `text_color`, **Then** the panel header updates to `> 30` and the card preview immediately applies that colour to cells where the value exceeds 30.
+3. **Given** a threshold rule, **When** the user removes it via the delete icon inside its panel, **Then** it disappears from both the editor Thresholds list and the card preview styling.
 
 ---
 
@@ -97,7 +98,7 @@ A user adds predecessor entities to an entity row to stitch together historical 
 
 **Acceptance Scenarios**:
 
-1. **Given** an entity row's Advanced section is open, **When** the user expands "Predecessors" and clicks "Add predecessor", **Then** a new entry appears with an entity ID text input, a `replaced_on` date picker, and an optional `factor` numeric input.
+1. **Given** an entity row's Advanced section is open, **When** the user clicks the `+ Add predecessor` chip, **Then** a new bordered card appears with an entity ID text input, a `replaced_on` text input (with `YYYY-MM-DD` placeholder; HA native date picker MAY substitute when available), and an optional `factor` numeric input.
 2. **Given** a predecessor entry whose entity ID no longer exists in HA, **Then** the editor displays a warning icon with "Entity not found" next to that entry (FR-013).
 3. **Given** a predecessor entry with a `replaced_on` date, **When** the user changes the date, **Then** the card preview updates immediately to reflect the new data boundary.
 
@@ -114,16 +115,18 @@ A user adds predecessor entities to an entity row to stitch together historical 
 ### Functional Requirements
 
 - **FR-001**: The card MUST expose a visual configuration editor accessible from the HA Lovelace card editor panel.
-- **FR-002**: The editor MUST provide a single "Add row" button below the unified row list that opens a menu or dropdown for the user to choose between "Entity row" and "Expression row". Selecting "Entity row" then presents an entity-search field to choose the HA entity ID.
+- **FR-002**: The editor MUST present two add-row chips below the unified row list, styled as HA chip-buttons: `+ Entity` and `+ Expression`. Clicking `+ Entity` reveals an inline `ha-entity-picker` row with a cancel control; selecting an entity ID appends a new entity row and returns to the chip row. Clicking `+ Expression` immediately appends a draft expression row with `expression: ''` and opens its detail page; the draft is excluded from the dispatched config until the user enters a valid formula (FR-008).
 - **FR-003**: The editor MUST allow the user to remove individual rows (entity or expression).
-- **FR-004**: The editor MUST present all rows (entity and expression) in a single unified ordered list and allow the user to reorder them freely via drag-and-drop or explicit up/down controls.
+- **FR-004**: The editor MUST present all rows (entity and expression) in a single unified ordered list and allow the user to reorder them freely via drag-and-drop. Each row exposes a drag-handle icon (`ha-sortable` handle-selector); the row list is wrapped in `ha-sortable` and emits `item-moved` events that splice `_entities` and dispatch `config-changed`.
 - **FR-005**: The editor MUST allow configuring the optional display name (`name`) for each row (entity or expression).
-- **FR-006**: The editor MUST allow configuring precision, factor, unit, show_zero, show_min, show_avg, show_max, text_color, background_color, thresholds, and predecessors for each entity row. The `name` and `precision` fields MUST be visible immediately; all remaining fields MUST be grouped in a collapsible "Advanced" section, collapsed by default.
-- **FR-007**: Selecting "Expression row" from the "Add row" menu MUST add an expression row. The fields `formula`, `name`, `unit`, and `precision` MUST be immediately visible. The fields `show_zero`, `text_color`, `background_color`, and `thresholds` MUST be grouped in a collapsible "Advanced" section, collapsed by default. The formula input field MUST display placeholder example text (e.g. `{{ sensor.a - sensor.b }}`) to guide syntax without additional help text or documentation links.
-- **FR-015**: The editor MUST allow configuring row-level `text_color` and `background_color` overrides and a list of threshold rules (`thresholds`) for both entity and expression rows. Each threshold rule specifies an operator (`above`, `equals-above`, `equals-below`, `below`, `not-below`, `not-above`), a numeric value, an optional name, and optional per-threshold `text_color`/`background_color`. All color fields MUST use the HA native color picker component (`ha-color-picker` or equivalent) where available, falling back to a plain text input if HA does not expose one. The scalar color fields MUST appear inside the per-row "Advanced" section; the `thresholds` sub-list MUST appear in its own collapsible sub-section nested inside "Advanced".
-- **FR-016**: The editor MUST allow configuring a list of predecessor entities (`predecessors`) for entity rows. Each predecessor entry specifies an entity ID (entered as a plain text input — any string accepted; FR-013 flags unknown IDs), an optional replacement date (`replaced_on`, ISO YYYY-MM-DD), and an optional numeric `factor`. The `replaced_on` field MUST use the HA native date picker (`ha-date-input` or equivalent) where available, falling back to a plain text input with a `YYYY-MM-DD` format hint validated on blur. The `predecessors` sub-list MUST appear in its own collapsible sub-section nested inside the per-row "Advanced" section.
+- **FR-006**: The editor MUST allow configuring precision, factor, unit, show_zero, show_min, show_avg, show_max, text_color, background_color, thresholds, and predecessors for each entity row. The `entity`, `name`, and `precision` fields MUST be visible immediately in the row detail page via `ha-form`. All remaining fields MUST live inside a collapsible "Advanced" section (`ha-expansion-panel`), collapsed by default. Inside Advanced: `factor`, `unit`, `text_color`, `background_color` render via `ha-form`; `show_zero`, `show_min`, `show_avg`, `show_max` render as a compact one-row strip of `ha-formfield` + `ha-checkbox` (default-on semantics: `undefined` and `true` both render as checked); thresholds and predecessors render as embedded sub-editors directly inside Advanced (no extra nested collapsible per list).
+- **FR-007**: Clicking the `+ Expression` chip MUST append a draft expression row and open its detail page. In the detail page, the fields `expression` (rendered as multi-line `ha-form` text selector), `name`, `unit`, and `precision` MUST be immediately visible. The fields `show_zero`, `text_color`, `background_color`, and `thresholds` MUST live inside a collapsible "Advanced" section, collapsed by default.
+- **FR-015**: The editor MUST allow configuring row-level `text_color` and `background_color` overrides and a list of threshold rules (`thresholds`) for both entity and expression rows. Each threshold rule specifies an operator (`above`, `equals-above`, `equals-below`, `below`, `not-below`, `not-above`), a numeric value, an optional name, and optional per-threshold `text_color`/`background_color`. Color fields MAY use the HA native color picker component (`ha-color-picker` or equivalent) where available; the current implementation falls back to plain text inputs throughout. The scalar color fields render inside the per-row "Advanced" section; the `thresholds` sub-list renders directly inside Advanced. Each individual threshold rule MUST render as a collapsible `ha-expansion-panel` whose header shows the operator symbol and value (e.g. `> 30` or `Hot (> 30)` when `name` is set); a chip-styled `+ Add threshold` button appends a new rule with defaults `{ operator: 'above', value: 0 }`.
+- **FR-016**: The editor MUST allow configuring a list of predecessor entities (`predecessors`) for entity rows. Each predecessor entry specifies an entity ID (entered as a plain text input — any string accepted; FR-013 flags unknown IDs), an optional replacement date (`replaced_on`, ISO YYYY-MM-DD), and an optional numeric `factor`. The `replaced_on` field MAY use the HA native date picker (`ha-date-input` or equivalent) where available; the current implementation uses a plain text input with a `YYYY-MM-DD` placeholder. The `predecessors` sub-list renders directly inside the per-row "Advanced" section; each entry renders as a bordered card with the three fields and a delete control. A chip-styled `+ Add predecessor` button appends a new entry with `{ entity: '' }`.
 - **FR-008**: All changes in the editor MUST be reflected immediately in the card preview without saving. When an expression formula is invalid, the preview MUST retain the last successfully computed result for that row until a valid formula is entered; it MUST NOT blank the row or show an error placeholder in the preview. A brand-new expression row with no prior valid formula MUST be hidden from the card preview until the first valid formula is entered.
-- **FR-017**: When no rows are configured, the editor MUST display an empty-state message below the "Add row" button (e.g. "No rows yet — add your first row above") to guide the user.
+- **FR-017**: When no rows are configured, the editor MUST display an italic empty-state message in place of the row list (above the add-row chips), localized via `editor.no_rows`.
+- **FR-018**: The unified row list MUST present each row as a one-line header with: a drag-handle icon, the row's identity (an inline `ha-entity-picker` bound to `entity` for entity rows; a function icon plus `name` or `expression` text for expression rows), a delete icon button, and a pencil edit icon button. The pencil button MUST open a dedicated row-detail view (replacing the list view in the editor panel) containing a back-arrow header, the row label and a type badge, and the row's sub-editor (`calendar-stats-entity-row-editor` or `calendar-stats-expression-row-editor`). The back arrow returns to the row list. Inline edits to an entity row's entity ID via the inline picker dispatch `config-changed` without opening the detail page.
+- **FR-019**: The root editor MUST preload the `ha-entity-picker` custom element on `connectedCallback` (via `window.loadCardHelpers().createCardElement({ type: 'entities', entities: [] }).constructor.getConfigElement()`, then `customElements.whenDefined('ha-entity-picker')`). Until the element is defined, the editor MUST render a localized loading placeholder (`editor.loading`) in place of the row list.
 - **FR-009**: The editor MUST be fully operable by a user with no knowledge of YAML.
 - **FR-010**: Fields not recognised by the editor MUST be preserved unchanged when the configuration is round-tripped through the editor.
 - **FR-011**: All user-visible strings in the editor MUST be internationalised (supported locales: `en`, `de`).
@@ -154,11 +157,26 @@ A user adds predecessor entities to an entity row to stitch together historical 
 
 - The card is installed as a custom Lovelace resource in Home Assistant 2026.5.0 or later; the HA editor infrastructure (entity picker, config-changed event protocol) is available at that version.
 - The visual editor covers all options from the card-config-schema at the time this feature is implemented; options added in future features must extend the editor in their own spec.
-- Drag-and-drop reordering is the primary UX for row ordering; keyboard-only fallback (up/down buttons) is included for accessibility but drag-and-drop is the design target.
-- The editor renders within the existing HA card editor panel; no custom dialog or modal overlay is required. The editor expands vertically without a fixed height limit; overflow is handled by the HA panel's own scroll.
-- Expression row formula syntax guidance is limited to placeholder example text inside the formula input field; no additional help text or documentation links are in scope.
+- Drag-and-drop reordering via `ha-sortable` (handle-selector based) is the sole row-ordering UX; explicit up/down keyboard buttons are not implemented. Accessibility for keyboard-only users relies on `ha-sortable`'s built-in keyboard support.
+- The editor renders within the existing HA card editor panel; no custom dialog or modal overlay is required. The row list and the row detail page are mutually exclusive views in the same panel; the editor expands vertically without a fixed height limit; overflow is handled by the HA panel's own scroll.
+- Expression row formula syntax guidance: the current implementation renders the formula via a `ha-form` multi-line text selector and does NOT inject placeholder example text. No help text or documentation links are in scope.
 
 ## Clarifications
+
+### Session 2026-05-30 (post-implementation spec realignment)
+
+- Q: Add-row UI — single button + dropdown menu, or two chips? → A: Two chips (`+ Entity`, `+ Expression`) rendered as HA chip-buttons; `+ Entity` reveals an inline `ha-entity-picker` with cancel; `+ Expression` immediately appends a draft and opens its detail page. Supersedes FR-002's earlier "single Add row button + menu" wording.
+- Q: Thresholds and predecessors — nested collapsible sub-section per list inside Advanced, or flat? → A: Flat inside Advanced. The lists render directly inside the Advanced `ha-expansion-panel`. Individual threshold rules are each their own `ha-expansion-panel`; predecessor entries render as bordered cards (not collapsibles). Supersedes the 2026-05-25 "nested collapsibles per sub-list" answer.
+- Q: Row editing UX — inline expansion or detail page navigation? → A: Detail page. The unified row list shows a pencil icon per row; clicking it swaps the panel to a detail view with back arrow, row label, type badge, and the sub-editor. Inline editing of the entity ID via the row's inline `ha-entity-picker` is still allowed without entering the detail page (FR-018).
+- Q: Empty-state placement — below the Add row button or above it? → A: Above the add-row chips, in place of the row list, as an italic centered message. Supersedes FR-017's earlier "below" wording.
+- Q: Formula placeholder example text — required? → A: No. The current implementation renders the formula via a `ha-form` multi-line text selector without injecting placeholder text. Supersedes the 2026-05-25 placeholder-text clarification.
+- Q: Keyboard up/down row reordering — implemented? → A: No. `ha-sortable` drag-and-drop is the sole reorder mechanism; accessibility relies on its built-in keyboard support.
+- Q: Color picker — `ha-color-picker` always? → A: No — plain text inputs are used throughout for both scalar color fields and threshold per-rule color fields. The FR-015 allowance for `ha-color-picker` substitution is preserved as MAY, not MUST.
+- Q: `replaced_on` date input — `ha-date-input` always? → A: No — plain text input with `YYYY-MM-DD` placeholder is used. FR-016 preserves `ha-date-input` substitution as MAY, not MUST.
+- Q: Visibility toggles layout — vertical or one-row strip? → A: One-row strip of `ha-formfield` + `ha-checkbox` for `show_zero`, `show_min`, `show_avg`, `show_max` to keep the row editor compact. Default-on semantics: `undefined` and `true` both render as checked (matches consumer `!== false` logic in monthly-table / year-table).
+- Q: Each threshold rule's display in the list — flat fields or collapsible per rule? → A: Collapsible per rule. Each rule renders as an `ha-expansion-panel` whose header shows `operator-symbol value` (e.g. `> 30`) or `name (> 30)` when `name` is set.
+- Q: Entity-row identity in the main list — label-only or inline picker? → A: Inline `ha-entity-picker` bound to the row's `entity`. Changes via the inline picker dispatch `config-changed` without opening the detail page. Expression rows show a function icon + `name`/`expression` text (no picker).
+- Q: `ha-entity-picker` preloading — required? → A: Yes. `connectedCallback` calls `loadCardHelpers` → `createCardElement({ type: 'entities', entities: [] })` → `getConfigElement()` to force HA's lazy registration, then awaits `customElements.whenDefined('ha-entity-picker')`. Until defined, a localized loading placeholder (`editor.loading`) is shown in place of the row list. Reason: without preload, inline `ha-entity-picker` instances inside our shadow DOM render zero-height on first editor open.
 
 ### Session 2026-05-25
 

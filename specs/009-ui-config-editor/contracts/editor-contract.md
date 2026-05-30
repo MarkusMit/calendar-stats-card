@@ -24,7 +24,7 @@
 | Method | Signature | Contract |
 |---|---|---|
 | `getConfigElement()` | `() => HTMLElement` | Returns `document.createElement('calendar-stats-card-editor')` |
-| `getStubConfig()` | `() => CardConfig` | Returns `{ type: 'calendar-stats-card', entities: [] }` |
+| `getStubConfig()` | `() => CardConfig` | Returns `{ type: 'custom:calendar-stats-card', entities: [] }` (the `custom:` prefix is required — without it HA rejects the config-changed event and falls back to YAML mode) |
 
 ---
 
@@ -49,7 +49,7 @@ interface ConfigChangedEvent extends CustomEvent {
   composed: true;
   detail: {
     config: {
-      type: 'calendar-stats-card';
+      type: 'custom:calendar-stats-card';
       entities: EntityConfig[];
       [unknownKey: string]: unknown;  // preserved top-level unknown fields
     };
@@ -69,8 +69,8 @@ this.dispatchEvent(new CustomEvent('config-changed', {
 
 ### Payload Invariants
 
-1. `config.type` MUST equal `'calendar-stats-card'`
-2. `config.entities` MUST be an `EntityConfig[]` in the editor's current display order
+1. `config.type` MUST equal `'custom:calendar-stats-card'`
+2. `config.entities` MUST be an `EntityConfig[]` in the editor's current display order, with empty-formula expression rows filtered out (an `ExpressionRowConfig` whose `expression === ''` is excluded from the dispatched payload — FR-008)
 3. All unknown top-level fields from the original config MUST be present unchanged (FR-010)
 4. All unknown per-row fields from original row configs MUST be present unchanged (FR-010)
 5. Each `EntityRowConfig` in `entities` MUST have `entity: string`
@@ -95,13 +95,14 @@ These events are internal to the editor — not part of the HA API.
 
 `CalendarStatsCard.getStubConfig()` returns:
 ```typescript
-{ type: 'calendar-stats-card', entities: [] }
+{ type: 'custom:calendar-stats-card', entities: [] }
 ```
 
 This config is used when the user adds the card fresh from the card picker. The editor MUST:
 - Accept this config without throwing
-- Render the FR-017 empty-state message
-- Show the "Add row" button
+- Render the FR-017 empty-state message (above the add-row chips)
+- Show the `+ Entity` and `+ Expression` chips (FR-002)
+- While `ha-entity-picker` is not yet registered in `customElements`, render the `editor.loading` placeholder in place of the row list (FR-019)
 
 ---
 
@@ -109,11 +110,30 @@ This config is used when the user adds the card fresh from the card picker. The 
 
 The formula field follows this validation contract:
 
-1. Validation fires on `blur` only (FR-012)
-2. No validation fires while the user is typing
-3. On blur, `validateFormula(formula, hass)` is called:
-   - If syntax error → display `localize('editor.invalid_expression_syntax', lang)`, do not dispatch
-   - If entity not found → display `localize('editor.entity_not_found_in_expression', lang).replace('{entity}', id)`, do not dispatch
-   - If valid → clear error, dispatch `row-changed` with updated config
-4. The formula text in the input is never cleared or modified by validation
-5. While formula is invalid: the row is excluded from the dispatched config (card preview retains last valid state)
+1. Validation fires on each `value-changed` event from the wrapping `ha-form` (FR-012 — `ha-form` typically emits `value-changed` on blur for text selectors, not per keystroke; treat the event as the "blur" trigger)
+2. On each event, the formula is validated:
+   - Empty / whitespace-only formula → clear error, do NOT dispatch `row-changed` (the empty draft is filtered out by `_dispatchConfigChanged()` per FR-008)
+   - Syntax error (from `extractEntityIds` / `tokenize`) → display `localize('editor.invalid_expression_syntax', lang)`, do not dispatch
+   - Entity not found in extracted IDs → display `localize('editor.entity_not_found_in_expression', lang).replace('{entity}', id)`, do not dispatch
+   - Valid → clear error, dispatch `row-changed` with updated config
+3. The formula text in the input is never cleared or modified by validation
+4. While formula is invalid: the row is excluded from the dispatched config (card preview retains last valid state)
+
+## Row Detail Page Contract (CalendarStatsCardEditor)
+
+The editor panel renders one of two mutually exclusive views (FR-018):
+
+- **List view** (`_editingIndex === null`): drag-handle + identity + delete + pencil per row, plus add-row chips and optional empty-state.
+- **Detail view** (`_editingIndex !== null`): back-arrow header → row label → type badge, then `<calendar-stats-entity-row-editor>` or `<calendar-stats-expression-row-editor>` bound to `_entities[_editingIndex]`.
+
+State transitions:
+
+| Trigger | Effect |
+|---|---|
+| Pencil icon on row `i` | `_editingIndex = i` |
+| Back-arrow in detail header | `_editingIndex = null` |
+| Adding an expression row | `_editingIndex = newIndex` (auto-open) |
+| Adding an entity row via inline picker | `_editingIndex = newIndex` (auto-open) |
+| Deleting row `i` | If `_editingIndex === i` then `null`; else if `_editingIndex > i` then `_editingIndex--` |
+
+Inline edits via the entity row's `ha-entity-picker` in the list view dispatch `config-changed` directly without changing `_editingIndex`.
