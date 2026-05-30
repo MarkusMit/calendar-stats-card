@@ -5,7 +5,7 @@ import type { CardConfig, ThresholdRule } from './types/card-config';
 import type { HomeAssistant } from './types/ha-types';
 import type { ViewState, YearStatistics } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
-import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues } from './services/data-transform';
+import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues, rowSummaryKey } from './services/data-transform';
 import { resolvePredecessorData } from './services/predecessor-resolver';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
 import { localize } from './localize/localize';
@@ -317,8 +317,10 @@ export class CalendarStatsCard extends LitElement {
       // Compute expression monthly summaries from expression daily values.
       // min/mean/max exclude zero-value days when the row's show_zero is false (FR-003);
       // total always sums all days (zero days contribute 0 anyway, FR-004).
-      for (const cfg of this._config.entities) {
-        if (!('expression' in cfg)) continue;
+      // Keyed by row index so duplicate expression rows with different show_zero each get
+      // an independent summary.
+      this._config.entities.forEach((cfg, rowIndex) => {
+        if (!('expression' in cfg)) return;
         const excludeZero = cfg.show_zero === false;
         for (let m = 1; m <= 12; m++) {
           const filteredSums = collectDailySums(cfg.expression, year, m, dailyValues, excludeZero);
@@ -327,7 +329,7 @@ export class CalendarStatsCard extends LitElement {
             : filteredSums;
           if (allSums.length === 0) continue;
           const total = allSums.reduce((a, b) => a + b, 0);
-          monthlySummaries.set(`${cfg.expression}::${year}-${m}`, {
+          monthlySummaries.set(rowSummaryKey(rowIndex, cfg.expression, year, m), {
             entityId: cfg.expression,
             year,
             month: m,
@@ -337,17 +339,18 @@ export class CalendarStatsCard extends LitElement {
             total,
           });
         }
-      }
+      });
 
-      // For current year: fill in missing summaries for the current (incomplete) month
+      // For current year: fill in missing summaries for the current (incomplete) month.
+      // Keyed by row index (matches transformMonthlyStats and the renderer lookup).
       const { year: currentYear, month: currentMonth } = this._currentYearMonth();
       if (year === currentYear) {
-        for (const cfg of this._config.entities) {
-          if (!('entity' in cfg)) continue;
+        this._config.entities.forEach((cfg, rowIndex) => {
+          if (!('entity' in cfg)) return;
           const entityId = cfg.entity;
           const meta = metadataMap[entityId];
-          if (!meta) continue;
-          const key = `${entityId}::${year}-${currentMonth}`;
+          if (!meta) return;
+          const key = rowSummaryKey(rowIndex, entityId, year, currentMonth);
           if (!monthlySummaries.has(key)) {
             const s = computeMonthlySummaryFromDailyValues(
               entityId, year, currentMonth,
@@ -357,7 +360,7 @@ export class CalendarStatsCard extends LitElement {
             );
             if (s) monthlySummaries.set(key, s);
           }
-        }
+        });
       }
 
       const yearStats: YearStatistics = {

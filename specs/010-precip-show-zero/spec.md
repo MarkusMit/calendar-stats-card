@@ -101,6 +101,7 @@ Verify (a) the `show_zero` description in the entity-row table mentions the summ
 - An entity month with **all** zero-sum days and `show_zero: false` produces an empty summary (no min/avg/max rendered) rather than `0/0/0`.
 - A `total_increasing` entity day whose value comes from a counter-reset clamp-to-zero (spec 001 FR-015) is indistinguishable from a naturally-zero day in the summary pipeline.
   With `show_zero: false`, both are excluded; with `show_zero: true`, both are included.
+- Duplicate entity rows with conflicting `show_zero` (e.g. `Rain (include zeros)` and `Rain (exclude zeros)` both pointing to `sensor.rain`): each row renders its own day cells AND its own monthly summary independently. Per FR-002a, the summary map is keyed by row index, so two rows never share a summary entry.
 - The monthly **total** column is unaffected by `show_zero` regardless of value — total comes from HA's authoritative monthly statistics, which already sums actual values.
 - `measurement` entities are unaffected — `show_zero` does not apply to measurement-state-class rows in any column.
 - Migration of stored configurations is not required — existing configs remain valid; only the rendering rules change.
@@ -111,9 +112,14 @@ Verify (a) the `show_zero` description in the entity-row table mentions the summ
 
 - **FR-001**: The card MUST NOT apply any device-class-specific rule to monthly summary min/avg/max calculations.
   The `device_class: precipitation` hardcoded zero-exclusion behaviour MUST be removed entirely from the card's data pipeline.
+  Scope clarification: `device_class` MUST NOT be read by any monthly-summary computation path.
+  Other consumers (label rendering, unit-of-measurement display, threshold matching, and any future non-summary code) MAY continue to read `device_class` from `EntityMetadata`; this requirement does not ban the field globally.
 - **FR-002**: For cumulative (`total_increasing` / `total`) entity rows, the monthly summary min/avg/max MUST exclude zero-sum days when the row's `show_zero` is `false`, and MUST include zero-sum days when `show_zero` is `true` or omitted (default).
   All zero-sum days are treated uniformly regardless of origin — a day whose sum is `0` because the value was naturally zero, and a `total_increasing` day whose negative counter-reset sum was clamped to `0` (spec 001 FR-015), are both excluded together when `show_zero: false`.
   No origin metadata is preserved.
+- **FR-002a**: When multiple entity rows reference the same HA entity ID with different `show_zero` settings, each row MUST receive an **independent** monthly summary derived from its own `show_zero` value.
+  The summary map MUST be keyed by row index (position in the `entities` list), not solely by entity ID, so duplicate-entity rows do not collide.
+  Per-row day-cell rendering already respects per-row `show_zero` (cell blanking is computed per row); this requirement extends the symmetry to summary cells.
 - **FR-003**: For expression rows, the monthly summary min/avg/max MUST exclude zero-value days when the row's `show_zero` is `false`, and MUST include zero-value days when `show_zero` is `true` or omitted (default).
 - **FR-004**: The monthly **total** column MUST remain unaffected by `show_zero` (its value continues to come from HA's authoritative monthly statistics).
 - **FR-005**: Day-cell rendering behaviour driven by `show_zero` MUST remain unchanged (cells with computed value exactly `0` render blank when `show_zero: false`).
@@ -157,6 +163,8 @@ Verify (a) the `show_zero` description in the entity-row table mentions the summ
 - **SC-008**: User can flip `show_zero` in the visual editor and see the monthly summary cells update in the preview within the same render cycle as the day cells.
 - **SC-009**: The visual editor displays the `show_zero` toggle with the English label "Include zero-value days" (and the equivalent updated German label).
   The previous label "Show zero-value days" / "Nullwerttage anzeigen" no longer appears in the editor UI in either locale.
+- **SC-010**: A configuration with two entity rows referencing the same entity ID — one with `show_zero: true` (or omitted), the other with `show_zero: false` — produces two distinct monthly summaries: one including zero-value days, the other excluding them.
+  Per-row day-cell rendering and per-row summary rendering both respect each row's own `show_zero` value (no shared/collided summary).
 
 ## Assumptions
 

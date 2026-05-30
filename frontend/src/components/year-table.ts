@@ -6,6 +6,7 @@ import { rowKey } from '../types/card-config';
 import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
+import { rowSummaryKey } from '../services/data-transform';
 
 const TOTAL_DAYS = 31;
 
@@ -190,7 +191,7 @@ export class YearTable extends LitElement {
     });
   }
 
-  private renderEntityRows(cfg: EntityConfig, month: number, days: number, hasMeasurement: boolean) {
+  private renderEntityRows(cfg: EntityConfig, rowIndex: number, month: number, days: number, hasMeasurement: boolean) {
     const key = rowKey(cfg);
     const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: cfg.precision ?? 20, minimumFractionDigits: cfg.precision ?? 0 });
     const meta = this.entityMetadata.get(key);
@@ -201,7 +202,7 @@ export class YearTable extends LitElement {
     const hasStats = meta?.hasStatistics ?? true;
     const hasError = this.entityErrors.has(key);
     const isMeasurement = meta?.stateClass === 'measurement';
-    const summaryKey = `${key}::${this.year}-${month}`;
+    const summaryKey = rowSummaryKey(rowIndex, key, this.year, month);
     const summary = this.monthlySummaries.get(summaryKey);
 
     const colorParts: string[] = [];
@@ -416,7 +417,7 @@ export class YearTable extends LitElement {
                 </tr>
               </thead>
               <tbody>
-                ${this.entityConfigs.map((cfg) => this.renderEntityRows(cfg, month, days, hasMeasurement))}
+                ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, month, days, hasMeasurement))}
               </tbody>
             `;
           })}

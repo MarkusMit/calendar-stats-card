@@ -20,20 +20,22 @@ Minimal diff aligns with Constitution Principle V (Simplicity).
 
 ## Q2 — How does the change interact with duplicate entity rows?
 
-**Decision**: Accept existing last-write-wins collision behaviour for duplicate entity rows.
-If two `EntityRowConfig` entries reference the same entity ID with conflicting `show_zero`, the monthly summary written into `monthlySummaries` will reflect whichever config was iterated last.
-Both rows will display the same (collided) summary in their summary columns.
+**Original decision (rejected during checklist review 2026-05-30)**: Accept existing last-write-wins collision behaviour for duplicate entity rows.
+Rationale was YAGNI — assumed conflicting-`show_zero` duplicates were hypothetical.
 
-**Rationale**: The `monthlySummaries` map is keyed by `${rowKey(cfg)}::${year}-${month}` where `rowKey(EntityRowConfig)` returns the entity ID.
-Duplicate entity rows already collide on this key today — this is not a regression introduced by the feature.
-Spec 001 Acceptance Scenario for duplicates says "each entry produces its own row" but does not require independent summary computation.
-Adding row-index keying would touch four components (year-table, monthly-table, plus their tests and the current-month-fill loop) for an edge case with no demonstrated user need.
+**Revised decision (adopted)**: Add row-index keying. Summary map key changes from `${rowKey(cfg)}::${year}-${month}` to `${rowIndex}::${rowKey(cfg)}::${year}-${month}` (see helper `rowSummaryKey()` in `data-transform.ts`).
+`transformMonthlyStats` iterates per row (not per entity), giving each row an independent summary derived from its own `show_zero`.
+Per-row day-cell rendering already worked per-row; this aligns summary cells with the same model.
 
-**Alternatives considered**:
-- *Add row index to summary key* (`${rowKey}::${year}-${month}::${index}`): cleanest, but ~120 LOC of propagation through components and tests for a hypothetical conflict.
-  YAGNI per Constitution V.
-  Rejected for this feature; revisit if a real user reports the conflict.
+**Why reversed**: Checklist CHK037/CHK038 review surfaced a real inconsistency — under the original decision, a row with `show_zero: false` would still see zeros in its **summary** if a sibling row with `show_zero: true` for the same entity was processed first.
+That is incoherent (the row asking for exclusion gets an inclusive summary), not merely "shared".
+The fix is small (~30 LOC across data-transform.ts, calendar-stats-card.ts, monthly-table.ts, year-table.ts, plus 1 new regression test).
+Cost is below the cost of documenting the anomaly + maintaining a known-bug entry indefinitely.
+
+**Alternatives considered (and still rejected)**:
 - *Error on duplicate-entity rows with conflicting show_zero*: degrades UX; spec 001 permits duplicates freely.
+  Rejected.
+- *Defer to a follow-up feature*: would ship a known incoherence in 010.
   Rejected.
 
 ## Q3 — Where do the new tests live, and how many?

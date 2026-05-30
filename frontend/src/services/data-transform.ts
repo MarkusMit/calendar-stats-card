@@ -191,6 +191,14 @@ export function computeMonthlySummaryFromDailyValues(
  * Transform raw HA monthly-period statistics into a map of MonthlySummary entries.
  * Key format: `${entityId}::${year}-${month}`
  */
+/**
+ * Build the summary-map key for a row. Includes row index so duplicate entity rows with
+ * different show_zero settings each get their own summary (no first-write-wins collision).
+ */
+export function rowSummaryKey(rowIndex: number, rowKey: string, year: number, month: number): string {
+  return `${rowIndex}::${rowKey}::${year}-${month}`;
+}
+
 export function transformMonthlyStats(
   rawStats: RawStats,
   metadataMap: Record<string, EntityMetadata>,
@@ -199,30 +207,30 @@ export function transformMonthlyStats(
 ): Map<string, MonthlySummary> {
   const result = new Map<string, MonthlySummary>();
 
-  for (const [entityId, entries] of Object.entries(rawStats)) {
+  // Iterate per row (not per entityId) so duplicate entity rows with different show_zero each
+  // produce an independent summary keyed by row index.
+  entityConfigs.forEach((cfg, rowIndex) => {
+    if (!('entity' in cfg)) return; // expression rows handled by caller
+    const entityId = cfg.entity;
     const meta = metadataMap[entityId];
-    if (!meta) continue;
+    if (!meta) return;
+    const entries = rawStats[entityId];
+    if (!entries) return;
 
     const isMeasurement = meta.stateClass === 'measurement';
-    // First matching entity-row config wins. Duplicate-entity rows with conflicting show_zero
-    // produce a last-write-wins summary (existing latent collision, not introduced here).
-    const matchingCfg = entityConfigs.find((c): c is Extract<EntityConfig, { entity: string }> =>
-      'entity' in c && c.entity === entityId,
-    );
-    const excludeZero = matchingCfg?.show_zero === false;
-
+    const excludeZero = cfg.show_zero === false;
     const sorted = [...entries].sort((a, b) => a.start - b.start);
 
     for (const entry of sorted) {
       const date = new Date(entry.start);
       const year = date.getUTCFullYear();
       const month = date.getUTCMonth() + 1;
-      const key = `${entityId}::${year}-${month}`;
+      const key = rowSummaryKey(rowIndex, entityId, year, month);
 
       const summary = computeMonthlySummaryFromDailyValues(entityId, year, month, isMeasurement, excludeZero, dailyValues);
       result.set(key, summary ?? { entityId, year, month, min: null, mean: null, max: null, total: null });
     }
-  }
+  });
 
   return result;
 }
