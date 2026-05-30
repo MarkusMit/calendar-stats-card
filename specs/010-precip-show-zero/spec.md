@@ -117,13 +117,25 @@ Verify (a) the `show_zero` description in the entity-row table mentions the summ
 - **FR-002**: For cumulative (`total_increasing` / `total`) entity rows, the monthly summary min/avg/max MUST exclude zero-sum days when the row's `show_zero` is `false`, and MUST include zero-sum days when `show_zero` is `true` or omitted (default).
   All zero-sum days are treated uniformly regardless of origin — a day whose sum is `0` because the value was naturally zero, and a `total_increasing` day whose negative counter-reset sum was clamped to `0` (spec 001 FR-015), are both excluded together when `show_zero: false`.
   No origin metadata is preserved.
+  **Zero-check semantics (CHK009 resolution)**: "zero" means strict JavaScript equality with `0` (`entry.sum === 0`). No floating-point epsilon tolerance is applied; a daily sum of `0.0001` is NOT zero and is included regardless of `show_zero`. The check is performed on the raw stored daily value before any `factor` scaling (see FR-002c).
+  **Negative-value semantics (CHK025 resolution)**: A `total` entity day with a legitimate negative daily sum (e.g. net solar export of `-5.2` kWh) is **not** zero under the strict-equality rule and MUST NOT be excluded by `show_zero: false`. Only days where `entry.sum === 0` are excluded.
 - **FR-002a**: When multiple entity rows reference the same HA entity ID with different `show_zero` settings, each row MUST receive an **independent** monthly summary derived from its own `show_zero` value.
   The summary map MUST be keyed by row index (position in the `entities` list), not solely by entity ID, so duplicate-entity rows do not collide.
   Per-row day-cell rendering already respects per-row `show_zero` (cell blanking is computed per row); this requirement extends the symmetry to summary cells.
 - **FR-003**: For expression rows, the monthly summary min/avg/max MUST exclude zero-value days when the row's `show_zero` is `false`, and MUST include zero-value days when `show_zero` is `true` or omitted (default).
+  Same strict zero-equality semantics as FR-002 apply (no float tolerance).
+  **Missing-entity semantics (CHK027 resolution)**: When an expression references an entity ID that is absent from `dailyValues` for a given day, the evaluator substitutes `0` for that operand (current behaviour in `calendar-stats-card.ts`). If the resulting evaluated daily value is exactly `0`, the day is treated like any other zero day — excluded under `show_zero: false`, included otherwise. There is no requirement to distinguish "real 0" from "0 by missing-entity substitution".
+- **FR-002c**: The `show_zero` zero-check (FR-002, FR-003) MUST operate on the **raw computed daily value** stored in the `dailyValues` map, before any per-row `factor` scaling is applied at render time (CHK026 resolution).
+  Rationale: `factor` is a display-time multiplier; `0 × factor === 0` for any finite factor, so ordering of `show_zero` filtering and `factor` multiplication is irrelevant for natural-zero days. The check is anchored to the raw value to keep the data pipeline ignorant of render concerns.
+  Edge case: a configuration with `factor: 0` is undefined behaviour and out of scope; the spec does not require any special handling.
 - **FR-004**: The monthly **total** column MUST remain unaffected by `show_zero` (its value continues to come from HA's authoritative monthly statistics).
 - **FR-005**: Day-cell rendering behaviour driven by `show_zero` MUST remain unchanged (cells with computed value exactly `0` render blank when `show_zero: false`).
+- **FR-005a**: The new `show_zero` summary rule MUST apply uniformly to **all** months rendered for the row, including the in-progress current month (CHK029 resolution).
+  The current-month summary in the card is populated by a dedicated fill loop in `calendar-stats-card.ts` (because HA's monthly-period statistics for the in-progress month may not be available yet); this loop MUST derive `excludeZero` from `cfg.show_zero === false` using the same rule as `transformMonthlyStats`.
+  Past months and the current month MUST produce identical results for an identical input dataset.
 - **FR-006**: When all qualifying days in a month are zero-valued and `show_zero: false`, the monthly summary cells (min/avg/max) MUST render empty rather than `0/0/0`.
+  **DOM semantics (CHK013 resolution)**: "empty" means the `MonthlySummary` returned by `computeMonthlySummaryFromDailyValues` has `min`, `mean`, and `max` set to `null` (the existing data-model representation for "no value"). The renderer then displays each such cell with no numeric content. Whether the rendered cell is fully blank or shows `—` follows the existing per-cell rendering rules in `monthly-table.ts` / `year-table.ts` for `null`/missing summary values; this feature does not change those rules.
+  Note: the monthly `total` is independent (FR-004). For an all-zero month with `show_zero: false`, `total` is `0` and renders as `0`, not blank.
 - **FR-007**: `measurement` state-class entities MUST NOT be affected by this change — `show_zero` remains inapplicable to them.
 - **FR-008**: The card MUST NOT require any configuration migration.
   Existing card configurations MUST continue to load and render without modification; only the rendering rules change.
@@ -135,8 +147,25 @@ Verify (a) the `show_zero` description in the entity-row table mentions the summ
   Realignment via amended clarification entries is acceptable — full spec rewrites are not required.
 - **FR-013**: The visual editor toggle label `editor.show_zero` MUST be reworded so it reflects the expanded dual effect (day-cell blanking AND summary exclusion).
   English value MUST become exactly **"Include zero-value days"**.
-  The corresponding German entry MUST be updated to a semantically equivalent translation (current value "Nullwerttage anzeigen" no longer conveys the dual effect).
+  German value MUST become exactly **"Nullwerttage einbeziehen"** (CHK011 resolution — pinned, not "semantically equivalent"; ensures all implementers land on the same string).
   Both `frontend/src/translations/en.json` and `frontend/src/translations/de.json` MUST be updated in the same commit.
+  **Accessibility (CHK032 resolution)**: no `aria-label`, `title`, or tooltip attribute changes are required. The control is rendered as an `ha-formfield` wrapping an `ha-checkbox`; the `label` prop on `ha-formfield` is HA's native accessibility-binding mechanism, and HA handles it. This is an explicit non-requirement — implementers MUST NOT add custom a11y attributes here.
+
+### Non-Functional Requirements
+
+- **NFR-001 (CHK030 resolution)**: Performance.
+  This feature MUST NOT increase the bundle size of `frontend/dist/calendar-stats-card.js` by more than 2 KB minified vs the pre-feature baseline.
+  Full test-suite wall-clock runtime (`npm test`) MUST NOT increase by more than 10 % vs baseline.
+  Algorithmic complexity of the monthly-summary computation MUST remain `O(D × R)` where `D` is days per month and `R` is row count — no new nested loops or repeated scans introduced.
+  If any of these thresholds is exceeded, the change is rejected for re-work, not merged.
+
+### Terminology *(canonical and aliases)*
+
+- **CHK020 resolution**: "zero-value day", "zero-sum day", and "zero day" appear interchangeably in this spec.
+  Canonical term going forward is **"zero-value day"** (matches the English editor label and is row-type-agnostic).
+  Existing occurrences of "zero-sum day" (used in cumulative-entity contexts) and "zero day" (casual narrative) are aliases for the same concept: a per-row computed daily value where `value === 0` under strict JavaScript equality.
+  "No-rain day" is a domain-specific alias for the precipitation example only.
+  Future spec edits MUST use the canonical term; existing aliases need not be retroactively rewritten.
 
 ### Key Entities
 
@@ -161,6 +190,9 @@ Verify (a) the `show_zero` description in the entity-row table mentions the summ
 - **SC-006**: The constitution's Principle III no longer mentions `device_class: precipitation`; the new rule is generic and reachable from any `show_zero: false` config.
 - **SC-007**: Card configurations valid before this change load and render after this change without error (no migration required).
 - **SC-008**: User can flip `show_zero` in the visual editor and see the monthly summary cells update in the preview within the same render cycle as the day cells.
+  **Measurable definition (CHK023 resolution)**: "same render cycle" means within a single `config-changed`-triggered Lit update.
+  Verifiable by awaiting the card's `updateComplete` promise once after the toggle event; both day cells and summary cells MUST reflect the new `show_zero` value when that promise resolves.
+  No additional `config-changed` event or user action MUST be required to make the summary catch up to the cells.
 - **SC-009**: The visual editor displays the `show_zero` toggle with the English label "Include zero-value days" (and the equivalent updated German label).
   The previous label "Show zero-value days" / "Nullwerttage anzeigen" no longer appears in the editor UI in either locale.
 - **SC-010**: A configuration with two entity rows referencing the same entity ID — one with `show_zero: true` (or omitted), the other with `show_zero: false` — produces two distinct monthly summaries: one including zero-value days, the other excluding them.
