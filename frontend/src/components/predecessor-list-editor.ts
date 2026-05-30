@@ -153,7 +153,7 @@ export class PredecessorListEditor extends LitElement {
           </div>
         </div>
       `)}
-      <mwc-button @click=${() => this._addPredecessor()}>
+      <mwc-button raised @click=${() => this._addPredecessor()}>
         <ha-icon icon="mdi:plus"></ha-icon>
         ${localize('editor.add_predecessor', lang)}
       </mwc-button>

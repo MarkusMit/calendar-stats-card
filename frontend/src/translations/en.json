@@ -34,6 +34,8 @@
     "expression_row": "Expression row",
     "no_rows": "No rows yet — add your first row above",
     "remove_row": "Remove row",
+    "edit_row": "Edit row",
+    "back": "Back",
     "advanced": "Advanced",
     "name": "Display name",
     "precision": "Precision (decimal places)",

@@ -59,13 +59,25 @@ describe('CalendarStatsCardEditor — US1: empty state and entity-row addition (
     expect((config.entities[0] as { entity: string }).entity).toBe('sensor.temp');
   });
 
-  it('renders one entity-row-editor per entity row', async () => {
+  it('renders one row-item per entity row in list view', async () => {
     const el = await createEditor({
       type: 'calendar-stats-card',
       entities: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }],
     });
-    const rows = el.shadowRoot!.querySelectorAll('calendar-stats-entity-row-editor');
+    const rows = el.shadowRoot!.querySelectorAll('.row-item');
     expect(rows.length).toBe(2);
+  });
+
+  it('opens entity-row-editor in detail view when edit is invoked', async () => {
+    const el = await createEditor({
+      type: 'calendar-stats-card',
+      entities: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }],
+    });
+    const internal = el as unknown as { _editRow(i: number): void };
+    internal._editRow(0);
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    const editors = el.shadowRoot!.querySelectorAll('calendar-stats-entity-row-editor');
+    expect(editors.length).toBe(1);
   });
 });
 
@@ -117,7 +129,7 @@ describe('CalendarStatsCardEditor — US2: row management (T010)', () => {
     expect((config.entities[0] as { expression: string }).expression).toBe('{{ sensor.a + sensor.b }}');
   });
 
-  it('renders calendar-stats-expression-row-editor for expression rows', async () => {
+  it('opens calendar-stats-expression-row-editor in detail view for expression rows', async () => {
     const el = await createEditor({
       type: 'calendar-stats-card',
       entities: [
@@ -125,8 +137,13 @@ describe('CalendarStatsCardEditor — US2: row management (T010)', () => {
         { expression: '{{ sensor.b }}', name: 'Expr' } as ExpressionRowConfig,
       ],
     });
+    const internal = el as unknown as { _editRow(i: number): void };
+    internal._editRow(1);
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
     const exprEditors = el.shadowRoot!.querySelectorAll('calendar-stats-expression-row-editor');
     expect(exprEditors.length).toBe(1);
+    const entityEditors = el.shadowRoot!.querySelectorAll('calendar-stats-entity-row-editor');
+    expect(entityEditors.length).toBe(0);
   });
 });
 

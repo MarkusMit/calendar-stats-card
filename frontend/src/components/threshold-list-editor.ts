@@ -174,7 +174,7 @@ export class ThresholdListEditor extends LitElement {
           </div>
         </ha-expansion-panel>
       `)}
-      <mwc-button @click=${() => this._addThreshold()}>
+      <mwc-button raised @click=${() => this._addThreshold()}>
         <ha-icon icon="mdi:plus"></ha-icon>
         ${localize('editor.add_threshold', lang)}
       </mwc-button>

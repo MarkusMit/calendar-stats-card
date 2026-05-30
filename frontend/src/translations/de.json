@@ -34,6 +34,8 @@
     "expression_row": "Ausdruckszeile",
     "no_rows": "Noch keine Zeilen — fügen Sie oben Ihre erste Zeile hinzu",
     "remove_row": "Zeile entfernen",
+    "edit_row": "Zeile bearbeiten",
+    "back": "Zurück",
     "advanced": "Erweitert",
     "name": "Anzeigename",
     "precision": "Genauigkeit (Dezimalstellen)",

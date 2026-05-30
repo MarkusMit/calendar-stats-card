@@ -14,7 +14,7 @@ export class CalendarStatsCardEditor extends LitElement {
   @state() private _rest: Record<string, unknown> = {};
   @state() private _showTypeMenu = false;
   @state() private _addingEntityRow = false;
-  @state() private _expandedIndex: number | null = null;
+  @state() private _editingIndex: number | null = null;
 
   static styles = css`
     :host {
@@ -57,11 +57,7 @@ export class CalendarStatsCardEditor extends LitElement {
       align-items: center;
       gap: 8px;
       padding: 8px 4px;
-      cursor: pointer;
       border-radius: 4px;
-    }
-    .row-header:hover {
-      background: var(--secondary-background-color, #f5f5f5);
     }
     .row-label {
       flex: 1;
@@ -75,7 +71,23 @@ export class CalendarStatsCardEditor extends LitElement {
       color: var(--secondary-text-color);
       flex-shrink: 0;
     }
-    .row-editor-content {
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 4px;
+      border-bottom: 1px solid var(--divider-color, #e0e0e0);
+      margin-bottom: 8px;
+    }
+    .detail-title {
+      flex: 1;
+      font-size: 16px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .detail-content {
       padding: 0 4px 8px;
     }
   `;
@@ -110,7 +122,7 @@ export class CalendarStatsCardEditor extends LitElement {
     this._entities = [...this._entities, { entity: entityId } as EntityRowConfig];
     this._showTypeMenu = false;
     this._addingEntityRow = false;
-    this._expandedIndex = newIndex;
+    this._editingIndex = newIndex;
     this._dispatchConfigChanged();
   }
 
@@ -119,13 +131,13 @@ export class CalendarStatsCardEditor extends LitElement {
     this._entities = [...this._entities, { expression: '' } as ExpressionRowConfig];
     this._showTypeMenu = false;
     this._addingEntityRow = false;
-    this._expandedIndex = newIndex;
+    this._editingIndex = newIndex;
     // Do NOT dispatch config-changed yet — expression is empty (FR-008)
   }
 
   private _removeRow(index: number): void {
-    if (this._expandedIndex === index) this._expandedIndex = null;
-    else if (this._expandedIndex !== null && this._expandedIndex > index) this._expandedIndex--;
+    if (this._editingIndex === index) this._editingIndex = null;
+    else if (this._editingIndex !== null && this._editingIndex > index) this._editingIndex--;
     this._entities = this._entities.filter((_, i) => i !== index);
     this._dispatchConfigChanged();
   }
@@ -138,8 +150,12 @@ export class CalendarStatsCardEditor extends LitElement {
     this._dispatchConfigChanged();
   }
 
-  private _toggleExpand(index: number): void {
-    this._expandedIndex = this._expandedIndex === index ? null : index;
+  private _editRow(index: number): void {
+    this._editingIndex = index;
+  }
+
+  private _closeDetail(): void {
+    this._editingIndex = null;
   }
 
   private get _lang(): string {
@@ -148,6 +164,11 @@ export class CalendarStatsCardEditor extends LitElement {
 
   render() {
     const lang = this._lang;
+
+    if (this._editingIndex !== null && this._entities[this._editingIndex]) {
+      return this._renderDetail(this._editingIndex, lang);
+    }
+
     const empty = this._entities.length === 0;
 
     return html`
@@ -165,39 +186,21 @@ export class CalendarStatsCardEditor extends LitElement {
             const label = isEntity
               ? ((entity as EntityRowConfig).name || (entity as EntityRowConfig).entity || typeBadge)
               : ((entity as ExpressionRowConfig).name || (entity as ExpressionRowConfig).expression || typeBadge);
-            const expanded = this._expandedIndex === i;
             return html`
               <div class="row-item">
-                <div class="row-header" @click=${() => this._toggleExpand(i)}>
+                <div class="row-header">
                   <ha-icon icon=${isEntity ? 'mdi:chart-line' : 'mdi:function-variant'}></ha-icon>
                   <span class="row-label">${label}</span>
                   <span class="row-type-badge">${typeBadge}</span>
                   <ha-icon-button
                     .label=${localize('editor.remove_row', lang)}
-                    @click=${(e: Event) => { e.stopPropagation(); this._removeRow(i); }}
+                    @click=${() => this._removeRow(i)}
                   ><ha-icon icon="mdi:delete"></ha-icon></ha-icon-button>
-                  <ha-icon icon=${expanded ? 'mdi:chevron-up' : 'mdi:chevron-down'}></ha-icon>
+                  <ha-icon-button
+                    .label=${localize('editor.edit_row', lang)}
+                    @click=${() => this._editRow(i)}
+                  ><ha-icon icon="mdi:pencil"></ha-icon></ha-icon-button>
                 </div>
-                ${expanded ? html`
-                  <div class="row-editor-content">
-                    ${isEntity
-                      ? html`<calendar-stats-entity-row-editor
-                          .hass=${this.hass}
-                          .config=${entity as EntityRowConfig}
-                          .index=${i}
-                          .lang=${lang}
-                          @row-changed=${this._handleRowChanged}
-                        ></calendar-stats-entity-row-editor>`
-                      : html`<calendar-stats-expression-row-editor
-                          .hass=${this.hass}
-                          .config=${entity as ExpressionRowConfig}
-                          .index=${i}
-                          .lang=${lang}
-                          @row-changed=${this._handleRowChanged}
-                        ></calendar-stats-expression-row-editor>`
-                    }
-                  </div>
-                ` : ''}
               </div>
             `;
           })}
@@ -209,6 +212,7 @@ export class CalendarStatsCardEditor extends LitElement {
           <mwc-button
             class="add-row-btn"
             data-action="add-row"
+            raised
             @click=${() => { this._showTypeMenu = true; this._addingEntityRow = false; }}
           >
             <ha-icon icon="mdi:plus"></ha-icon>
@@ -216,11 +220,11 @@ export class CalendarStatsCardEditor extends LitElement {
           </mwc-button>
         ` : !this._addingEntityRow ? html`
           <div class="type-menu">
-            <mwc-button @click=${() => { this._addingEntityRow = true; }}>
+            <mwc-button raised @click=${() => { this._addingEntityRow = true; }}>
               <ha-icon icon="mdi:plus"></ha-icon>
               ${localize('editor.entity_row', lang)}
             </mwc-button>
-            <mwc-button @click=${() => { this._addExpressionRow(); }}>
+            <mwc-button raised @click=${() => { this._addExpressionRow(); }}>
               <ha-icon icon="mdi:plus"></ha-icon>
               ${localize('editor.expression_row', lang)}
             </mwc-button>
@@ -238,6 +242,46 @@ export class CalendarStatsCardEditor extends LitElement {
             <mwc-button @click=${() => { this._addingEntityRow = false; }}>✕</mwc-button>
           </div>
         `}
+      </div>
+    `;
+  }
+
+  private _renderDetail(index: number, lang: string) {
+    const entity = this._entities[index]!;
+    const isEntity = 'entity' in entity;
+    const typeBadge = isEntity
+      ? localize('editor.entity_row', lang)
+      : localize('editor.expression_row', lang);
+    const label = isEntity
+      ? ((entity as EntityRowConfig).name || (entity as EntityRowConfig).entity || typeBadge)
+      : ((entity as ExpressionRowConfig).name || (entity as ExpressionRowConfig).expression || typeBadge);
+
+    return html`
+      <div class="detail-header">
+        <ha-icon-button
+          .label=${localize('editor.back', lang)}
+          @click=${this._closeDetail}
+        ><ha-icon icon="mdi:arrow-left"></ha-icon></ha-icon-button>
+        <span class="detail-title">${label}</span>
+        <span class="row-type-badge">${typeBadge}</span>
+      </div>
+      <div class="detail-content">
+        ${isEntity
+          ? html`<calendar-stats-entity-row-editor
+              .hass=${this.hass}
+              .config=${entity as EntityRowConfig}
+              .index=${index}
+              .lang=${lang}
+              @row-changed=${this._handleRowChanged}
+            ></calendar-stats-entity-row-editor>`
+          : html`<calendar-stats-expression-row-editor
+              .hass=${this.hass}
+              .config=${entity as ExpressionRowConfig}
+              .index=${index}
+              .lang=${lang}
+              @row-changed=${this._handleRowChanged}
+            ></calendar-stats-expression-row-editor>`
+        }
       </div>
     `;
   }
