@@ -1,11 +1,15 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 1.0.1 (PATCH — Principle III zero-exclusion rule narrowed to precipitation)
+Version change: 1.0.1 → 2.0.0 (MAJOR — Principle III: device_class-driven zero-exclusion removed; replaced with user-driven show_zero rule)
 
 Modified principles:
-  III. Density & Data Fidelity — zero-sum day exclusion restricted to device_class: precipitation only
-       (was: "scalar measurements broadly"; now: precipitation only, all other cumulative included)
+  III. Density & Data Fidelity — device_class: precipitation auto-exclusion clause removed.
+       Cumulative and expression rows now exclude zero-value days from monthly min/avg/max
+       only when the row's show_zero option is set to false. Default behaviour (show_zero
+       true or omitted): include every recorded day, regardless of device_class.
+       Counter-reset zeros (total_increasing clamp-to-zero) are treated uniformly with
+       naturally-zero days — no origin metadata is preserved.
 
 Added sections:
   none
@@ -22,9 +26,16 @@ Templates updated:
 Deferred:
   none
 
-Rationale for PATCH (not MAJOR): the spec (FR-016) already narrowed this rule before any
-implementation. The constitution is being corrected to match what was always the intended scope;
-no existing implementation is affected.
+Rationale for MAJOR: Principle III previously asserted a binding computation rule keyed on
+device_class. Feature 010 removes that rule and replaces it with a user-driven config-based
+rule. This is a backward-incompatible redefinition of a normative principle — exactly the
+case the constitution's own amendment procedure defines as MAJOR. Both implementation and
+documentation change as a consequence (data-transform.ts, calendar-stats-card.ts, README,
+en/de translation labels, historic spec 001 FR-016 realignment).
+
+Earlier history:
+  1.0.0 → 1.0.1 (2026-05-24, PATCH): zero-exclusion rule narrowed from "scalar measurements
+  broadly" to "device_class: precipitation only". No implementation impact at that time.
 -->
 
 # CalendarStats Constitution
@@ -54,20 +65,28 @@ to fix and provides measurable acceptance criteria for every requirement.
 The card layout MUST maximize information density — no decorative whitespace. Day-level data MUST be
 computed accurately per entity type:
 
-- Scalar measurements (total_increasing / total): single daily value (delta from previous day's sum);
-  for `device_class: precipitation`, monthly avg/min/max MUST exclude zero-sum days (days with no
-  rainfall are not relevant to precipitation statistics); for all other cumulative entities, zero-sum
-  days MUST be included in monthly summary calculations.
+- Scalar measurements (total_increasing / total) and expression rows: single daily value (delta from
+  previous day's sum for cumulative entities; formula evaluation for expression rows). Monthly
+  min/avg/max MUST exclude zero-value days when the row's `show_zero` option is `false`, and MUST
+  include them when `show_zero` is `true` or omitted (default). The monthly `total` MUST always be
+  the sum of every recorded day, regardless of `show_zero` (zero days contribute zero and cannot
+  change the total). `device_class` MUST NOT be read by any monthly-summary computation path.
 - Range measurements (measurement state_class): min/avg/max per day in a single row; separate min/max
   rows are prohibited; monthly min/avg/max MUST be card-computed from daily values (HA monthly-period
-  min/max reflect period-mean extremes, not true daily extremes).
+  min/max reflect period-mean extremes, not true daily extremes). `show_zero` MUST NOT affect
+  measurement-entity summaries.
 - Negative daily deltas: for `total_increasing` entities, treated as 0 (counter reset anomaly); for
-  `total` entities, shown as-is (legitimate values, e.g. net energy export).
+  `total` entities, shown as-is (legitimate values, e.g. net energy export). A counter-reset
+  clamp-to-zero day MUST be indistinguishable from a naturally-zero day in the summary pipeline — both
+  are excluded together when `show_zero: false`, both included together otherwise. No origin metadata
+  is preserved (YAGNI per Principle V).
 
 Any deviation from these computation rules is a defect, not a design choice.
 
 **Rationale**: The card's sole purpose is dense statistical display. Whitespace waste or computation
-error directly undermines its value.
+error directly undermines its value. Zero-day handling is a per-row user preference (some sensors —
+rainfall, irrigation — make zero days meaningless; others — energy meters — treat them as legitimate
+data points); pinning that decision to `device_class` removed user control and is rejected.
 
 ### IV. Internationalisation from Day One
 
@@ -140,4 +159,4 @@ this file).
 Check gate. Plans that cannot satisfy a principle MUST justify the exception in the Complexity Tracking
 table before proceeding.
 
-**Version**: 1.0.1 | **Ratified**: 2026-05-19 | **Last Amended**: 2026-05-24
+**Version**: 2.0.0 | **Ratified**: 2026-05-19 | **Last Amended**: 2026-05-30
