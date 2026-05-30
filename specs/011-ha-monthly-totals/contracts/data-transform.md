@@ -1,8 +1,8 @@
 # Contract: `data-transform.ts` Behavioural Diff
 
-## `transformMonthlyStats` — signature unchanged, body changes
+## `transformMonthlyStats` — signature adds `viewingYear`, body changes
 
-### Signature (unchanged)
+### Signature (before — feature 010)
 
 ```typescript
 export function transformMonthlyStats(
@@ -12,6 +12,21 @@ export function transformMonthlyStats(
   entityConfigs: EntityConfig[],
 ): Map<string, MonthlySummary>;
 ```
+
+### Signature (after — feature 011, shipped in commit 3258cb5)
+
+```typescript
+export function transformMonthlyStats(
+  rawStats: RawStats,
+  metadataMap: Record<string, EntityMetadata>,
+  dailyValues: Map<string, DailyValue>,
+  entityConfigs: EntityConfig[],
+  viewingYear: number,
+): Map<string, MonthlySummary>;
+```
+
+The new 5th parameter, `viewingYear`, drives the lookup-only-entry filter: monthly raw entries from years earlier than `viewingYear` (i.e. the prev-December fetched as a lookup source for January's cross-year delta) are skipped when emitting summaries to the result map.
+All call sites in `frontend/src/calendar-stats-card.ts` and `frontend/tests/` updated to pass the year.
 
 ### Before (post-feature-010)
 
