@@ -312,22 +312,28 @@ export class CalendarStatsCard extends LitElement {
         }
       }
 
-      const monthlySummaries = transformMonthlyStats(monthlyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, dailyValues);
+      const monthlySummaries = transformMonthlyStats(monthlyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, dailyValues, this._config.entities);
 
-      // Compute expression monthly summaries from expression daily values
+      // Compute expression monthly summaries from expression daily values.
+      // min/mean/max exclude zero-value days when the row's show_zero is false (FR-003);
+      // total always sums all days (zero days contribute 0 anyway, FR-004).
       for (const cfg of this._config.entities) {
         if (!('expression' in cfg)) continue;
+        const excludeZero = cfg.show_zero === false;
         for (let m = 1; m <= 12; m++) {
-          const sums = collectDailySums(cfg.expression, year, m, dailyValues, false);
-          if (sums.length === 0) continue;
-          const total = sums.reduce((a, b) => a + b, 0);
+          const filteredSums = collectDailySums(cfg.expression, year, m, dailyValues, excludeZero);
+          const allSums = excludeZero
+            ? collectDailySums(cfg.expression, year, m, dailyValues, false)
+            : filteredSums;
+          if (allSums.length === 0) continue;
+          const total = allSums.reduce((a, b) => a + b, 0);
           monthlySummaries.set(`${cfg.expression}::${year}-${m}`, {
             entityId: cfg.expression,
             year,
             month: m,
-            min: Math.min(...sums),
-            mean: total / sums.length,
-            max: Math.max(...sums),
+            min: filteredSums.length > 0 ? Math.min(...filteredSums) : null,
+            mean: filteredSums.length > 0 ? total / filteredSums.length : null,
+            max: filteredSums.length > 0 ? Math.max(...filteredSums) : null,
             total,
           });
         }
@@ -346,7 +352,7 @@ export class CalendarStatsCard extends LitElement {
             const s = computeMonthlySummaryFromDailyValues(
               entityId, year, currentMonth,
               meta.stateClass === 'measurement',
-              meta.deviceClass === 'precipitation',
+              cfg.show_zero === false,
               dailyValues,
             );
             if (s) monthlySummaries.set(key, s);

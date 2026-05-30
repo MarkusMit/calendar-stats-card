@@ -6,6 +6,7 @@ import type {
   EntityMetadata,
   MonthlySummary,
 } from '../types/statistics';
+import type { EntityConfig } from '../types/card-config';
 import type { RawStats } from './statistics-service';
 
 function dateStringInTz(timestampMs: number, timeZone: string): string {
@@ -135,7 +136,7 @@ export function computeMonthlySummaryFromDailyValues(
   year: number,
   month: number,
   isMeasurement: boolean,
-  isPrecipitation: boolean,
+  excludeZero: boolean,
   dailyValues: Map<string, DailyValue>,
 ): MonthlySummary | null {
   if (isMeasurement) {
@@ -165,9 +166,10 @@ export function computeMonthlySummaryFromDailyValues(
       total: null,
     };
   } else {
-    // Cumulative: all stats computed from daily values (correctly handles year boundary)
-    const filteredSums = collectDailySums(entityId, year, month, dailyValues, isPrecipitation);
-    const allSums = isPrecipitation
+    // Cumulative: min/mean/max optionally exclude zero-value days per row's show_zero;
+    // total is always the sum of ALL days (zero days contribute 0 anyway).
+    const filteredSums = collectDailySums(entityId, year, month, dailyValues, excludeZero);
+    const allSums = excludeZero
       ? collectDailySums(entityId, year, month, dailyValues, false)
       : filteredSums;
 
@@ -193,6 +195,7 @@ export function transformMonthlyStats(
   rawStats: RawStats,
   metadataMap: Record<string, EntityMetadata>,
   dailyValues: Map<string, DailyValue>,
+  entityConfigs: EntityConfig[],
 ): Map<string, MonthlySummary> {
   const result = new Map<string, MonthlySummary>();
 
@@ -201,7 +204,12 @@ export function transformMonthlyStats(
     if (!meta) continue;
 
     const isMeasurement = meta.stateClass === 'measurement';
-    const isPrecipitation = meta.deviceClass === 'precipitation';
+    // First matching entity-row config wins. Duplicate-entity rows with conflicting show_zero
+    // produce a last-write-wins summary (existing latent collision, not introduced here).
+    const matchingCfg = entityConfigs.find((c): c is Extract<EntityConfig, { entity: string }> =>
+      'entity' in c && c.entity === entityId,
+    );
+    const excludeZero = matchingCfg?.show_zero === false;
 
     const sorted = [...entries].sort((a, b) => a.start - b.start);
 
@@ -211,7 +219,7 @@ export function transformMonthlyStats(
       const month = date.getUTCMonth() + 1;
       const key = `${entityId}::${year}-${month}`;
 
-      const summary = computeMonthlySummaryFromDailyValues(entityId, year, month, isMeasurement, isPrecipitation, dailyValues);
+      const summary = computeMonthlySummaryFromDailyValues(entityId, year, month, isMeasurement, excludeZero, dailyValues);
       result.set(key, summary ?? { entityId, year, month, min: null, mean: null, max: null, total: null });
     }
   }
