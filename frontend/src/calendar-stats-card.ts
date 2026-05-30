@@ -460,13 +460,13 @@ export class CalendarStatsCard extends LitElement {
 
     return html`
       <ha-card>
-        <loading-overlay .visible=${isLoading} .lang=${lang}></loading-overlay>
+        <calendar-stats-loading-overlay .visible=${isLoading} .lang=${lang}></calendar-stats-loading-overlay>
         <div class="card-content">
           ${!isLoading && config && config.entities.length === 0
             ? html`<p class="no-entities">${localize('card.no_entities', lang)}</p>`
             : ''}
           ${!isLoading && config && config.entities.length > 0
-            ? html`<year-table
+            ? html`<calendar-stats-year-table
                 .year=${selectedYear}
                 .visibleMonths=${this._visibleMonths(selectedYear)}
                 .entityConfigs=${config.entities}
@@ -476,20 +476,20 @@ export class CalendarStatsCard extends LitElement {
                 .entityErrors=${this._viewState.entityErrors}
                 .lang=${lang}
                 @thresholds-applied=${this._onThresholdsApplied}
-              ></year-table>
+              ></calendar-stats-year-table>
               ${this._buildLegend(this._triggeredThresholds, lang)}`
             : ''}
         </div>
         ${!this._inEditor ? html`<div class="bottom-bar">
           ${config
-            ? html`<year-navigator
+            ? html`<calendar-stats-year-navigator
                 .year=${selectedYear}
                 .atCurrentYear=${atCurrentYear}
                 .atEarliestYear=${atEarliestYear}
                 .lang=${lang}
                 @calendar-stats-prev-year=${this._onPrevYear}
                 @calendar-stats-next-year=${this._onNextYear}
-              ></year-navigator>`
+              ></calendar-stats-year-navigator>`
             : ''}
         </div>` : ''}
       </ha-card>

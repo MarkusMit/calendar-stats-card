@@ -50,7 +50,7 @@ describe('CalendarStatsCard — year/month logic', () => {
     await vi.waitFor(
       async () => {
         await el.updateComplete;
-        const yearTable = el.shadowRoot!.querySelector('year-table');
+        const yearTable = el.shadowRoot!.querySelector('calendar-stats-year-table');
         if (!yearTable?.shadowRoot) throw new Error('year-table shadow root not ready');
         await (yearTable as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
         const monthRows = yearTable.shadowRoot.querySelectorAll('tr.month-header-row');
@@ -67,7 +67,7 @@ describe('CalendarStatsCard — year/month logic', () => {
     const el = await createCard(CONFIG, makeHass({
       connection: { sendMessagePromise: vi.fn().mockReturnValue(never) },
     }));
-    const overlay = el.shadowRoot!.querySelector('loading-overlay') as HTMLElement & { visible?: boolean } | null;
+    const overlay = el.shadowRoot!.querySelector('calendar-stats-loading-overlay') as HTMLElement & { visible?: boolean } | null;
     expect(overlay).toBeTruthy();
     expect(overlay?.visible).toBe(true);
   });
@@ -77,7 +77,7 @@ describe('CalendarStatsCard — year/month logic', () => {
     const el = await createCard(CONFIG, makeHass({
       connection: { sendMessagePromise: vi.fn().mockReturnValue(never) },
     }));
-    const tables = el.shadowRoot!.querySelectorAll('year-table');
+    const tables = el.shadowRoot!.querySelectorAll('calendar-stats-year-table');
     expect(tables.length).toBe(0);
   });
 });
@@ -88,7 +88,7 @@ describe('CalendarStatsCard — localized display (T036)', () => {
     let root: ShadowRoot | null = null;
     await vi.waitFor(async () => {
       await card.updateComplete;
-      const table = card.shadowRoot!.querySelector('year-table');
+      const table = card.shadowRoot!.querySelector('calendar-stats-year-table');
       if (!table) throw new Error('no year-table');
       if (!table.shadowRoot) throw new Error('year-table shadow root not ready');
       await (table as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
@@ -126,7 +126,7 @@ describe('CalendarStatsCard — localized display (T036)', () => {
     const el = await createCard(CONFIG, makeHass({ selectedLanguage: 'de', language: 'de' }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const nav = el.shadowRoot!.querySelector('year-navigator');
+      const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator');
       if (!nav || !nav.shadowRoot) throw new Error('navigator not ready');
       const prevBtn = nav.shadowRoot.querySelector('button.prev');
       expect(prevBtn?.getAttribute('aria-label')).toBe('Vorjahr');
@@ -137,7 +137,7 @@ describe('CalendarStatsCard — localized display (T036)', () => {
     const el = await createCard(CONFIG, makeHass({ selectedLanguage: 'de', language: 'de' }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const nav = el.shadowRoot!.querySelector('year-navigator');
+      const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator');
       if (!nav || !nav.shadowRoot) throw new Error('navigator not ready');
       const nextBtn = nav.shadowRoot.querySelector('button.next');
       expect(nextBtn?.getAttribute('aria-label')).toBe('Nächstes Jahr');
@@ -151,7 +151,7 @@ describe('CalendarStatsCard — name configuration (T033)', () => {
     let root: ShadowRoot | null = null;
     await vi.waitFor(async () => {
       await card.updateComplete;
-      const table = card.shadowRoot!.querySelector('year-table');
+      const table = card.shadowRoot!.querySelector('calendar-stats-year-table');
       if (!table) throw new Error('no year-table');
       if (!table.shadowRoot) throw new Error('year-table shadow root not ready');
       await (table as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
@@ -205,7 +205,7 @@ describe('CalendarStatsCard — name configuration (T033)', () => {
       const placeholder = el.shadowRoot!.querySelector('.no-entities');
       if (!placeholder) throw new Error('placeholder not found');
     }, { timeout: 3000 });
-    const tables = el.shadowRoot!.querySelectorAll('year-table');
+    const tables = el.shadowRoot!.querySelectorAll('calendar-stats-year-table');
     expect(tables.length).toBe(0);
   });
 
@@ -229,7 +229,7 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     const el = await createCard(CONFIG, makeHass());
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const nav = el.shadowRoot!.querySelector('year-navigator');
+      const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator');
       expect(nav).toBeTruthy();
     }, { timeout: 3000 });
   });
@@ -238,7 +238,7 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     const el = await createCard(CONFIG, makeHass());
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const nav = el.shadowRoot!.querySelector('year-navigator') as (HTMLElement & { atCurrentYear: boolean }) | null;
+      const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator') as (HTMLElement & { atCurrentYear: boolean }) | null;
       expect(nav).toBeTruthy();
       expect(nav!.atCurrentYear).toBe(true);
     }, { timeout: 3000 });
@@ -253,10 +253,10 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      expect(el.shadowRoot!.querySelector('year-navigator')).toBeTruthy();
+      expect(el.shadowRoot!.querySelector('calendar-stats-year-navigator')).toBeTruthy();
     }, { timeout: 3000 });
     const callsBefore = sendMsg.mock.calls.length;
-    const nav = el.shadowRoot!.querySelector('year-navigator')!;
+    const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator')!;
     nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       expect(sendMsg.mock.calls.length).toBeGreaterThan(callsBefore);
@@ -272,13 +272,13 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      expect(el.shadowRoot!.querySelector('year-navigator')).toBeTruthy();
+      expect(el.shadowRoot!.querySelector('calendar-stats-year-navigator')).toBeTruthy();
     }, { timeout: 3000 });
-    const nav = el.shadowRoot!.querySelector('year-navigator')!;
+    const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator')!;
     nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const yearTable = el.shadowRoot!.querySelector('year-table');
+      const yearTable = el.shadowRoot!.querySelector('calendar-stats-year-table');
       if (!yearTable?.shadowRoot) throw new Error('year-table not ready');
       await (yearTable as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
       const monthRows = yearTable.shadowRoot.querySelectorAll('tr.month-header-row');
@@ -295,13 +295,13 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      expect(el.shadowRoot!.querySelector('year-navigator')).toBeTruthy();
+      expect(el.shadowRoot!.querySelector('calendar-stats-year-navigator')).toBeTruthy();
     }, { timeout: 3000 });
-    const nav = el.shadowRoot!.querySelector('year-navigator')!;
+    const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator')!;
     nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const yearTable = el.shadowRoot!.querySelector('year-table');
+      const yearTable = el.shadowRoot!.querySelector('calendar-stats-year-table');
       if (!yearTable?.shadowRoot) throw new Error('year-table not ready');
       await (yearTable as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
       const monthRows = yearTable.shadowRoot.querySelectorAll('tr.month-header-row');
@@ -319,13 +319,13 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      expect(el.shadowRoot!.querySelector('year-navigator')).toBeTruthy();
+      expect(el.shadowRoot!.querySelector('calendar-stats-year-navigator')).toBeTruthy();
     }, { timeout: 3000 });
-    const nav = el.shadowRoot!.querySelector('year-navigator')!;
+    const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator')!;
     nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const nav2 = el.shadowRoot!.querySelector('year-navigator') as (HTMLElement & { atEarliestYear: boolean }) | null;
+      const nav2 = el.shadowRoot!.querySelector('calendar-stats-year-navigator') as (HTMLElement & { atEarliestYear: boolean }) | null;
       expect(nav2!.atEarliestYear).toBe(true);
     }, { timeout: 3000 });
   });
@@ -337,7 +337,7 @@ describe('CalendarStatsCard — expression rows', () => {
     let root: ShadowRoot | null = null;
     await vi.waitFor(async () => {
       await card.updateComplete;
-      const table = card.shadowRoot!.querySelector('year-table');
+      const table = card.shadowRoot!.querySelector('calendar-stats-year-table');
       if (!table) throw new Error('no year-table');
       if (!table.shadowRoot) throw new Error('year-table shadow root not ready');
       await (table as HTMLElement & { updateComplete: Promise<boolean> }).updateComplete;
@@ -500,7 +500,7 @@ async function triggerThresholdsApplied(card: CalendarStatsCard, rules: Threshol
   let yearTable: Element | null = null;
   await vi.waitFor(async () => {
     await card.updateComplete;
-    yearTable = card.shadowRoot!.querySelector('year-table');
+    yearTable = card.shadowRoot!.querySelector('calendar-stats-year-table');
     if (!yearTable) throw new Error('no year-table');
   }, { timeout: 3000 });
   yearTable!.dispatchEvent(new CustomEvent('thresholds-applied', {
@@ -622,7 +622,7 @@ describe('CalendarStatsCard — floating bottom bar', () => {
     const card = await createCard(CONFIG, makeHass());
     await vi.waitFor(async () => {
       await card.updateComplete;
-      expect(card.shadowRoot!.querySelector('.bottom-bar year-navigator')).not.toBeNull();
+      expect(card.shadowRoot!.querySelector('.bottom-bar calendar-stats-year-navigator')).not.toBeNull();
     }, { timeout: 3000 });
   });
 
@@ -633,7 +633,7 @@ describe('CalendarStatsCard — floating bottom bar', () => {
       await card.updateComplete;
       const bar = card.shadowRoot!.querySelector('.bottom-bar');
       expect(bar).not.toBeNull();
-      const navs = Array.from(card.shadowRoot!.querySelectorAll('year-navigator'));
+      const navs = Array.from(card.shadowRoot!.querySelectorAll('calendar-stats-year-navigator'));
       expect(navs.length).toBeGreaterThan(0);
       navs.forEach(nav => expect(bar!.contains(nav)).toBe(true));
     }, { timeout: 3000 });
@@ -644,7 +644,7 @@ describe('CalendarStatsCard — floating bottom bar', () => {
     const card = await createCard(CONFIG, makeHass());
     await vi.waitFor(async () => {
       await card.updateComplete;
-      expect(card.shadowRoot!.querySelector('.card-content year-table')).not.toBeNull();
+      expect(card.shadowRoot!.querySelector('.card-content calendar-stats-year-table')).not.toBeNull();
     }, { timeout: 3000 });
   });
 
@@ -658,9 +658,9 @@ describe('CalendarStatsCard — floating bottom bar', () => {
     const card = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
       await card.updateComplete;
-      expect(card.shadowRoot!.querySelector('.bottom-bar year-navigator')).not.toBeNull();
+      expect(card.shadowRoot!.querySelector('.bottom-bar calendar-stats-year-navigator')).not.toBeNull();
     }, { timeout: 3000 });
-    const nav = card.shadowRoot!.querySelector('.bottom-bar year-navigator')!;
+    const nav = card.shadowRoot!.querySelector('.bottom-bar calendar-stats-year-navigator')!;
     nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
     await vi.waitFor(async () => {
       await card.updateComplete;
@@ -696,7 +696,7 @@ describe('CalendarStatsCard — floating bottom bar', () => {
     await triggerThresholdsApplied(card, [rule]);
     const content = card.shadowRoot!.querySelector('.card-content');
     expect(content).not.toBeNull();
-    expect(content!.querySelector('year-table')).not.toBeNull();
+    expect(content!.querySelector('calendar-stats-year-table')).not.toBeNull();
     expect(content!.querySelector('.legend')).not.toBeNull();
   });
 });

@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { localize } from '../localize/localize';
 
-@customElement('year-navigator')
+@customElement('calendar-stats-year-navigator')
 export class YearNavigator extends LitElement {
   @property({ type: Number }) year = new Date().getFullYear();
   @property({ type: Boolean }) atCurrentYear = false;
@@ -58,6 +58,6 @@ export class YearNavigator extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'year-navigator': YearNavigator;
+    'calendar-stats-year-navigator': YearNavigator;
   }
 }

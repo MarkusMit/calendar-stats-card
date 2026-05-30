@@ -10,7 +10,7 @@ import { rowSummaryKey } from '../services/data-transform';
 
 const TOTAL_DAYS = 31;
 
-@customElement('year-table')
+@customElement('calendar-stats-year-table')
 export class YearTable extends LitElement {
   @property({ type: Number }) year = 2025;
   @property({ attribute: false }) visibleMonths: number[] = [];
@@ -429,6 +429,6 @@ export class YearTable extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'year-table': YearTable;
+    'calendar-stats-year-table': YearTable;
   }
 }

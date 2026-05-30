@@ -8,7 +8,7 @@ import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
 import { rowSummaryKey } from '../services/data-transform';
 
-@customElement('monthly-table')
+@customElement('calendar-stats-monthly-table')
 export class MonthlyTable extends LitElement {
   @property({ type: Number }) month = 1;
   @property({ type: Number }) year = 2025;
@@ -379,6 +379,6 @@ export class MonthlyTable extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'monthly-table': MonthlyTable;
+    'calendar-stats-monthly-table': MonthlyTable;
   }
 }

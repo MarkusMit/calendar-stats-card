@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { localize } from '../localize/localize';
 
-@customElement('loading-overlay')
+@customElement('calendar-stats-loading-overlay')
 export class LoadingOverlay extends LitElement {
   @property({ type: Boolean }) visible = false;
   @property({ type: String }) lang = 'en';
@@ -45,6 +45,6 @@ export class LoadingOverlay extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'loading-overlay': LoadingOverlay;
+    'calendar-stats-loading-overlay': LoadingOverlay;
   }
 }
