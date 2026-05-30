@@ -5,20 +5,12 @@
     "description": "Monatliche Statistiktabellen für Ihre Home Assistant Entitäten"
   },
   "table": {
-    "label": "Entität",
     "summary": "Monat",
-    "total": "Gesamt",
-    "day_header": "Tag"
+    "total": "Gesamt"
   },
   "nav": {
     "previous_year": "Vorjahr",
     "next_year": "Nächstes Jahr"
-  },
-  "warning": {
-    "no_statistics": "Keine Statistiken verfügbar"
-  },
-  "error": {
-    "fetch_failed": "Statistiken konnten nicht geladen werden"
   },
   "summary": {
     "min": "min",
@@ -29,10 +21,12 @@
     "title": "Legende"
   },
   "editor": {
-    "add_row": "Zeile hinzufügen",
+    "add_entity": "Entität",
+    "add_expression": "Ausdruck",
     "entity_row": "Entitätszeile",
     "expression_row": "Ausdruckszeile",
     "no_rows": "Noch keine Zeilen — fügen Sie oben Ihre erste Zeile hinzu",
+    "loading": "Laden…",
     "remove_row": "Zeile entfernen",
     "edit_row": "Zeile bearbeiten",
     "reorder_row": "Ziehen zum Umordnen",

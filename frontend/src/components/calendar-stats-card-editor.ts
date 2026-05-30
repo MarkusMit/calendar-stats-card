@@ -12,9 +12,9 @@ export class CalendarStatsCardEditor extends LitElement {
 
   @state() private _entities: EntityConfig[] = [];
   @state() private _rest: Record<string, unknown> = {};
-  @state() private _showTypeMenu = false;
   @state() private _addingEntityRow = false;
   @state() private _editingIndex: number | null = null;
+  @state() private _entityPickerReady = customElements.get('ha-entity-picker') != null;
 
   static styles = css`
     :host {
@@ -154,6 +154,31 @@ export class CalendarStatsCardEditor extends LitElement {
     }
   `;
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    void this._ensureEntityPickerLoaded();
+  }
+
+  private async _ensureEntityPickerLoaded(): Promise<void> {
+    if (this._entityPickerReady) return;
+    if (customElements.get('ha-entity-picker')) {
+      this._entityPickerReady = true;
+      return;
+    }
+    const w = window as unknown as { loadCardHelpers?: () => Promise<{ createCardElement: (cfg: unknown) => Promise<{ constructor: { getConfigElement?: () => Promise<unknown> } }> }> };
+    const helpers = await w.loadCardHelpers?.();
+    if (helpers) {
+      try {
+        const card = await helpers.createCardElement({ type: 'entities', entities: [] });
+        await card?.constructor?.getConfigElement?.();
+      } catch {
+        // ignore — fall through to whenDefined
+      }
+    }
+    await customElements.whenDefined('ha-entity-picker');
+    this._entityPickerReady = true;
+  }
+
   setConfig(config: CardConfig): void {
     const cfg = config as CardConfig & Record<string, unknown>;
     const rest = { ...cfg } as Record<string, unknown>;
@@ -182,7 +207,6 @@ export class CalendarStatsCardEditor extends LitElement {
   _addEntityRow(entityId: string): void {
     const newIndex = this._entities.length;
     this._entities = [...this._entities, { entity: entityId } as EntityRowConfig];
-    this._showTypeMenu = false;
     this._addingEntityRow = false;
     this._editingIndex = newIndex;
     this._dispatchConfigChanged();
@@ -191,7 +215,6 @@ export class CalendarStatsCardEditor extends LitElement {
   _addExpressionRow(): void {
     const newIndex = this._entities.length;
     this._entities = [...this._entities, { expression: '' } as ExpressionRowConfig];
-    this._showTypeMenu = false;
     this._addingEntityRow = false;
     this._editingIndex = newIndex;
     // Do NOT dispatch config-changed yet — expression is empty (FR-008)
@@ -256,6 +279,10 @@ export class CalendarStatsCardEditor extends LitElement {
       return this._renderDetail(this._editingIndex, lang);
     }
 
+    if (!this._entityPickerReady) {
+      return html`<div class="empty-state">${localize('editor.loading', lang)}</div>`;
+    }
+
     const empty = this._entities.length === 0;
 
     return html`
@@ -275,27 +302,16 @@ export class CalendarStatsCardEditor extends LitElement {
       `}
 
       <div class="add-row-section">
-        ${!this._showTypeMenu ? html`
-          <button
-            type="button"
-            class="add-chip add-row-btn"
-            data-action="add-row"
-            @click=${() => { this._showTypeMenu = true; this._addingEntityRow = false; }}
-          >
-            <ha-icon icon="mdi:plus"></ha-icon>
-            ${localize('editor.add_row', lang)}
-          </button>
-        ` : !this._addingEntityRow ? html`
+        ${!this._addingEntityRow ? html`
           <div class="type-menu">
-            <button type="button" class="add-chip" @click=${() => { this._addingEntityRow = true; }}>
+            <button type="button" class="add-chip" data-action="add-entity-row" @click=${() => { this._addingEntityRow = true; }}>
               <ha-icon icon="mdi:plus"></ha-icon>
-              ${localize('editor.entity_row', lang)}
+              ${localize('editor.add_entity', lang)}
             </button>
-            <button type="button" class="add-chip" @click=${() => { this._addExpressionRow(); }}>
+            <button type="button" class="add-chip" data-action="add-expression-row" @click=${() => { this._addExpressionRow(); }}>
               <ha-icon icon="mdi:plus"></ha-icon>
-              ${localize('editor.expression_row', lang)}
+              ${localize('editor.add_expression', lang)}
             </button>
-            <button type="button" class="type-menu-cancel" @click=${() => { this._showTypeMenu = false; }}>✕</button>
           </div>
         ` : html`
           <div class="entity-picker-row">

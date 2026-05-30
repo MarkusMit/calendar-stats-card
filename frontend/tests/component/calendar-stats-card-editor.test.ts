@@ -4,6 +4,10 @@ import type { CardConfig, ExpressionRowConfig } from '../../src/types/card-confi
 import '../../src/components/calendar-stats-card-editor';
 import '../../src/components/expression-row-editor';
 
+if (!customElements.get('ha-entity-picker')) {
+  customElements.define('ha-entity-picker', class extends HTMLElement {});
+}
+
 afterEach(() => {
   document.body.innerHTML = '';
   vi.restoreAllMocks();
@@ -37,9 +41,9 @@ describe('CalendarStatsCardEditor — US1: empty state and entity-row addition (
     expect(text).toMatch(/no rows yet|add your first row/i);
   });
 
-  it('renders "Add row" button', async () => {
+  it('renders add-row chips', async () => {
     const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
-    const btn = el.shadowRoot!.querySelector('[data-action="add-row"], button, .add-row-btn');
+    const btn = el.shadowRoot!.querySelector('[data-action="add-entity-row"], [data-action="add-expression-row"]');
     expect(btn).toBeTruthy();
   });
 

@@ -5,20 +5,12 @@
     "description": "Monthly statistics tables for your Home Assistant entities"
   },
   "table": {
-    "label": "Entity",
     "summary": "Summary",
-    "total": "Total",
-    "day_header": "Day"
+    "total": "Total"
   },
   "nav": {
     "previous_year": "Previous year",
     "next_year": "Next year"
-  },
-  "warning": {
-    "no_statistics": "No statistics available"
-  },
-  "error": {
-    "fetch_failed": "Failed to load statistics"
   },
   "summary": {
     "min": "min",
@@ -29,10 +21,12 @@
     "title": "Legend"
   },
   "editor": {
-    "add_row": "Add row",
+    "add_entity": "Entity",
+    "add_expression": "Expression",
     "entity_row": "Entity row",
     "expression_row": "Expression row",
     "no_rows": "No rows yet — add your first row above",
+    "loading": "Loading…",
     "remove_row": "Remove row",
     "edit_row": "Edit row",
     "reorder_row": "Drag to reorder",
