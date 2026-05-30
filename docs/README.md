@@ -18,8 +18,8 @@ Future months and today's still-running day are hidden.
 - **Per-entity-type rendering** — automatically picks the right display for each entity:
   - `measurement` entities (temperature, humidity, …) → combined min/avg/max in one row per day
   - `total_increasing` / `total` entities (rainfall, electricity meter, …) → daily delta plus monthly total
-- **Smart monthly summary** — for `device_class: precipitation`, zero-rain days are excluded from avg/min/max; everywhere else they count.
-  For `measurement` entities, monthly extremes are computed from the per-day extremes (not from the per-day means as HA does natively).
+- **Smart monthly summary** — for `measurement` entities, monthly extremes are computed from the per-day extremes (not from the per-day means as HA does natively).
+  For cumulative and expression rows, you decide per row whether zero-value days count toward min/avg/max via the `show_zero` option (default: included).
 - **Expression rows** — define a row as an arithmetic formula over several entities, evaluated per day.
 - **Threshold colouring** — flag days that go above/below configurable values with per-rule text and background colours; matched rules show in a legend.
 - **Predecessor entities** — stitch together history from a sensor that was replaced, with an optional unit-conversion factor.
@@ -92,7 +92,7 @@ Display behaviour is derived automatically from the entity's `state_class` and `
 | `precision`          | integer    | native             | Decimal digits shown in day cells and summary columns. Omit to use HA's native precision (no rounding). |
 | `factor`             | number     | `1`                | Multiplier applied to every displayed value (raw HA values are kept untouched). Useful for unit scaling (e.g. `0.001` to display Wh as kWh). |
 | `unit`               | string     | HA unit            | Override the unit-of-measurement shown beside the label. |
-| `show_zero`          | boolean    | `true`             | If `false`, day cells whose computed value is exactly `0` render as blank. Summary columns are unaffected. |
+| `show_zero`          | boolean    | `true`             | If `false`, day cells whose computed value is exactly `0` render as blank AND the monthly summary min/avg/max exclude those zero-value days. The monthly `total` is unaffected (zero days contribute zero anyway). Applies uniformly: a counter-reset day clamped to `0` is treated the same as a naturally-zero day. Set explicitly to `false` for precipitation entities if you want the old "exclude no-rain days from the rainfall average" behaviour. |
 | `show_min`           | boolean    | `true`             | (Measurement entities) show the min sub-row per day. |
 | `show_avg`           | boolean    | `true`             | (Measurement entities) show the avg sub-row per day. |
 | `show_max`           | boolean    | `true`             | (Measurement entities) show the max sub-row per day. |
@@ -112,7 +112,7 @@ Treated as a cumulative row for monthly-summary purposes (sum, then min/avg/max 
 | `name`               | string     | —            | Label shown in the first column. |
 | `unit`               | string     | —            | Unit-of-measurement shown beside the label. |
 | `precision`          | integer    | full         | Decimal digits in displayed values. |
-| `show_zero`          | boolean    | `true`       | If `false`, day cells whose computed value is exactly `0` render as blank. |
+| `show_zero`          | boolean    | `true`       | If `false`, day cells whose computed value is exactly `0` render as blank AND the monthly summary min/avg/max exclude those zero-value days. The monthly `total` is unaffected. |
 | `text_color`         | string     | theme        | Row-wide text colour. Accepted formats: see [Color values](#color-values). |
 | `background_color`   | string     | theme        | Row-wide background colour. Accepted formats: see [Color values](#color-values). |
 | `thresholds`         | list       | —            | Conditional colour rules — see [Threshold rule](#threshold-rule). |

@@ -22,7 +22,7 @@ Displays HA entity statistics in dense monthly tables. Entities are user-configu
 - Columns: day-of-month (1–N), Summary (min/avg/max), total (where applicable)
 - `measurement` entities: single value per day for scalar types (e.g. precipitation); min/avg/max per day for range types (e.g. temperature)
 - `total_increasing` / `increasing` entities: daily diff
-- Monthly summary min/avg/max; for precipitation-like, exclude zero-value days from avg/min/max
+- Monthly summary min/avg/max for cumulative/expression rows; zero-day inclusion controlled by per-row show_zero (default include)
 - Label column includes unit-of-measurement
 - Layout must be dense — no excessive whitespace
 

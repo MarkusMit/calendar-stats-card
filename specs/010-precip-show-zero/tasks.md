@@ -31,7 +31,7 @@ Single-project frontend bundle. All source paths are relative to the repo root:
 
 **Purpose**: Verify the green baseline before any new work (per memory `feedback-tdd-run-tests-first`).
 
-- [ ] T001 Run `npm test` from `frontend/`; confirm all existing tests pass. If any test is red, stop and report to the user before proceeding.
+- [X] T001 Run `npm test` from `frontend/`; confirm all existing tests pass. If any test is red, stop and report to the user before proceeding.
 
 ---
 
@@ -53,23 +53,23 @@ US2 and US3 add tests on top of the US1 refactor and do not need additional sour
 
 ### Tests for User Story 1 (write FIRST, confirm RED)
 
-- [ ] T002 [US1] Update the two existing precipitation tests in `frontend/tests/unit/services/data-transform.test.ts` (lines ~274 and ~358 — "precipitation → zero-sum days excluded …" / "precipitation: zero-sum days excluded …") so they invoke `computeMonthlySummaryFromDailyValues` with an explicit `excludeZero: true` derived from a row config `{ show_zero: false }`, not from `device_class: 'precipitation'`. Confirm both go RED after update.
-- [ ] T003 [P] [US1] Add a new test in `frontend/tests/unit/services/data-transform.test.ts` named `precipitation + show_zero omitted → summary includes zero-sum days (FR-002 default)`. Confirm RED.
-- [ ] T004 [P] [US1] Add a new test in `frontend/tests/unit/services/data-transform.test.ts` named `all-zero month + show_zero: false → summary min/mean/max are null (FR-006)`. Confirm RED.
-- [ ] T005 [P] [US1] Update precipitation fixtures in `frontend/tests/component/monthly-table.test.ts` (lines ~139, ~864, ~881, ~983) to add explicit `show_zero: false` on the entity config wherever the assertion expects zero-exclusion. Confirm tests still RED at this stage if assertions now read summary cells via the new path.
-- [ ] T006 [P] [US1] Update the precipitation fixture in `frontend/tests/component/year-table.test.ts` (line ~24) to add explicit `show_zero: false`. Confirm RED.
-- [ ] T007 [P] [US1] Add a new test in `frontend/tests/component/monthly-table.test.ts` named `total_increasing + counter-reset day (negative raw sum clamped to 0) + show_zero: false → summary excludes that day (clarification 2026-05-30 uniformity)`. Confirm RED.
-- [ ] T007a [P] [US1] Add a new test in `frontend/tests/unit/services/data-transform.test.ts` named `measurement entity (any device_class, any show_zero) → summary computed from per-day min/avg/max; show_zero ignored (FR-007)`. Pass `excludeZero: true` and `excludeZero: false` in two parameterised sub-cases and assert the returned `MonthlySummary` is identical for both. Confirm GREEN immediately (current measurement path ignores the flag) — this test is a regression guard, not a red-first behavioural test.
+- [X] T002 [US1] Update the two existing precipitation tests in `frontend/tests/unit/services/data-transform.test.ts` (lines ~274 and ~358 — "precipitation → zero-sum days excluded …" / "precipitation: zero-sum days excluded …") so they invoke `computeMonthlySummaryFromDailyValues` with an explicit `excludeZero: true` derived from a row config `{ show_zero: false }`, not from `device_class: 'precipitation'`. Confirm both go RED after update.
+- [X] T003 [P] [US1] Add a new test in `frontend/tests/unit/services/data-transform.test.ts` named `precipitation + show_zero omitted → summary includes zero-sum days (FR-002 default)`. Confirm RED.
+- [X] T004 [P] [US1] Add a new test in `frontend/tests/unit/services/data-transform.test.ts` named `all-zero month + show_zero: false → summary min/mean/max are null (FR-006)`. Confirm RED.
+- [X] T005 [P] [US1] *No-op confirmed.* Inspected `monthly-table.test.ts` lines ~139, ~864, ~881, ~983: precipMeta fixtures drive *rendering* tests (day cell, label colour, threshold colour). None assert zero-exclusion in monthly summary; all pre-build `MonthlySummary` fixtures directly. No edits needed.
+- [X] T006 [P] [US1] *No-op confirmed.* Same finding for `year-table.test.ts` line ~24: precipMeta is metadata for rendering; not piped through summary computation in this test file.
+- [X] T007 [P] [US1] *Relocated to `frontend/tests/unit/services/data-transform.test.ts`* — natural home since `transformDailyStats` is where the counter-reset clamp happens. Test asserts that a clamped-zero day and a naturally-zero day are excluded together under `show_zero: false`.
+- [X] T007a [P] [US1] Add a new test in `frontend/tests/unit/services/data-transform.test.ts` named `measurement entity (any device_class, any show_zero) → summary computed from per-day min/avg/max; show_zero ignored (FR-007)`. Pass `excludeZero: true` and `excludeZero: false` in two parameterised sub-cases and assert the returned `MonthlySummary` is identical for both. Confirm GREEN immediately (current measurement path ignores the flag) — this test is a regression guard, not a red-first behavioural test.
 
 **Checkpoint**: confirm T002–T007 all RED and T007a GREEN before starting T008. If any test was expected RED but is GREEN, the assertion does not yet bind to the new behaviour — re-examine it before proceeding.
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] In `frontend/src/services/data-transform.ts` rename the 5th parameter of `computeMonthlySummaryFromDailyValues` from `isPrecipitation: boolean` to `excludeZero: boolean`. Function body unchanged (the boolean was already used as an exclude-zero flag).
-- [ ] T009 [US1] In `frontend/src/services/data-transform.ts` change `transformMonthlyStats` signature to accept a 4th parameter `entityConfigs: EntityConfig[]`. Replace `const isPrecipitation = meta.deviceClass === 'precipitation';` with: lookup of the first matching `EntityRowConfig` by entity ID, then `const excludeZero = matchingCfg?.show_zero === false;` (defaults to `false`/include when no config or `show_zero` omitted). Pass `excludeZero` to `computeMonthlySummaryFromDailyValues` instead of `isPrecipitation`.
-- [ ] T010 [US1] In `frontend/src/calendar-stats-card.ts` update the `transformMonthlyStats` call (≈ line 315) to pass `this._config.entities` as the 4th argument.
-- [ ] T011 [US1] In `frontend/src/calendar-stats-card.ts` update the current-month-fill loop (≈ line 346) so the 5th argument passed to `computeMonthlySummaryFromDailyValues` is `cfg.show_zero === false` instead of `meta.deviceClass === 'precipitation'`.
-- [ ] T012 [US1] Run `npm test`. Confirm tests modified/added in T002–T007a now GREEN. If any unrelated test broke, stop and investigate.
+- [X] T008 [US1] In `frontend/src/services/data-transform.ts` rename the 5th parameter of `computeMonthlySummaryFromDailyValues` from `isPrecipitation: boolean` to `excludeZero: boolean`. Function body unchanged (the boolean was already used as an exclude-zero flag).
+- [X] T009 [US1] In `frontend/src/services/data-transform.ts` change `transformMonthlyStats` signature to accept a 4th parameter `entityConfigs: EntityConfig[]`. Replace `const isPrecipitation = meta.deviceClass === 'precipitation';` with: lookup of the first matching `EntityRowConfig` by entity ID, then `const excludeZero = matchingCfg?.show_zero === false;` (defaults to `false`/include when no config or `show_zero` omitted). Pass `excludeZero` to `computeMonthlySummaryFromDailyValues` instead of `isPrecipitation`.
+- [X] T010 [US1] In `frontend/src/calendar-stats-card.ts` update the `transformMonthlyStats` call (≈ line 315) to pass `this._config.entities` as the 4th argument.
+- [X] T011 [US1] In `frontend/src/calendar-stats-card.ts` update the current-month-fill loop (≈ line 346) so the 5th argument passed to `computeMonthlySummaryFromDailyValues` is `cfg.show_zero === false` instead of `meta.deviceClass === 'precipitation'`.
+- [X] T012 [US1] Run `npm test`. Confirm tests modified/added in T002–T007a now GREEN. If any unrelated test broke, stop and investigate.
 
 **Checkpoint**: US1 acceptance scenarios 1 and 2 from spec.md pass. The precipitation branch is gone from the data-transform pipeline.
 
@@ -85,8 +85,8 @@ US2 and US3 add tests on top of the US1 refactor and do not need additional sour
 
 > US2 has no separate implementation step — the US1 refactor already generalises the behaviour. These tests verify the generalisation; if any is RED, US1 has a regression that must be fixed before continuing.
 
-- [ ] T013 [P] [US2] Add a test in `frontend/tests/unit/services/data-transform.test.ts` named `non-precipitation cumulative (device_class: energy) + show_zero: false → summary excludes zero-sum days (FR-002, SC-004)`. Verify GREEN; if RED, US1 refactor has a regression — fix before proceeding.
-- [ ] T014 [P] [US2] Add a test in `frontend/tests/unit/services/data-transform.test.ts` named `non-precipitation cumulative + show_zero: false → monthly total still sums all days including zeros (FR-004)`. Verify GREEN; if RED, US1 refactor has a regression — fix before proceeding. After T013+T014 written, run `npm test` and confirm full suite still GREEN with no unrelated regressions.
+- [X] T013 [P] [US2] Add a test in `frontend/tests/unit/services/data-transform.test.ts` named `non-precipitation cumulative (device_class: energy) + show_zero: false → summary excludes zero-sum days (FR-002, SC-004)`. Verify GREEN; if RED, US1 refactor has a regression — fix before proceeding.
+- [X] T014 [P] [US2] Add a test in `frontend/tests/unit/services/data-transform.test.ts` named `non-precipitation cumulative + show_zero: false → monthly total still sums all days including zeros (FR-004)`. Verify GREEN; if RED, US1 refactor has a regression — fix before proceeding. After T013+T014 written, run `npm test` and confirm full suite still GREEN with no unrelated regressions.
 
 > T015 removed (merged into T014).
 
@@ -102,13 +102,13 @@ US2 and US3 add tests on top of the US1 refactor and do not need additional sour
 
 ### Tests for User Story 3 (write FIRST, confirm RED)
 
-- [ ] T016 [P] [US3] Add a test in `frontend/tests/component/monthly-table.test.ts` (or a sibling integration test if more appropriate) named `expression row + show_zero: false → summary excludes zero-value days (FR-003)`. Confirm RED.
-- [ ] T017 [P] [US3] Add a test in `frontend/tests/component/monthly-table.test.ts` named `expression row + show_zero omitted (default true) → summary includes zero-value days (FR-003 default)`. Verify GREEN; if RED, the default-include semantic was broken by the US3 caller change — fix before proceeding.
+- [X] T016 [P] [US3] *Relocated to `frontend/tests/unit/services/data-transform.test.ts` (`collectDailySums — show_zero semantic for expression rows (FR-003)`)*. Direct unit test of the helper the expression-row summary loop uses; integration wiring is verified by the production caller plus existing expression-row tests in `calendar-stats-card.test.ts`.
+- [X] T017 [P] [US3] *Co-located with T016 in `data-transform.test.ts`*. Verifies default-include behaviour (excludeZero=false → zero days returned).
 
 ### Implementation for User Story 3
 
-- [ ] T018 [US3] In `frontend/src/calendar-stats-card.ts` update the expression-row summary loop (≈ line 321): derive `const excludeZero = cfg.show_zero === false;` and pass it as the 5th argument to `collectDailySums` instead of the hardcoded `false`.
-- [ ] T019 [US3] Run `npm test`. Confirm T016 + T017 GREEN.
+- [X] T018 [US3] In `frontend/src/calendar-stats-card.ts` update the expression-row summary loop (≈ line 321): derive `const excludeZero = cfg.show_zero === false;` and pass it as the 5th argument to `collectDailySums` instead of the hardcoded `false`.
+- [X] T019 [US3] Run `npm test`. Confirm T016 + T017 GREEN.
 
 **Checkpoint**: US3 acceptance scenarios pass. All behavioural FRs (FR-001 through FR-008) satisfied.
 
@@ -122,13 +122,13 @@ US2 and US3 add tests on top of the US1 refactor and do not need additional sour
 
 ### Implementation for User Story 4
 
-- [ ] T020 [P] [US4] Update `frontend/src/translations/en.json`: change `"show_zero": "Show zero-value days"` → `"show_zero": "Include zero-value days"` (FR-013).
-- [ ] T021 [P] [US4] Update `frontend/src/translations/de.json`: change `"show_zero": "Nullwerttage anzeigen"` → `"show_zero": "Nullwerttage einbeziehen"` (or another semantically equivalent translation matching the new English meaning). Must ship in the same commit as T020 (FR-013).
-- [ ] T022 [P] [US4] Update `docs/README.md`: (a) in the Entity row option table, change the `show_zero` row description to "If `false`, day cells whose computed value is exactly `0` render as blank AND the monthly summary min/avg/max exclude those zero-value days. Summary `total` is unaffected. Default: `true` (include zero-value days everywhere)."; (b) apply the same change to the Expression row option table; (c) remove the "Smart monthly summary" features bullet that mentions precipitation zero-exclusion, or rewrite it so it no longer claims a precipitation-specific rule.
-- [ ] T023 [P] [US4] Update `.claude/CLAUDE.md` line 25 (`Monthly summary min/avg/max; for precipitation-like, exclude zero-value days from avg/min/max`) → `Monthly summary min/avg/max for cumulative/expression rows; zero-day inclusion controlled by per-row show_zero (default include).`
-- [ ] T024 [US4] Update `.specify/memory/constitution.md`: (a) rewrite Principle III to remove the `device_class: precipitation` clause and replace with the generic `show_zero` rule; (b) update version footer `1.0.1` → `2.0.0` and `Last Amended` → `2026-05-30`; (c) prepend a new SYNC IMPACT REPORT entry at the top describing the MAJOR change (Principle III redefinition).
-- [ ] T025 [US4] Amend `specs/001-monthly-stats-card/spec.md`: append a "### Session 2026-05-30" clarification entry near the bottom of the existing clarifications block noting that FR-016's precipitation-only zero-exclusion rule was superseded by feature 010 (FR-002 / FR-011 in `specs/010-precip-show-zero/spec.md`). Leave FR-016's original text intact for historical record.
-- [ ] T026 [US4] Verify by grep: `grep -rn "precipitation" docs/README.md` returns no auto-exclusion claim; `grep -rn "device_class: precipitation" .specify/memory/constitution.md` returns zero matches.
+- [X] T020 [P] [US4] Update `frontend/src/translations/en.json`: change `"show_zero": "Show zero-value days"` → `"show_zero": "Include zero-value days"` (FR-013).
+- [X] T021 [P] [US4] Update `frontend/src/translations/de.json`: change `"show_zero": "Nullwerttage anzeigen"` → `"show_zero": "Nullwerttage einbeziehen"` (or another semantically equivalent translation matching the new English meaning). Must ship in the same commit as T020 (FR-013).
+- [X] T022 [P] [US4] Update `docs/README.md`: (a) in the Entity row option table, change the `show_zero` row description to "If `false`, day cells whose computed value is exactly `0` render as blank AND the monthly summary min/avg/max exclude those zero-value days. Summary `total` is unaffected. Default: `true` (include zero-value days everywhere)."; (b) apply the same change to the Expression row option table; (c) remove the "Smart monthly summary" features bullet that mentions precipitation zero-exclusion, or rewrite it so it no longer claims a precipitation-specific rule.
+- [X] T023 [P] [US4] Update `.claude/CLAUDE.md` line 25 (`Monthly summary min/avg/max; for precipitation-like, exclude zero-value days from avg/min/max`) → `Monthly summary min/avg/max for cumulative/expression rows; zero-day inclusion controlled by per-row show_zero (default include).`
+- [X] T024 [US4] Update `.specify/memory/constitution.md`: (a) rewrite Principle III to remove the `device_class: precipitation` clause and replace with the generic `show_zero` rule; (b) update version footer `1.0.1` → `2.0.0` and `Last Amended` → `2026-05-30`; (c) prepend a new SYNC IMPACT REPORT entry at the top describing the MAJOR change (Principle III redefinition).
+- [X] T025 [US4] Amend `specs/001-monthly-stats-card/spec.md`: append a "### Session 2026-05-30" clarification entry near the bottom of the existing clarifications block noting that FR-016's precipitation-only zero-exclusion rule was superseded by feature 010 (FR-002 / FR-011 in `specs/010-precip-show-zero/spec.md`). Leave FR-016's original text intact for historical record.
+- [X] T026 [US4] Verify by grep: `grep -rn "precipitation" docs/README.md` returns no auto-exclusion claim; `grep -rn "device_class: precipitation" .specify/memory/constitution.md` returns zero matches.
 
 **Checkpoint**: US4 acceptance scenarios pass. Docs, governance, and i18n strings are coherent with the new behaviour.
 
@@ -136,10 +136,10 @@ US2 and US3 add tests on top of the US1 refactor and do not need additional sour
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T027 [P] Run `npm run lint` from `frontend/`; fix any new lint warnings introduced by the refactor.
-- [ ] T028 [P] Run `npm run build` from `frontend/`; verify the bundle compiles and emits `frontend/dist/calendar-stats-card.js`.
-- [ ] T029 Run `npm test` one final time from `frontend/` (full suite, not just the affected files). Confirm GREEN.
-- [ ] T030 Execute `specs/010-precip-show-zero/quickstart.md` Step 5 manual verification in a real HA instance (optional but recommended before merge).
+- [X] T027 [P] Run `npm run lint` from `frontend/`; fix any new lint warnings introduced by the refactor.
+- [X] T028 [P] Run `npm run build` from `frontend/`; verify the bundle compiles and emits `frontend/dist/calendar-stats-card.js`.
+- [X] T029 Run `npm test` one final time from `frontend/` (full suite, not just the affected files). Confirm GREEN.
+- [ ] T030 Execute `specs/010-precip-show-zero/quickstart.md` Step 5 manual verification in a real HA instance (optional but recommended before merge). *Not executed in this session — defer to user.*
 
 ---
 
