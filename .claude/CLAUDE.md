@@ -47,7 +47,7 @@ Supported from day one: `en`, `de`.
 ## Build & Test Commands
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/010-precip-show-zero/plan.md](../specs/010-precip-show-zero/plan.md)
+Active feature plan: [specs/011-ha-monthly-totals/plan.md](../specs/011-ha-monthly-totals/plan.md)
 <!-- SPECKIT END -->
 
 All commands run in WSL2, from the `frontend/` directory:

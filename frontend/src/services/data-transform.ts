@@ -204,6 +204,7 @@ export function transformMonthlyStats(
   metadataMap: Record<string, EntityMetadata>,
   dailyValues: Map<string, DailyValue>,
   entityConfigs: EntityConfig[],
+  viewingYear: number,
 ): Map<string, MonthlySummary> {
   const result = new Map<string, MonthlySummary>();
 
@@ -221,15 +222,57 @@ export function transformMonthlyStats(
     const excludeZero = cfg.show_zero === false;
     const sorted = [...entries].sort((a, b) => a.start - b.start);
 
-    for (const entry of sorted) {
+    sorted.forEach((entry, i) => {
       const date = new Date(entry.start);
       const year = date.getUTCFullYear();
       const month = date.getUTCMonth() + 1;
+      // Lookup-only entries from before the viewing year (e.g. Dec-of-prior-year fetched to
+      // enable January's cross-year delta) MUST NOT produce a summary entry. FR-007.
+      if (year < viewingYear) return;
+
       const key = rowSummaryKey(rowIndex, entityId, year, month);
 
-      const summary = computeMonthlySummaryFromDailyValues(entityId, year, month, isMeasurement, excludeZero, dailyValues);
-      result.set(key, summary ?? { entityId, year, month, min: null, mean: null, max: null, total: null });
-    }
+      // min/mean/max still derive from daily values (feature 010 behaviour preserved).
+      const fromDaily = computeMonthlySummaryFromDailyValues(entityId, year, month, isMeasurement, excludeZero, dailyValues);
+
+      // total: HA monthly sum delta for cumulative rows (feature 011); null for measurement rows.
+      let total: number | null = null;
+      if (!isMeasurement) {
+        if (entry.sum === undefined) {
+          // FR-002 missing-sum edge case: render empty rather than fall back to daily-sum.
+          total = null;
+        } else {
+          // Look up immediately-preceding-month entry for the delta.
+          let prevSum: number | undefined;
+          if (i > 0) {
+            const prev = sorted[i - 1]!;
+            if (prev.sum !== undefined) {
+              const prevDate = new Date(prev.start);
+              const prevYear = prevDate.getUTCFullYear();
+              const prevMonth = prevDate.getUTCMonth() + 1;
+              const expectedPrevYear = month === 1 ? year - 1 : year;
+              const expectedPrevMonth = month === 1 ? 12 : month - 1;
+              if (prevYear === expectedPrevYear && prevMonth === expectedPrevMonth) {
+                prevSum = prev.sum;
+              }
+            }
+          }
+          if (prevSum === undefined) {
+            // FR-006 first-tracked-month fallback OR gap-handling (Research Q2).
+            total = entry.sum;
+          } else {
+            const delta = entry.sum - prevSum;
+            // FR-002a negative-delta clamp: total_increasing clamps to 0; total passes through.
+            total = meta.stateClass === 'total_increasing' ? Math.max(0, delta) : delta;
+          }
+        }
+      }
+
+      const summary: MonthlySummary = fromDaily
+        ? { ...fromDaily, total }
+        : { entityId, year, month, min: null, mean: null, max: null, total };
+      result.set(key, summary);
+    });
   });
 
   return result;
