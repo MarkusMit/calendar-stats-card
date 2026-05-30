@@ -73,6 +73,28 @@ export class ThresholdListEditor extends LitElement {
     .panel-header-label {
       font-size: 14px;
     }
+    .add-chip {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      border-radius: 18px;
+      color: var(--primary-color);
+      cursor: pointer;
+      padding: 6px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+      margin-top: 8px;
+    }
+    .add-chip:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.22);
+    }
+    .add-chip ha-icon {
+      --mdc-icon-size: 18px;
+      color: var(--primary-color);
+    }
   `;
 
   private _dispatchChange(rules: ThresholdRule[]): void {
@@ -179,10 +201,10 @@ export class ThresholdListEditor extends LitElement {
           </div>
         </ha-expansion-panel>
       `)}
-      <mwc-button raised data-action="add-threshold" @click=${() => this._addThreshold()}>
+      <button type="button" class="add-chip" data-action="add-threshold" @click=${() => this._addThreshold()}>
         <ha-icon icon="mdi:plus"></ha-icon>
         ${localize('editor.add_threshold', lang)}
-      </mwc-button>
+      </button>
     `;
   }
 }

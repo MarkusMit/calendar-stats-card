@@ -67,6 +67,28 @@ export class PredecessorListEditor extends LitElement {
       display: flex;
       justify-content: flex-end;
     }
+    .add-chip {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      border-radius: 18px;
+      color: var(--primary-color);
+      cursor: pointer;
+      padding: 6px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+      margin-top: 8px;
+    }
+    .add-chip:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.22);
+    }
+    .add-chip ha-icon {
+      --mdc-icon-size: 18px;
+      color: var(--primary-color);
+    }
   `;
 
   private _dispatchChange(entries: PredecessorConfig[]): void {
@@ -156,10 +178,10 @@ export class PredecessorListEditor extends LitElement {
           </div>
         </div>
       `)}
-      <mwc-button raised data-action="add-predecessor" @click=${() => this._addPredecessor()}>
+      <button type="button" class="add-chip" data-action="add-predecessor" @click=${() => this._addPredecessor()}>
         <ha-icon icon="mdi:plus"></ha-icon>
         ${localize('editor.add_predecessor', lang)}
-      </mwc-button>
+      </button>
     `;
   }
 }

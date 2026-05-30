@@ -30,8 +30,28 @@ export class CalendarStatsCardEditor extends LitElement {
     .add-row-section {
       padding: 8px 0;
     }
-    .add-row-btn {
+    .add-chip {
+      --mdc-theme-primary: var(--primary-color);
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
+      border-radius: 18px;
+      color: var(--primary-color);
       cursor: pointer;
+      padding: 6px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+    }
+    .add-chip:hover {
+      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.22);
+    }
+    .add-chip ha-icon,
+    .add-chip ha-svg-icon {
+      --mdc-icon-size: 18px;
+      color: var(--primary-color);
     }
     .type-menu {
       display: flex;
@@ -40,14 +60,27 @@ export class CalendarStatsCardEditor extends LitElement {
       padding: 8px 0;
       align-items: center;
     }
+    .type-menu-cancel {
+      background: transparent;
+      border: none;
+      color: var(--secondary-text-color);
+      cursor: pointer;
+      padding: 6px 10px;
+      font-size: 14px;
+    }
     .entity-picker-row {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 8px 0;
     }
+    .entity-picker-row ha-entity-picker,
     .entity-picker-row ha-selector {
       flex: 1;
+    }
+    .row-list {
+      display: flex;
+      flex-direction: column;
     }
     .row-item {
       border-bottom: 1px solid var(--divider-color, #e0e0e0);
@@ -56,20 +89,44 @@ export class CalendarStatsCardEditor extends LitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 4px;
+      padding: 6px 4px;
       border-radius: 4px;
     }
-    .row-label {
+    .drag-handle {
+      cursor: grab;
+      color: var(--secondary-text-color);
+      flex-shrink: 0;
+      --mdc-icon-size: 20px;
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+    .row-content {
       flex: 1;
+      min-width: 0;
+    }
+    .row-content ha-entity-picker {
+      display: block;
+      width: 100%;
+    }
+    .row-label {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       font-size: 14px;
+      padding: 8px 0;
     }
-    .row-type-badge {
-      font-size: 11px;
-      color: var(--secondary-text-color);
+    .expression-row-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .expression-row-content ha-icon {
       flex-shrink: 0;
+      color: var(--secondary-text-color);
+    }
+    .sortable-ghost {
+      opacity: 0.4;
     }
     .detail-header {
       display: flex;
@@ -86,6 +143,11 @@ export class CalendarStatsCardEditor extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .row-type-badge {
+      font-size: 11px;
+      color: var(--secondary-text-color);
+      flex-shrink: 0;
     }
     .detail-content {
       padding: 0 4px 8px;
@@ -142,6 +204,22 @@ export class CalendarStatsCardEditor extends LitElement {
     this._dispatchConfigChanged();
   }
 
+  _moveRow(oldIndex: number, newIndex: number): void {
+    if (oldIndex === newIndex) return;
+    if (oldIndex < 0 || oldIndex >= this._entities.length) return;
+    if (newIndex < 0 || newIndex >= this._entities.length) return;
+    const updated = [...this._entities];
+    const [moved] = updated.splice(oldIndex, 1);
+    updated.splice(newIndex, 0, moved!);
+    this._entities = updated;
+    this._dispatchConfigChanged();
+  }
+
+  private _handleItemMoved = (e: Event): void => {
+    const detail = (e as CustomEvent<{ oldIndex: number; newIndex: number }>).detail;
+    this._moveRow(detail.oldIndex, detail.newIndex);
+  };
+
   private _handleRowChanged(e: CustomEvent): void {
     const { index, config } = e.detail as { index: number; config: EntityConfig };
     const updated = [...this._entities];
@@ -156,6 +234,15 @@ export class CalendarStatsCardEditor extends LitElement {
 
   private _closeDetail(): void {
     this._editingIndex = null;
+  }
+
+  private _handleEntityPicked(index: number, entityId: string): void {
+    const current = this._entities[index] as EntityRowConfig;
+    if (current.entity === entityId) return;
+    const updated = [...this._entities];
+    updated[index] = { ...current, entity: entityId };
+    this._entities = updated;
+    this._dispatchConfigChanged();
   }
 
   private get _lang(): string {
@@ -177,71 +264,102 @@ export class CalendarStatsCardEditor extends LitElement {
           ${localize('editor.no_rows', lang)}
         </div>
       ` : html`
-        <div class="row-list">
-          ${this._entities.map((entity, i) => {
-            const isEntity = 'entity' in entity;
-            const typeBadge = isEntity
-              ? localize('editor.entity_row', lang)
-              : localize('editor.expression_row', lang);
-            const label = isEntity
-              ? ((entity as EntityRowConfig).name || (entity as EntityRowConfig).entity || typeBadge)
-              : ((entity as ExpressionRowConfig).name || (entity as ExpressionRowConfig).expression || typeBadge);
-            return html`
-              <div class="row-item">
-                <div class="row-header">
-                  <ha-icon icon=${isEntity ? 'mdi:chart-line' : 'mdi:function-variant'}></ha-icon>
-                  <span class="row-label">${label}</span>
-                  <span class="row-type-badge">${typeBadge}</span>
-                  <ha-icon-button
-                    .label=${localize('editor.remove_row', lang)}
-                    @click=${() => this._removeRow(i)}
-                  ><ha-icon icon="mdi:delete"></ha-icon></ha-icon-button>
-                  <ha-icon-button
-                    .label=${localize('editor.edit_row', lang)}
-                    @click=${() => this._editRow(i)}
-                  ><ha-icon icon="mdi:pencil"></ha-icon></ha-icon-button>
-                </div>
-              </div>
-            `;
-          })}
-        </div>
+        <ha-sortable
+          handle-selector=".drag-handle"
+          @item-moved=${this._handleItemMoved}
+        >
+          <div class="row-list">
+            ${this._entities.map((entity, i) => this._renderRow(entity, i, lang))}
+          </div>
+        </ha-sortable>
       `}
 
       <div class="add-row-section">
         ${!this._showTypeMenu ? html`
-          <mwc-button
-            class="add-row-btn"
+          <button
+            type="button"
+            class="add-chip add-row-btn"
             data-action="add-row"
-            raised
             @click=${() => { this._showTypeMenu = true; this._addingEntityRow = false; }}
           >
             <ha-icon icon="mdi:plus"></ha-icon>
             ${localize('editor.add_row', lang)}
-          </mwc-button>
+          </button>
         ` : !this._addingEntityRow ? html`
           <div class="type-menu">
-            <mwc-button raised @click=${() => { this._addingEntityRow = true; }}>
+            <button type="button" class="add-chip" @click=${() => { this._addingEntityRow = true; }}>
               <ha-icon icon="mdi:plus"></ha-icon>
               ${localize('editor.entity_row', lang)}
-            </mwc-button>
-            <mwc-button raised @click=${() => { this._addExpressionRow(); }}>
+            </button>
+            <button type="button" class="add-chip" @click=${() => { this._addExpressionRow(); }}>
               <ha-icon icon="mdi:plus"></ha-icon>
               ${localize('editor.expression_row', lang)}
-            </mwc-button>
-            <mwc-button @click=${() => { this._showTypeMenu = false; }}>✕</mwc-button>
+            </button>
+            <button type="button" class="type-menu-cancel" @click=${() => { this._showTypeMenu = false; }}>✕</button>
           </div>
         ` : html`
           <div class="entity-picker-row">
-            <ha-selector
+            <ha-entity-picker
               .hass=${this.hass}
-              .selector=${{ entity: {} }}
+              allow-custom-entity
               @value-changed=${(e: CustomEvent) => {
-                if (e.detail.value) this._addEntityRow(e.detail.value as string);
+                const v = e.detail.value as string | undefined;
+                if (v) this._addEntityRow(v);
               }}
-            ></ha-selector>
-            <mwc-button @click=${() => { this._addingEntityRow = false; }}>✕</mwc-button>
+            ></ha-entity-picker>
+            <button type="button" class="type-menu-cancel" @click=${() => { this._addingEntityRow = false; }}>✕</button>
           </div>
         `}
+      </div>
+    `;
+  }
+
+  private _renderRow(entity: EntityConfig, i: number, lang: string) {
+    const isEntity = 'entity' in entity;
+    return html`
+      <div class="row-item">
+        <div class="row-header">
+          <ha-svg-icon
+            class="drag-handle"
+            .path=${'M7,19V17H9V19H7M11,19V17H13V19H11M15,19V17H17V19H15M7,15V13H9V15H7M11,15V13H13V15H11M15,15V13H17V15H15M7,11V9H9V11H7M11,11V9H13V11H11M15,11V9H17V11H15M7,7V5H9V7H7M11,7V5H13V7H11M15,7V5H17V7H15Z'}
+            .label=${localize('editor.reorder_row', lang)}
+          ></ha-svg-icon>
+          ${isEntity
+            ? html`
+              <div class="row-content">
+                <ha-entity-picker
+                  .hass=${this.hass}
+                  .value=${(entity as EntityRowConfig).entity}
+                  allow-custom-entity
+                  @value-changed=${(e: CustomEvent) => {
+                    const v = e.detail.value as string | undefined;
+                    if (v) this._handleEntityPicked(i, v);
+                  }}
+                ></ha-entity-picker>
+              </div>
+            `
+            : html`
+              <div class="row-content">
+                <div class="expression-row-content">
+                  <ha-icon icon="mdi:function-variant"></ha-icon>
+                  <span class="row-label">${
+                    (entity as ExpressionRowConfig).name
+                    || (entity as ExpressionRowConfig).expression
+                    || localize('editor.expression_row', lang)
+                  }</span>
+                </div>
+              </div>
+            `
+          }
+          <ha-icon-button
+            .label=${localize('editor.remove_row', lang)}
+            @click=${() => this._removeRow(i)}
+          ><ha-icon icon="mdi:delete"></ha-icon></ha-icon-button>
+          <ha-icon-button
+            .label=${localize('editor.edit_row', lang)}
+            @click=${() => this._editRow(i)}
+          ><ha-icon icon="mdi:pencil"></ha-icon></ha-icon-button>
+        </div>
       </div>
     `;
   }

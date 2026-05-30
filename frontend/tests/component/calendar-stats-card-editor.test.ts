@@ -147,6 +147,81 @@ describe('CalendarStatsCardEditor — US2: row management (T010)', () => {
   });
 });
 
+// Inline entity picker + reorder + badge removal
+describe('CalendarStatsCardEditor — inline picker, reorder, no badge', () => {
+  it('renders inline ha-entity-picker per entity row', async () => {
+    const el = await createEditor({
+      type: 'calendar-stats-card',
+      entities: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }],
+    });
+    const pickers = el.shadowRoot!.querySelectorAll('.row-list ha-entity-picker');
+    expect(pickers.length).toBe(2);
+  });
+
+  it('does not render type badge in main row list', async () => {
+    const el = await createEditor({
+      type: 'calendar-stats-card',
+      entities: [
+        { entity: 'sensor.a' },
+        { expression: '{{ sensor.a }}', name: 'E' } as ExpressionRowConfig,
+      ],
+    });
+    const badges = el.shadowRoot!.querySelectorAll('.row-list .row-type-badge');
+    expect(badges.length).toBe(0);
+  });
+
+  it('renders a drag handle per row', async () => {
+    const el = await createEditor({
+      type: 'calendar-stats-card',
+      entities: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }],
+    });
+    const handles = el.shadowRoot!.querySelectorAll('.row-list .drag-handle');
+    expect(handles.length).toBe(2);
+  });
+
+  it('wraps row list in ha-sortable', async () => {
+    const el = await createEditor({
+      type: 'calendar-stats-card',
+      entities: [{ entity: 'sensor.a' }],
+    });
+    const sortable = el.shadowRoot!.querySelector('ha-sortable');
+    expect(sortable).toBeTruthy();
+  });
+
+  it('_moveRow reorders entities and dispatches config-changed', async () => {
+    const el = await createEditor({
+      type: 'calendar-stats-card',
+      entities: [
+        { entity: 'sensor.a' },
+        { entity: 'sensor.b' },
+        { entity: 'sensor.c' },
+      ],
+    });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
+    const internal = el as unknown as { _moveRow(o: number, n: number): void };
+    internal._moveRow(0, 2);
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect(dispatched).toHaveLength(1);
+    const config = (dispatched[0]!.detail as { config: CardConfig }).config;
+    expect(config.entities.map((e) => (e as { entity: string }).entity))
+      .toEqual(['sensor.b', 'sensor.c', 'sensor.a']);
+  });
+
+  it('_moveRow no-op when oldIndex === newIndex does not dispatch', async () => {
+    const el = await createEditor({
+      type: 'calendar-stats-card',
+      entities: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }],
+    });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
+    const internal = el as unknown as { _moveRow(o: number, n: number): void };
+    internal._moveRow(1, 1);
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect(dispatched).toHaveLength(0);
+  });
+});
+
 // T004: core contract
 describe('CalendarStatsCardEditor — core contract (T004)', () => {
   it('is registered as calendar-stats-card-editor', () => {

@@ -35,6 +35,7 @@
     "no_rows": "No rows yet — add your first row above",
     "remove_row": "Remove row",
     "edit_row": "Edit row",
+    "reorder_row": "Drag to reorder",
     "back": "Back",
     "advanced": "Advanced",
     "name": "Display name",
