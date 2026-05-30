@@ -263,11 +263,11 @@ describe('YearTable — show_zero (measurement)', () => {
 describe('YearTable — measurement sub-row visibility', () => {
   const testSummary: MonthlySummary = { entityId: ENTITY_ID, year: 2025, month: 1, min: 5, mean: 18, max: 30, total: null };
 
-  async function renderMeasVisibility(cfg: Parameters<typeof Object.assign>[0], summary?: MonthlySummary) {
+  async function renderMeasVisibility(cfg: Record<string, unknown>, summary?: MonthlySummary) {
     const el = new YearTable();
     el.year = 2025;
     el.visibleMonths = [1];
-    el.entityConfigs = [cfg as any];
+    el.entityConfigs = [cfg as unknown as EntityConfig];
     el.dailyValues = new Map();
     el.monthlySummaries = summary ? new Map([[`${ENTITY_ID}::2025-1`, summary]]) : new Map();
     el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
@@ -358,7 +358,7 @@ describe('YearTable — cumulative summary visibility', () => {
     const el = new YearTable();
     el.year = 2025;
     el.visibleMonths = [1];
-    el.entityConfigs = [cfg as any];
+    el.entityConfigs = [cfg as unknown as EntityConfig];
     el.dailyValues = new Map();
     el.monthlySummaries = new Map([[`${RAIN_ID}::2025-1`, rainSummary]]);
     el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
