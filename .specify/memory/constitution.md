@@ -1,6 +1,49 @@
 <!--
 SYNC IMPACT REPORT
 ==================
+Version change: 2.0.0 → 2.1.0 (MINOR — Principle III: cumulative-total derivation rule made explicit; measurement min/max recompute rule codified; cross-cutting fetch-range rule added. No prior rule removed or contradicted.)
+
+Modified principles:
+  III. Density & Data Fidelity — restructured around three row-type sections (cumulative,
+       expression, measurement) plus a cross-cutting rules section. New normative content:
+       cumulative-row monthly total = HA `sum[month] − sum[prev_month]` with first-month
+       fallback; negative monthly delta clamp for `total_increasing`; expression-row totals
+       arithmetic-only (no HA monthly stat for formulas); measurement min/max recompute rule
+       from commit 58ca61d codified in the constitution; monthly-fetch range extension to
+       Dec-1 of prior year for cross-year delta. Previously-silent areas now have explicit
+       rules. No prior MUST removed.
+
+Added sections:
+  none (Principle III restructured in place)
+
+Removed sections:
+  none
+
+Templates updated:
+  ✅ .specify/memory/constitution.md — this file
+  ⚠  .specify/templates/plan-template.md — no changes required
+  ⚠  .specify/templates/spec-template.md — no changes required
+  ⚠  .specify/templates/tasks-template.md — no changes required
+
+Deferred:
+  none
+
+Rationale for MINOR (not MAJOR): the new rules document long-standing shipping behaviour
+(measurement min/max recompute lived in commit 58ca61d + spec 001 FR-010 but not in the
+constitution) AND new feature 011 behaviour (HA-sum-delta totals — spec 001 FR-011 always
+prescribed this; implementation didn't follow). No prior Principle III MUST is removed or
+contradicted; this is an additive clarification per the constitution's amendment procedure.
+
+Earlier history:
+  2.0.0 (2026-05-30, MAJOR): feature 010 — device_class:precipitation zero-exclusion removed,
+  replaced with user-driven show_zero rule.
+  1.0.1 (2026-05-24, PATCH): zero-exclusion rule narrowed from "scalar measurements broadly"
+  to "device_class: precipitation only". No implementation impact at that time.
+-->
+
+<!--
+HISTORICAL SYNC IMPACT REPORT (feature 010, version 2.0.0)
+==========================================================
 Version change: 1.0.1 → 2.0.0 (MAJOR — Principle III: device_class-driven zero-exclusion removed; replaced with user-driven show_zero rule)
 
 Modified principles:
@@ -62,24 +105,49 @@ to fix and provides measurable acceptance criteria for every requirement.
 
 ### III. Density & Data Fidelity
 
-The card layout MUST maximize information density — no decorative whitespace. Day-level data MUST be
-computed accurately per entity type:
+The card layout MUST maximize information density — no decorative whitespace. Day-level data and
+monthly summary data MUST be computed accurately per entity type and per derivation path:
 
-- Scalar measurements (total_increasing / total) and expression rows: single daily value (delta from
-  previous day's sum for cumulative entities; formula evaluation for expression rows). Monthly
-  min/avg/max MUST exclude zero-value days when the row's `show_zero` option is `false`, and MUST
-  include them when `show_zero` is `true` or omitted (default). The monthly `total` MUST always be
-  the sum of every recorded day, regardless of `show_zero` (zero days contribute zero and cannot
-  change the total). `device_class` MUST NOT be read by any monthly-summary computation path.
-- Range measurements (measurement state_class): min/avg/max per day in a single row; separate min/max
-  rows are prohibited; monthly min/avg/max MUST be card-computed from daily values (HA monthly-period
-  min/max reflect period-mean extremes, not true daily extremes). `show_zero` MUST NOT affect
-  measurement-entity summaries.
-- Negative daily deltas: for `total_increasing` entities, treated as 0 (counter reset anomaly); for
-  `total` entities, shown as-is (legitimate values, e.g. net energy export). A counter-reset
-  clamp-to-zero day MUST be indistinguishable from a naturally-zero day in the summary pipeline — both
-  are excluded together when `show_zero: false`, both included together otherwise. No origin metadata
-  is preserved (YAGNI per Principle V).
+**Cumulative entity rows (`total_increasing` / `total`)**:
+
+- Day cells: single daily value (delta from previous day's HA `sum`).
+- Monthly min/avg/max: card-computed from daily values; zero-value days excluded when the row's
+  `show_zero` option is `false`, included when `show_zero` is `true` or omitted (default).
+- Monthly **total**: derived as `HA monthly sum[month] − HA monthly sum[prev_month]` from HA's
+  `period: 'month'` statistics. For the first tracked month (no prev-month entry) or after a
+  monthly-statistics gap, `total = HA monthly sum[month]` directly. A negative monthly delta MUST
+  be clamped to `0` for `total_increasing` entities (counter-reset anomaly); for `total` entities
+  a negative delta is legitimate (e.g. net energy export) and MUST pass through as-is.
+- Daily-sum arithmetic MUST NOT be used as a fallback when HA's monthly `sum` is present; if
+  `sum` is missing for the requested month, the total cell renders empty rather than falling
+  back to a daily-sum.
+
+**Expression rows**:
+
+- Day cells: formula evaluation over per-day entity values.
+- Monthly min/avg/max AND monthly total: arithmetic from the per-day evaluated values (HA does
+  not store monthly-period statistics for formulas, so the HA-sum-delta rule is inapplicable).
+  Zero-value days excluded from min/avg/max when `show_zero: false`; total always sums all days.
+
+**`measurement` state-class rows**:
+
+- Day cells: min/avg/max per day in a single row; separate min/max rows are prohibited.
+- Monthly min/avg/max: card-computed from daily values. HA's `period=month` `min`/`max` fields
+  MUST NOT be used because they report min/max of period-means, not true daily extremes.
+- Monthly total: not applicable (measurement entities have no total column).
+- `show_zero` MUST NOT affect measurement-entity summaries.
+
+**Cross-cutting rules**:
+
+- `device_class` MUST NOT be read by any monthly-summary computation path.
+- Negative daily deltas: for `total_increasing` entities, treated as 0 (counter reset anomaly);
+  for `total` entities, shown as-is (legitimate values, e.g. net energy export). A counter-reset
+  clamp-to-zero day MUST be indistinguishable from a naturally-zero day in the summary pipeline —
+  both are excluded together when `show_zero: false`, both included together otherwise. No origin
+  metadata is preserved (YAGNI per Principle V).
+- The monthly-summary fetch range MUST extend back one month before the viewing year so that
+  January's cross-year delta is available. Entries from the prior year are used for lookup only;
+  they MUST NOT produce their own summary entries.
 
 Any deviation from these computation rules is a defect, not a design choice.
 
@@ -159,4 +227,4 @@ this file).
 Check gate. Plans that cannot satisfy a principle MUST justify the exception in the Complexity Tracking
 table before proceeding.
 
-**Version**: 2.0.0 | **Ratified**: 2026-05-19 | **Last Amended**: 2026-05-30
+**Version**: 2.1.0 | **Ratified**: 2026-05-19 | **Last Amended**: 2026-05-30
