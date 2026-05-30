@@ -117,24 +117,36 @@ describe('EntityRowEditor — Advanced section (T014)', () => {
     expect(schemaHasField(el, 'unit')).toBe(true);
   });
 
-  it('show_zero checkbox is in Advanced schema', async () => {
+  it('show_zero checkbox renders in compact visibility row', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', show_zero: true });
-    expect(schemaHasField(el, 'show_zero')).toBe(true);
+    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_zero"]');
+    expect(cb).toBeTruthy();
   });
 
-  it('show_min checkbox is in Advanced schema', async () => {
+  it('show_min checkbox renders in compact visibility row', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: false });
-    expect(schemaHasField(el, 'show_min')).toBe(true);
+    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_min"]');
+    expect(cb).toBeTruthy();
   });
 
-  it('show_avg checkbox is in Advanced schema', async () => {
+  it('show_avg checkbox renders in compact visibility row', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    expect(schemaHasField(el, 'show_avg')).toBe(true);
+    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_avg"]');
+    expect(cb).toBeTruthy();
   });
 
-  it('show_max checkbox is in Advanced schema', async () => {
+  it('show_max checkbox renders in compact visibility row', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    expect(schemaHasField(el, 'show_max')).toBe(true);
+    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_max"]');
+    expect(cb).toBeTruthy();
+  });
+
+  it('all four visibility checkboxes share one row', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    const row = el.shadowRoot!.querySelector('.visibility-row');
+    expect(row).toBeTruthy();
+    const checkboxes = row!.querySelectorAll('[data-field]');
+    expect(checkboxes.length).toBe(4);
   });
 
   it('text_color field is in Advanced schema', async () => {
@@ -160,7 +172,9 @@ describe('EntityRowEditor — Advanced section (T014)', () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: true }, 0);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    fireFormChange(el, { entity: 'sensor.temp', show_min: false }, 1);
+    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_min"]') as HTMLInputElement & { checked: boolean };
+    cb.checked = false;
+    cb.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]!.detail.config.show_min).toBe(false);
   });

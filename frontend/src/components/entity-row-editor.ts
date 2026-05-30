@@ -16,13 +16,12 @@ const ENTITY_ROW_SCHEMA_MAIN = [
 const ENTITY_ROW_SCHEMA_ADVANCED = [
   { name: 'factor', selector: { number: { step: 0.001, mode: 'box' } } },
   { name: 'unit', selector: { text: {} } },
-  { name: 'show_zero', selector: { boolean: {} } },
-  { name: 'show_min', selector: { boolean: {} } },
-  { name: 'show_avg', selector: { boolean: {} } },
-  { name: 'show_max', selector: { boolean: {} } },
   { name: 'text_color', selector: { text: {} } },
   { name: 'background_color', selector: { text: {} } },
 ];
+
+const VISIBILITY_FIELDS = ['show_zero', 'show_min', 'show_avg', 'show_max'] as const;
+type VisibilityField = typeof VISIBILITY_FIELDS[number];
 
 @customElement('calendar-stats-entity-row-editor')
 export class EntityRowEditor extends LitElement {
@@ -37,6 +36,15 @@ export class EntityRowEditor extends LitElement {
     }
     .advanced-content {
       padding: 8px 0;
+    }
+    .visibility-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 16px;
+      padding: 8px 0;
+    }
+    .visibility-row ha-formfield {
+      --mdc-typography-body2-font-size: 13px;
     }
     .stale-entity {
       display: flex;
@@ -102,6 +110,16 @@ export class EntityRowEditor extends LitElement {
     }));
   }
 
+  private _handleVisibilityChanged(field: VisibilityField, ev: Event): void {
+    const target = ev.target as HTMLInputElement & { checked: boolean };
+    const updated = { ...this.config, [field]: target.checked };
+    this.dispatchEvent(new CustomEvent('row-changed', {
+      detail: { index: this.index, config: updated },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
   private _isStale(): boolean {
     const entity = this.config?.entity;
     return Boolean(entity) && this.hass != null && !this.hass.states[entity];
@@ -133,6 +151,17 @@ export class EntityRowEditor extends LitElement {
             .computeLabel=${this._computeLabel}
             @value-changed=${this._handleFormChanged}
           ></ha-form>
+          <div class="visibility-row">
+            ${VISIBILITY_FIELDS.map((field) => html`
+              <ha-formfield .label=${this._computeLabel({ name: field })}>
+                <ha-checkbox
+                  data-field=${field}
+                  .checked=${this.config?.[field] !== false}
+                  @change=${(e: Event) => this._handleVisibilityChanged(field, e)}
+                ></ha-checkbox>
+              </ha-formfield>
+            `)}
+          </div>
           <calendar-stats-threshold-list-editor
             .thresholds=${this.config?.thresholds ?? []}
             .lang=${lang}
