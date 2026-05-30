@@ -87,8 +87,8 @@ export class ThresholdListEditor extends LitElement {
     this._dispatchChange([...this.thresholds, { operator: 'above', value: 0 }]);
   }
 
-  _removeThreshold(index: number, e: Event): void {
-    e.stopPropagation();
+  _removeThreshold(index: number, e?: Event): void {
+    e?.stopPropagation();
     this._dispatchChange(this.thresholds.filter((_, i) => i !== index));
   }
 
@@ -124,6 +124,7 @@ export class ThresholdListEditor extends LitElement {
             <div class="field">
               <label>${localize('editor.threshold_operator', lang)}</label>
               <select
+                data-field="operator"
                 @change=${(e: Event) => this._handleRuleChange(i, 'operator', (e.target as HTMLSelectElement).value)}
               >
                 ${OPERATORS.map((op) => html`
@@ -134,6 +135,7 @@ export class ThresholdListEditor extends LitElement {
             <div class="field">
               <label>${localize('editor.threshold_value', lang)}</label>
               <input
+                data-field="value"
                 type="number"
                 step="any"
                 .value=${String(rule.value)}
@@ -146,6 +148,7 @@ export class ThresholdListEditor extends LitElement {
             <div class="field">
               <label>${localize('editor.threshold_name', lang)}</label>
               <input
+                data-field="threshold_name"
                 type="text"
                 .value=${rule.name ?? ''}
                 @change=${(e: Event) => this._handleRuleChange(i, 'name', (e.target as HTMLInputElement).value)}
@@ -154,6 +157,7 @@ export class ThresholdListEditor extends LitElement {
             <div class="field">
               <label>${localize('editor.text_color', lang)}</label>
               <input
+                data-field="threshold_text_color"
                 type="text"
                 .value=${rule.text_color ?? ''}
                 @change=${(e: Event) => this._handleRuleChange(i, 'text_color', (e.target as HTMLInputElement).value)}
@@ -162,6 +166,7 @@ export class ThresholdListEditor extends LitElement {
             <div class="field">
               <label>${localize('editor.background_color', lang)}</label>
               <input
+                data-field="threshold_background_color"
                 type="text"
                 .value=${rule.background_color ?? ''}
                 @change=${(e: Event) => this._handleRuleChange(i, 'background_color', (e.target as HTMLInputElement).value)}
@@ -174,7 +179,7 @@ export class ThresholdListEditor extends LitElement {
           </div>
         </ha-expansion-panel>
       `)}
-      <mwc-button raised @click=${() => this._addThreshold()}>
+      <mwc-button raised data-action="add-threshold" @click=${() => this._addThreshold()}>
         <ha-icon icon="mdi:plus"></ha-icon>
         ${localize('editor.add_threshold', lang)}
       </mwc-button>

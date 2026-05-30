@@ -54,7 +54,7 @@ describe('CalendarStatsCardEditor — US1: empty state and entity-row addition (
     await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
     expect(dispatched).toHaveLength(1);
     const config = (dispatched[0]!.detail as { config: CardConfig }).config;
-    expect(config.type).toBe('calendar-stats-card');
+    expect(config.type).toBe('custom:calendar-stats-card');
     expect(config.entities).toHaveLength(1);
     expect((config.entities[0] as { entity: string }).entity).toBe('sensor.temp');
   });
@@ -185,7 +185,7 @@ describe('CalendarStatsCardEditor — core contract (T004)', () => {
       internal._dispatchConfigChanged();
       expect(dispatched).toHaveLength(1);
       const detail = dispatched[0]!.detail as { config: CardConfig };
-      expect(detail.config.type).toBe('calendar-stats-card');
+      expect(detail.config.type).toBe('custom:calendar-stats-card');
       expect(Array.isArray(detail.config.entities)).toBe(true);
     }
   });

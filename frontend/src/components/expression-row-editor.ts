@@ -95,6 +95,8 @@ export class ExpressionRowEditor extends LitElement {
       this._formulaError = null;
     }
 
+    if (this._formulaError) return;
+
     const updated = { ...this.config, ...formData };
     this.dispatchEvent(new CustomEvent('row-changed', {
       detail: { index: this.index, config: updated },

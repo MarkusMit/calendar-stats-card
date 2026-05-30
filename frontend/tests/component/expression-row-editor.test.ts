@@ -37,6 +37,25 @@ async function createExpressionRowEditor(
   return el;
 }
 
+function schemaHasField(el: HTMLElement, fieldName: string): boolean {
+  const forms = el.shadowRoot!.querySelectorAll('ha-form');
+  for (const form of Array.from(forms)) {
+    const schema = (form as HTMLElement & { schema?: { name: string }[] }).schema;
+    if (schema?.some((s) => s.name === fieldName)) return true;
+  }
+  return false;
+}
+
+function fireFormChange(el: HTMLElement, value: Record<string, unknown>, formIndex = 0): void {
+  const forms = el.shadowRoot!.querySelectorAll('ha-form');
+  const form = forms[formIndex] as HTMLElement;
+  form.dispatchEvent(new CustomEvent('value-changed', {
+    detail: { value },
+    bubbles: true,
+    composed: true,
+  }));
+}
+
 // T011: US2 — basic expression row editor
 describe('ExpressionRowEditor — basic rendering (T011)', () => {
   it('is registered as calendar-stats-expression-row-editor', () => {
@@ -44,36 +63,32 @@ describe('ExpressionRowEditor — basic rendering (T011)', () => {
     expect(el.tagName.toLowerCase()).toBe('calendar-stats-expression-row-editor');
   });
 
-  it('renders formula textarea with placeholder', async () => {
+  it('renders ha-form with expression field in main schema', async () => {
     const el = await createExpressionRowEditor({ expression: '' });
-    const textarea = el.shadowRoot!.querySelector('ha-textarea, [data-field="expression"]');
-    expect(textarea).toBeTruthy();
+    expect(schemaHasField(el, 'expression')).toBe(true);
   });
 
-  it('name field is always visible', async () => {
+  it('name field is in main schema', async () => {
     const el = await createExpressionRowEditor({ expression: '', name: 'My Expr' });
-    const nameField = el.shadowRoot!.querySelector('[data-field="name"]');
-    expect(nameField).toBeTruthy();
+    expect(schemaHasField(el, 'name')).toBe(true);
   });
 
-  it('unit field is always visible', async () => {
+  it('unit field is in main schema', async () => {
     const el = await createExpressionRowEditor({ expression: '', unit: 'kWh' });
-    const unitField = el.shadowRoot!.querySelector('[data-field="unit"]');
-    expect(unitField).toBeTruthy();
+    expect(schemaHasField(el, 'unit')).toBe(true);
   });
 
-  it('precision field is always visible', async () => {
+  it('precision field is in main schema', async () => {
     const el = await createExpressionRowEditor({ expression: '', precision: 1 });
-    const precField = el.shadowRoot!.querySelector('[data-field="precision"]');
-    expect(precField).toBeTruthy();
+    expect(schemaHasField(el, 'precision')).toBe(true);
   });
 
   it('dispatches row-changed with ExpressionRowConfig on name change', async () => {
-    const el = await createExpressionRowEditor({ expression: '{{ sensor.a }}', name: 'Old' }, 2);
+    const hass = makeHass({ 'sensor.a': { entity_id: 'sensor.a', state: '1', attributes: {} } });
+    const el = await createExpressionRowEditor({ expression: '{{ sensor.a }}', name: 'Old' }, 2, hass);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    const internal = el as unknown as { _handleNonFormulaFieldChange(field: string, value: unknown): void };
-    internal._handleNonFormulaFieldChange('name', 'New Name');
+    fireFormChange(el, { expression: '{{ sensor.a }}', name: 'New Name' });
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]!.detail.index).toBe(2);
     expect(dispatched[0]!.detail.config.name).toBe('New Name');
@@ -83,46 +98,39 @@ describe('ExpressionRowEditor — basic rendering (T011)', () => {
 
 // T016: US4 — formula validation
 describe('ExpressionRowEditor — formula validation (T016)', () => {
-  it('blur on invalid syntax sets error, does NOT dispatch row-changed', async () => {
+  it('invalid syntax sets error, does NOT dispatch row-changed', async () => {
     const el = await createExpressionRowEditor({ expression: '' });
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    const internal = el as unknown as { _handleFormulaBlur(value: string): void; _formulaError: string | null };
-    internal._handleFormulaBlur('{{ invalid ## syntax }}');
+    fireFormChange(el, { expression: '{{ invalid ## syntax }}' });
     expect(dispatched).toHaveLength(0);
+    const internal = el as unknown as { _formulaError: string | null };
     expect(internal._formulaError).toBeTruthy();
   });
 
-  it('blur on formula with unknown entity sets entity error, does NOT dispatch', async () => {
-    const hass = makeHass({}); // no entities
+  it('formula with unknown entity sets entity error, does NOT dispatch', async () => {
+    const hass = makeHass({});
     const el = await createExpressionRowEditor({ expression: '' }, 0, hass);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    const internal = el as unknown as { _handleFormulaBlur(value: string): void; _formulaError: string | null };
-    internal._handleFormulaBlur('{{ sensor.missing }}');
+    fireFormChange(el, { expression: '{{ sensor.missing }}' });
     expect(dispatched).toHaveLength(0);
+    const internal = el as unknown as { _formulaError: string | null };
     expect(internal._formulaError).toContain('sensor.missing');
   });
 
-  it('blur on valid formula clears error and dispatches row-changed', async () => {
+  it('valid formula clears error and dispatches row-changed', async () => {
     const hass = makeHass({
       'sensor.a': { entity_id: 'sensor.a', state: '1', attributes: {} },
     });
     const el = await createExpressionRowEditor({ expression: '' }, 0, hass);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    const internal = el as unknown as { _handleFormulaBlur(value: string): void; _formulaError: string | null };
-    internal._handleFormulaBlur('{{ sensor.a }}');
+    fireFormChange(el, { expression: '{{ sensor.a }}' });
+    const internal = el as unknown as { _formulaError: string | null };
     expect(internal._formulaError).toBeNull();
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]!.detail.config.expression).toBe('{{ sensor.a }}');
-  });
-
-  it('formula text is never cleared on validation error', async () => {
-    const el = await createExpressionRowEditor({ expression: '' });
-    const internal = el as unknown as { _handleFormulaBlur(value: string): void; _dirtyFormula: string };
-    internal._handleFormulaBlur('{{ bad ## formula }}');
-    expect(internal._dirtyFormula).toBe('{{ bad ## formula }}');
   });
 });
 
@@ -134,30 +142,27 @@ describe('ExpressionRowEditor — Advanced section (T017)', () => {
     expect(panel).toBeTruthy();
   });
 
-  it('show_zero checkbox is in Advanced section', async () => {
+  it('show_zero checkbox is in Advanced schema', async () => {
     const el = await createExpressionRowEditor({ expression: '', show_zero: true });
-    const checkbox = el.shadowRoot!.querySelector('[data-field="show_zero"]');
-    expect(checkbox).toBeTruthy();
+    expect(schemaHasField(el, 'show_zero')).toBe(true);
   });
 
-  it('text_color field is in Advanced section', async () => {
+  it('text_color field is in Advanced schema', async () => {
     const el = await createExpressionRowEditor({ expression: '' });
-    const colorField = el.shadowRoot!.querySelector('[data-field="text_color"]');
-    expect(colorField).toBeTruthy();
+    expect(schemaHasField(el, 'text_color')).toBe(true);
   });
 
-  it('background_color field is in Advanced section', async () => {
+  it('background_color field is in Advanced schema', async () => {
     const el = await createExpressionRowEditor({ expression: '' });
-    const colorField = el.shadowRoot!.querySelector('[data-field="background_color"]');
-    expect(colorField).toBeTruthy();
+    expect(schemaHasField(el, 'background_color')).toBe(true);
   });
 
   it('show_zero change dispatches row-changed', async () => {
-    const el = await createExpressionRowEditor({ expression: '{{ sensor.a }}', show_zero: false }, 1);
+    const hass = makeHass({ 'sensor.a': { entity_id: 'sensor.a', state: '1', attributes: {} } });
+    const el = await createExpressionRowEditor({ expression: '{{ sensor.a }}', show_zero: false }, 1, hass);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    const internal = el as unknown as { _handleNonFormulaFieldChange(field: string, value: unknown): void };
-    internal._handleNonFormulaFieldChange('show_zero', true);
+    fireFormChange(el, { expression: '{{ sensor.a }}', show_zero: true }, 1);
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]!.detail.config.show_zero).toBe(true);
   });

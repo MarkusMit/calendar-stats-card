@@ -677,7 +677,7 @@ describe('CalendarStatsCard — editor protocol (T002)', () => {
 
   it('getStubConfig returns valid CardConfig with empty entities', () => {
     const stub = CalendarStatsCard.getStubConfig();
-    expect(stub.type).toBe('calendar-stats-card');
+    expect(stub.type).toBe('custom:calendar-stats-card');
     expect(Array.isArray(stub.entities)).toBe(true);
     expect(stub.entities).toHaveLength(0);
   });

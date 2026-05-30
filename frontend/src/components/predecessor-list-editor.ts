@@ -106,6 +106,7 @@ export class PredecessorListEditor extends LitElement {
           <div class="field">
             <label>${localize('editor.predecessor_entity', lang)}</label>
             <input
+              data-field="predecessor_entity"
               type="text"
               .value=${entry.entity}
               @change=${(e: Event) => this._handleEntryChange(i, 'entity', (e.target as HTMLInputElement).value)}
@@ -122,6 +123,7 @@ export class PredecessorListEditor extends LitElement {
           <div class="field">
             <label>${localize('editor.predecessor_replaced_on', lang)}</label>
             <input
+              data-field="predecessor_replaced_on"
               type="text"
               placeholder="YYYY-MM-DD"
               .value=${entry.replaced_on ?? ''}
@@ -135,6 +137,7 @@ export class PredecessorListEditor extends LitElement {
           <div class="field">
             <label>${localize('editor.predecessor_factor', lang)}</label>
             <input
+              data-field="predecessor_factor"
               type="number"
               step="any"
               .value=${String(entry.factor ?? '')}
@@ -153,7 +156,7 @@ export class PredecessorListEditor extends LitElement {
           </div>
         </div>
       `)}
-      <mwc-button raised @click=${() => this._addPredecessor()}>
+      <mwc-button raised data-action="add-predecessor" @click=${() => this._addPredecessor()}>
         <ha-icon icon="mdi:plus"></ha-icon>
         ${localize('editor.add_predecessor', lang)}
       </mwc-button>

@@ -37,6 +37,25 @@ async function createEntityRowEditor(
   return el;
 }
 
+function schemaHasField(el: HTMLElement, fieldName: string): boolean {
+  const forms = el.shadowRoot!.querySelectorAll('ha-form');
+  for (const form of Array.from(forms)) {
+    const schema = (form as HTMLElement & { schema?: { name: string }[] }).schema;
+    if (schema?.some((s) => s.name === fieldName)) return true;
+  }
+  return false;
+}
+
+function fireFormChange(el: HTMLElement, value: Record<string, unknown>, formIndex = 0): void {
+  const forms = el.shadowRoot!.querySelectorAll('ha-form');
+  const form = forms[formIndex] as HTMLElement;
+  form.dispatchEvent(new CustomEvent('value-changed', {
+    detail: { value },
+    bubbles: true,
+    composed: true,
+  }));
+}
+
 // T007: US1 — basic entity row editor
 describe('EntityRowEditor — basic rendering (T007)', () => {
   it('is registered as calendar-stats-entity-row-editor', () => {
@@ -44,30 +63,26 @@ describe('EntityRowEditor — basic rendering (T007)', () => {
     expect(el.tagName.toLowerCase()).toBe('calendar-stats-entity-row-editor');
   });
 
-  it('renders ha-entity-picker or entity input with entity ID', async () => {
+  it('renders ha-form with entity field in main schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const picker = el.shadowRoot!.querySelector('ha-entity-picker, [data-field="entity"]');
-    expect(picker).toBeTruthy();
+    expect(schemaHasField(el, 'entity')).toBe(true);
   });
 
-  it('name field is always visible', async () => {
+  it('name field is in main schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', name: 'My Sensor' });
-    const nameField = el.shadowRoot!.querySelector('[data-field="name"]');
-    expect(nameField).toBeTruthy();
+    expect(schemaHasField(el, 'name')).toBe(true);
   });
 
-  it('precision field is always visible', async () => {
+  it('precision field is in main schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', precision: 2 });
-    const precField = el.shadowRoot!.querySelector('[data-field="precision"]');
-    expect(precField).toBeTruthy();
+    expect(schemaHasField(el, 'precision')).toBe(true);
   });
 
   it('dispatches row-changed with correct index and config on name change', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' }, 3);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    const internal = el as unknown as { _handleFieldChange(field: string, value: unknown): void };
-    internal._handleFieldChange('name', 'New Name');
+    fireFormChange(el, { entity: 'sensor.temp', name: 'New Name' });
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]!.detail.index).toBe(3);
     expect(dispatched[0]!.detail.config.name).toBe('New Name');
@@ -78,8 +93,7 @@ describe('EntityRowEditor — basic rendering (T007)', () => {
     const el = await createEntityRowEditor({ entity: 'sensor.old' }, 0);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    const internal = el as unknown as { _handleFieldChange(field: string, value: unknown): void };
-    internal._handleFieldChange('entity', 'sensor.new');
+    fireFormChange(el, { entity: 'sensor.new' });
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]!.detail.config.entity).toBe('sensor.new');
   });
@@ -93,60 +107,51 @@ describe('EntityRowEditor — Advanced section (T014)', () => {
     expect(panel).toBeTruthy();
   });
 
-  it('factor field is in Advanced section', async () => {
+  it('factor field is in Advanced schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', factor: 2 });
-    const field = el.shadowRoot!.querySelector('[data-field="factor"]');
-    expect(field).toBeTruthy();
+    expect(schemaHasField(el, 'factor')).toBe(true);
   });
 
-  it('unit field is in Advanced section', async () => {
+  it('unit field is in Advanced schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', unit: 'kW' });
-    const field = el.shadowRoot!.querySelector('[data-field="unit"]');
-    expect(field).toBeTruthy();
+    expect(schemaHasField(el, 'unit')).toBe(true);
   });
 
-  it('show_zero checkbox is in Advanced section', async () => {
+  it('show_zero checkbox is in Advanced schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', show_zero: true });
-    const field = el.shadowRoot!.querySelector('[data-field="show_zero"]');
-    expect(field).toBeTruthy();
+    expect(schemaHasField(el, 'show_zero')).toBe(true);
   });
 
-  it('show_min checkbox is in Advanced section', async () => {
+  it('show_min checkbox is in Advanced schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: false });
-    const field = el.shadowRoot!.querySelector('[data-field="show_min"]');
-    expect(field).toBeTruthy();
+    expect(schemaHasField(el, 'show_min')).toBe(true);
   });
 
-  it('show_avg checkbox is in Advanced section', async () => {
+  it('show_avg checkbox is in Advanced schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const field = el.shadowRoot!.querySelector('[data-field="show_avg"]');
-    expect(field).toBeTruthy();
+    expect(schemaHasField(el, 'show_avg')).toBe(true);
   });
 
-  it('show_max checkbox is in Advanced section', async () => {
+  it('show_max checkbox is in Advanced schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const field = el.shadowRoot!.querySelector('[data-field="show_max"]');
-    expect(field).toBeTruthy();
+    expect(schemaHasField(el, 'show_max')).toBe(true);
   });
 
-  it('text_color field is in Advanced section', async () => {
+  it('text_color field is in Advanced schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const field = el.shadowRoot!.querySelector('[data-field="text_color"]');
-    expect(field).toBeTruthy();
+    expect(schemaHasField(el, 'text_color')).toBe(true);
   });
 
-  it('background_color field is in Advanced section', async () => {
+  it('background_color field is in Advanced schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const field = el.shadowRoot!.querySelector('[data-field="background_color"]');
-    expect(field).toBeTruthy();
+    expect(schemaHasField(el, 'background_color')).toBe(true);
   });
 
   it('factor change dispatches row-changed with updated EntityRowConfig', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' }, 0);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    const internal = el as unknown as { _handleFieldChange(field: string, value: unknown): void };
-    internal._handleFieldChange('factor', 2.5);
+    fireFormChange(el, { entity: 'sensor.temp', factor: 2.5 }, 1);
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]!.detail.config.factor).toBe(2.5);
   });
@@ -155,8 +160,7 @@ describe('EntityRowEditor — Advanced section (T014)', () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: true }, 0);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    const internal = el as unknown as { _handleFieldChange(field: string, value: unknown): void };
-    internal._handleFieldChange('show_min', false);
+    fireFormChange(el, { entity: 'sensor.temp', show_min: false }, 1);
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]!.detail.config.show_min).toBe(false);
   });

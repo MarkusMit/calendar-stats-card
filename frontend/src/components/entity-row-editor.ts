@@ -38,6 +38,14 @@ export class EntityRowEditor extends LitElement {
     .advanced-content {
       padding: 8px 0;
     }
+    .stale-entity {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--warning-color, orange);
+      font-size: 0.85em;
+      padding: 4px 0;
+    }
   `;
 
   private _onThresholdsChanged = (e: Event): void => {
@@ -94,8 +102,14 @@ export class EntityRowEditor extends LitElement {
     }));
   }
 
+  private _isStale(): boolean {
+    const entity = this.config?.entity;
+    return Boolean(entity) && this.hass != null && !this.hass.states[entity];
+  }
+
   render() {
     const lang = this.lang ?? 'en';
+    const stale = this._isStale();
     return html`
       <ha-form
         .hass=${this.hass}
@@ -104,6 +118,12 @@ export class EntityRowEditor extends LitElement {
         .computeLabel=${this._computeLabel}
         @value-changed=${this._handleFormChanged}
       ></ha-form>
+      ${stale ? html`
+        <div class="stale-entity" data-stale>
+          <ha-icon icon="mdi:alert-circle"></ha-icon>
+          ${localize('editor.entity_not_found', lang)}
+        </div>
+      ` : ''}
       <ha-expansion-panel .header=${localize('editor.advanced', lang)}>
         <div class="advanced-content">
           <ha-form
