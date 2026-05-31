@@ -30,7 +30,7 @@ Single frontend project (HA Lovelace card):
 
 **Purpose**: Confirm a green baseline before any change (TDD requires a known-good starting point).
 
-- [ ] T001 Run `npm test` in `frontend/` and confirm the full suite passes; record the baseline (do not start work on a red suite — ask before fixing any pre-existing failure).
+- [X] T001 Run `npm test` in `frontend/` and confirm the full suite passes; record the baseline (do not start work on a red suite — ask before fixing any pre-existing failure).
 
 ---
 
@@ -40,8 +40,8 @@ Single frontend project (HA Lovelace card):
 
 **⚠️ CRITICAL**: Blocks all user-story implementation. T002 (test) is authored first per TDD; T003 (helper) is the foundational unblocker.
 
-- [ ] T002 [P] Write failing unit test for `resolvePrecision` and `DEFAULT_PRECISION` in `frontend/tests/unit/components/year-table.precision.test.ts`: assert `DEFAULT_PRECISION === 1`, `resolvePrecision({}) === 1`, `resolvePrecision({ precision: 2 }) === 2`, `resolvePrecision({ precision: 0 }) === 0`. Confirm RED (symbols not yet exported).
-- [ ] T003 Add `export const DEFAULT_PRECISION = 1;` and `export function resolvePrecision(cfg: { precision?: number }): number { return cfg.precision ?? DEFAULT_PRECISION; }` at module scope in `frontend/src/components/year-table.ts`. Confirm T002 GREEN.
+- [X] T002 [P] Write failing unit test for `resolvePrecision` and `DEFAULT_PRECISION` in `frontend/tests/unit/components/year-table.precision.test.ts`: assert `DEFAULT_PRECISION === 1`, `resolvePrecision({}) === 1`, `resolvePrecision({ precision: 2 }) === 2`, `resolvePrecision({ precision: 0 }) === 0`. Confirm RED (symbols not yet exported).
+- [X] T003 Add `export const DEFAULT_PRECISION = 1;` and `export function resolvePrecision(cfg: { precision?: number }): number { return cfg.precision ?? DEFAULT_PRECISION; }` at module scope in `frontend/src/components/year-table.ts`. Confirm T002 GREEN.
 
 **Checkpoint**: Helper exists and is unit-tested; the shared formatter can now adopt it.
 
@@ -55,12 +55,12 @@ Single frontend project (HA Lovelace card):
 
 ### Tests for User Story 1 ⚠️ (write first, confirm RED)
 
-- [ ] T004 [US1] Add failing component test(s) in `frontend/tests/component/year-table.test.ts`: with a cumulative entity row and no `precision`, a day value of `1.234` renders `1.2`; the monthly summary (min/avg/max) renders one decimal each; a whole-number value renders with a trailing `.0`. Confirm RED (current default emits native precision).
+- [X] T004 [US1] Add failing component test(s) in `frontend/tests/component/year-table.test.ts`: with a cumulative entity row and no `precision`, a day value of `1.234` renders `1.2`; the monthly summary (min/avg/max) renders one decimal each; a whole-number value renders with a trailing `.0`. Confirm RED (current default emits native precision).
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Replace the shared `nf` formatter default in `frontend/src/components/year-table.ts` (~L196): set both `minimumFractionDigits` and `maximumFractionDigits` to `resolvePrecision(cfg)`, replacing `cfg.precision ?? 20` / `cfg.precision ?? 0`. This single `nf` constant formats every numeric cell (daily L247/256/265, summary L285-287, cumulative summary L359-362, total L366), so the one edit covers all cells for both entity and expression rows.
-- [ ] T006 [US1] Run `npm test` — confirm T004 and T002 GREEN and no prior test regressed (notably existing `year-table` and editor tests). Investigate any newly-failing baseline test before proceeding.
+- [X] T005 [US1] Replace the shared `nf` formatter default in `frontend/src/components/year-table.ts` (~L196): set both `minimumFractionDigits` and `maximumFractionDigits` to `resolvePrecision(cfg)`, replacing `cfg.precision ?? 20` / `cfg.precision ?? 0`. This single `nf` constant formats every numeric cell (daily L247/256/265, summary L285-287, cumulative summary L359-362, total L366), so the one edit covers all cells for both entity and expression rows.
+- [X] T006 [US1] Run `npm test` — confirm T004 and T002 GREEN and no prior test regressed (notably existing `year-table` and editor tests). Investigate any newly-failing baseline test before proceeding.
 
 **Checkpoint**: Unset-precision rows display one decimal everywhere; MVP functional and independently testable.
 
@@ -74,11 +74,11 @@ Single frontend project (HA Lovelace card):
 
 ### Tests for User Story 2 ⚠️ (write first, confirm RED or document why already covered)
 
-- [ ] T007 [US2] Add component test(s) in `frontend/tests/component/year-table.test.ts`: a row with `precision: 2` renders `1.234` as `1.23`; a row with `precision: 0` renders `1.6` as `2`; a second row with no `precision` in the same render still shows one decimal (mixed-row isolation). Confirm test state (RED if not yet covered).
+- [X] T007 [US2] Add component test(s) in `frontend/tests/component/year-table.test.ts`: a row with `precision: 2` renders `1.234` as `1.23`; a row with `precision: 0` renders `1.6` as `2`; a second row with no `precision` in the same render still shows one decimal (mixed-row isolation). Confirm test state (RED if not yet covered).
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] No source change expected — `resolvePrecision` already passes explicit values through the single `nf`. Run `npm test`; if T007 fails, fix the L196 formatter so explicit `precision` (including `0`) is honored. Confirm GREEN.
+- [X] T008 [US2] No source change expected — `resolvePrecision` already passes explicit values through the single `nf`. Run `npm test`; if T007 fails, fix the L196 formatter so explicit `precision` (including `0`) is honored. Confirm GREEN.
 
 **Checkpoint**: Override behavior proven intact alongside the new default.
 
@@ -88,11 +88,11 @@ Single frontend project (HA Lovelace card):
 
 **Purpose**: Documentation alignment (FR-006, FR-007, SC-004) and final validation.
 
-- [ ] T009 Update `docs/README.md` entity-row table (~L92): change `precision` Default cell from `native` to `1` and reword the description to "Decimal digits shown in day cells and summary columns. Omit to use the default of 1." (remove the "HA's native precision (no rounding)" wording).
-- [ ] T010 Update `docs/README.md` expression-row table (~L114): change `precision` Default cell from `full` to `1` and reword to "Decimal digits in displayed values. Omit to use the default of 1."
-- [ ] T011 Audit `docs/README.md` example snippets (~L192–234) for any contradiction with the new default; explicit `precision` examples stay as-is (no change expected per research Finding 4). Note result.
-- [ ] T012 Run `npm run lint` and `npm run build` in `frontend/`; confirm clean lint and a successful bundle to `frontend/dist/calendar-stats-card.js`.
-- [ ] T013 Execute `quickstart.md` acceptance mapping (SC-001..SC-004) and confirm each row passes.
+- [X] T009 Update `docs/README.md` entity-row table (~L92): change `precision` Default cell from `native` to `1` and reword the description to "Decimal digits shown in day cells and summary columns. Omit to use the default of 1." (remove the "HA's native precision (no rounding)" wording).
+- [X] T010 Update `docs/README.md` expression-row table (~L114): change `precision` Default cell from `full` to `1` and reword to "Decimal digits in displayed values. Omit to use the default of 1."
+- [X] T011 Audit `docs/README.md` example snippets (~L192–234) for any contradiction with the new default; explicit `precision` examples stay as-is (no change expected per research Finding 4). Note result.
+- [X] T012 Run `npm run lint` and `npm run build` in `frontend/`; confirm clean lint and a successful bundle to `frontend/dist/calendar-stats-card.js`.
+- [X] T013 Execute `quickstart.md` acceptance mapping (SC-001..SC-004) and confirm each row passes.
 
 ---
 

@@ -400,7 +400,7 @@ describe('CalendarStatsCard — expression rows', () => {
     expect(exprRow).toBeTruthy();
     // Jan 1 delta: sensor.a = 10-0=10, sensor.b = 5-0=5, combined = 15
     const firstDataCell = exprRow?.querySelector('.data-cell.has-data');
-    expect(firstDataCell?.textContent?.trim()).toBe('15');
+    expect(firstDataCell?.textContent?.trim()).toBe('15.0');
   });
 
   it('expression row total column shows sum of daily values', async () => {
@@ -422,7 +422,7 @@ describe('CalendarStatsCard — expression rows', () => {
     );
     const summaryCells = exprRow?.querySelectorAll('.summary-column');
     const totalCell = summaryCells?.[summaryCells.length - 1];
-    expect(totalCell?.textContent?.trim()).toBe('15');
+    expect(totalCell?.textContent?.trim()).toBe('15.0');
   });
 });
 
