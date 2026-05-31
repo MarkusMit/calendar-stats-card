@@ -89,7 +89,7 @@ Display behaviour is derived automatically from the entity's `state_class` and `
 |--------------------|------------|--------------------|-------------|
 | `entity`             | string     | **required**       | HA entity ID (e.g. `sensor.outdoor_temperature`). Duplicates allowed — each entry produces its own row. |
 | `name`               | string     | HA friendly name   | Override the label shown in the first column. |
-| `precision`          | integer    | native             | Decimal digits shown in day cells and summary columns. Omit to use HA's native precision (no rounding). |
+| `precision`          | integer    | `1`                | Decimal digits shown in day cells and summary columns. Omit to use the default of 1. |
 | `factor`             | number     | `1`                | Multiplier applied to every displayed value (raw HA values are kept untouched). Useful for unit scaling (e.g. `0.001` to display Wh as kWh). |
 | `unit`               | string     | HA unit            | Override the unit-of-measurement shown beside the label. |
 | `show_zero`          | boolean    | `true`             | If `false`, day cells whose computed value is exactly `0` render as blank AND the monthly summary min/avg/max exclude those zero-value days. The monthly `total` is unaffected (zero days contribute zero anyway). Applies uniformly: a counter-reset day clamped to `0` is treated the same as a naturally-zero day. Set explicitly to `false` for precipitation entities if you want the old "exclude no-rain days from the rainfall average" behaviour. |
@@ -111,7 +111,7 @@ Treated as a cumulative row for monthly-summary purposes (sum, then min/avg/max 
 | `expression`         | string     | **required** | Arithmetic formula — entity IDs, numeric literals, `+ - * /` and parentheses. Optionally wrapped in `{{ ... }}`. Example: `{{ sensor.solar_export - sensor.solar_import }}`. |
 | `name`               | string     | —            | Label shown in the first column. |
 | `unit`               | string     | —            | Unit-of-measurement shown beside the label. |
-| `precision`          | integer    | full         | Decimal digits in displayed values. |
+| `precision`          | integer    | `1`          | Decimal digits in displayed values. Omit to use the default of 1. |
 | `show_zero`          | boolean    | `true`       | If `false`, day cells whose computed value is exactly `0` render as blank AND the monthly summary min/avg/max exclude those zero-value days. The monthly `total` is unaffected. |
 | `text_color`         | string     | theme        | Row-wide text colour. Accepted formats: see [Color values](#color-values). |
 | `background_color`   | string     | theme        | Row-wide background colour. Accepted formats: see [Color values](#color-values). |

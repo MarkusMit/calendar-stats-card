@@ -10,6 +10,14 @@ import { rowSummaryKey } from '../services/data-transform';
 
 const TOTAL_DAYS = 31;
 
+/** Default decimal places used when a row config does not set `precision`. */
+export const DEFAULT_PRECISION = 1;
+
+/** Effective precision for a row: explicit `precision` if set, else the default. */
+export function resolvePrecision(cfg: { precision?: number }): number {
+  return cfg.precision ?? DEFAULT_PRECISION;
+}
+
 @customElement('calendar-stats-year-table')
 export class YearTable extends LitElement {
   @property({ type: Number }) year = 2025;
@@ -193,7 +201,8 @@ export class YearTable extends LitElement {
 
   private renderEntityRows(cfg: EntityConfig, rowIndex: number, month: number, days: number, hasMeasurement: boolean) {
     const key = rowKey(cfg);
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: cfg.precision ?? 20, minimumFractionDigits: cfg.precision ?? 0 });
+    const precision = resolvePrecision(cfg);
+    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
     const meta = this.entityMetadata.get(key);
     const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
     const unitStr = ('unit' in cfg && cfg.unit) ? cfg.unit : meta?.unitOfMeasurement;

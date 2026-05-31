@@ -138,7 +138,7 @@ describe('YearTable — show_zero (cumulative)', () => {
   it('show_zero omitted + sum=0 → cell renders "0"', async () => {
     const el = await renderYearCumulative(undefined, 0);
     const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
-    expect(day1?.textContent?.trim()).toBe('0');
+    expect(day1?.textContent?.trim()).toBe('0.0');
     expect(day1?.classList.contains('has-data')).toBe(true);
   });
 
@@ -218,7 +218,7 @@ describe('YearTable — show_zero (measurement)', () => {
     const el = await renderYearMeasurement(undefined, 0, 0, 0);
     const rows = el.shadowRoot!.querySelectorAll('tbody tr');
     const minCell = rows[0]!.querySelectorAll('td.data-cell')[4];
-    expect(minCell?.textContent?.trim()).toBe('0');
+    expect(minCell?.textContent?.trim()).toBe('0.0');
     expect(minCell?.classList.contains('has-data')).toBe(true);
   });
 
@@ -244,9 +244,9 @@ describe('YearTable — show_zero (measurement)', () => {
     const maxCell = rows[2]!.querySelectorAll('td.data-cell')[4];
     expect(minCell?.textContent?.trim()).toBe('');
     expect(minCell?.classList.contains('has-data')).toBe(false);
-    expect(meanCell?.textContent?.trim()).toBe('5');
+    expect(meanCell?.textContent?.trim()).toBe('5.0');
     expect(meanCell?.classList.contains('has-data')).toBe(true);
-    expect(maxCell?.textContent?.trim()).toBe('10');
+    expect(maxCell?.textContent?.trim()).toBe('10.0');
     expect(maxCell?.classList.contains('has-data')).toBe(true);
   });
 
@@ -254,7 +254,7 @@ describe('YearTable — show_zero (measurement)', () => {
     const el = await renderYearMeasurement(false, 2, 5, 8);
     const rows = el.shadowRoot!.querySelectorAll('tbody tr');
     const minCell = rows[0]!.querySelectorAll('td.data-cell')[4];
-    expect(minCell?.textContent?.trim()).toBe('2');
+    expect(minCell?.textContent?.trim()).toBe('2.0');
     expect(minCell?.classList.contains('has-data')).toBe(true);
   });
 });
@@ -289,9 +289,9 @@ describe('YearTable — measurement sub-row visibility', () => {
     expect(texts).toContain('avg');
     expect(texts).toContain('max');
     const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
-    expect(summaries[0]?.textContent?.trim()).toBe('5');
-    expect(summaries[1]?.textContent?.trim()).toBe('18');
-    expect(summaries[2]?.textContent?.trim()).toBe('30');
+    expect(summaries[0]?.textContent?.trim()).toBe('5.0');
+    expect(summaries[1]?.textContent?.trim()).toBe('18.0');
+    expect(summaries[2]?.textContent?.trim()).toBe('30.0');
   });
 
   it('show_min: false → min row absent; avg and max rows present', async () => {
@@ -344,8 +344,8 @@ describe('YearTable — measurement sub-row visibility', () => {
     const el = await renderMeasVisibility({ entity: ENTITY_ID, show_min: false }, testSummary);
     const summaries = el.shadowRoot!.querySelectorAll('td.summary-column');
     expect(summaries.length).toBe(2);
-    expect(summaries[0]?.textContent?.trim()).toBe('18');
-    expect(summaries[1]?.textContent?.trim()).toBe('30');
+    expect(summaries[0]?.textContent?.trim()).toBe('18.0');
+    expect(summaries[1]?.textContent?.trim()).toBe('30.0');
   });
 });
 
@@ -389,7 +389,7 @@ describe('YearTable — cumulative summary visibility', () => {
     expect(summaryEl!.textContent).toContain('18');
     expect(summaryEl!.textContent).toContain('↑30');
     const cols = el.shadowRoot!.querySelectorAll('td.summary-column');
-    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100');
+    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100.0');
   });
 
   it('show_avg: false → mean absent; ↓min and ↑max present; total unchanged', async () => {
@@ -399,7 +399,7 @@ describe('YearTable — cumulative summary visibility', () => {
     expect(summaryEl!.textContent).toContain('↓5');
     expect(summaryEl!.textContent).toContain('↑30');
     const cols = el.shadowRoot!.querySelectorAll('td.summary-column');
-    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100');
+    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100.0');
   });
 
   it('show_max: false → ↑max absent; mean and ↓min present; total unchanged', async () => {
@@ -417,14 +417,14 @@ describe('YearTable — cumulative summary visibility', () => {
     expect(summaryEl).toBeTruthy();
     expect(summaryEl!.textContent).toContain('18');
     const cols = el.shadowRoot!.querySelectorAll('td.summary-column');
-    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100');
+    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100.0');
   });
 
   it('show_min: false, show_avg: false, show_max: false → cumul-summary absent; total still shows', async () => {
     const el = await renderCumulVisibility({ entity: RAIN_ID, show_min: false, show_avg: false, show_max: false });
     expect(el.shadowRoot!.querySelector('.cumul-summary')).toBeFalsy();
     const cols = el.shadowRoot!.querySelectorAll('td.summary-column');
-    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100');
+    expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100.0');
   });
 });
 
