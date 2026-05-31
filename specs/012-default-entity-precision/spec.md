@@ -5,6 +5,12 @@
 **Status**: Draft
 **Input**: User description: "Set default precision of entities to 1."
 
+## Clarifications
+
+### Session 2026-05-31
+
+- Q: Should this feature also update `docs/README.md` so the documented `precision` default matches the new value of `1`? → A: Yes — update the precision default description text and audit the example snippets for consistency.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Clean default decimals (Priority: P1)
@@ -57,6 +63,8 @@ Verify the first shows two decimals and the second shows one.
 - **FR-003**: The default precision MUST apply uniformly to all numeric outputs: daily values, monthly summary (min/avg/max), totals, and daily diffs.
 - **FR-004**: The default MUST apply to both entity rows and expression rows, which both expose a `precision` option.
 - **FR-005**: Rounding behavior for the default MUST be consistent with rounding already used for an explicitly configured precision.
+- **FR-006**: User documentation (`docs/README.md`) MUST state the new default of `1` wherever the `precision` default is described (entity rows and expression rows), replacing the current `native` / `full` (no-rounding) wording.
+- **FR-007**: Example configuration snippets in `docs/README.md` MUST be audited so no example contradicts the new default; examples already setting an explicit `precision` are unaffected.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -69,6 +77,7 @@ Verify the first shows two decimals and the second shows one.
 - **SC-001**: With no `precision` configured, a value of `1.23` renders as `1.2`.
 - **SC-002**: With `precision: 2` configured, a value of `1.23` renders as `1.23` (override unaffected).
 - **SC-003**: 100% of numeric cells use one decimal place when no row in the card sets `precision`.
+- **SC-004**: `docs/README.md` documents the `precision` default as `1` for both entity rows and expression rows, with no remaining reference to a `native`/`full`/no-rounding default.
 
 ## Assumptions
 
