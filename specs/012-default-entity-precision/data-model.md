@@ -23,7 +23,7 @@ This feature changes a display default; it introduces no new persisted entity an
 - `resolvePrecision({})` → `1`
 - `resolvePrecision({ precision: 2 })` → `2`
 - `resolvePrecision({ precision: 0 })` → `0`
-- Effective precision `p` is applied as `Intl.NumberFormat(lang, { maximumFractionDigits: p, minimumFractionDigits: p })` (fixed-decimal) at both render sites.
+- Effective precision `p` is applied as `Intl.NumberFormat(lang, { maximumFractionDigits: p, minimumFractionDigits: p })` (fixed-decimal) at the single shared `nf` formatter site (`year-table.ts` ~L196), which formats every numeric cell.
 
 ## State transitions
 

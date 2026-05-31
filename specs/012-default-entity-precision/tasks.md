@@ -38,12 +38,12 @@ Single frontend project (HA Lovelace card):
 
 **Purpose**: Single-source the precision default so both user stories build on one helper.
 
-**⚠️ CRITICAL**: Blocks all user-story implementation. (Test tasks T002/T005 may be authored first per TDD; the helper implementation T003 is the foundational unblocker.)
+**⚠️ CRITICAL**: Blocks all user-story implementation. T002 (test) is authored first per TDD; T003 (helper) is the foundational unblocker.
 
 - [ ] T002 [P] Write failing unit test for `resolvePrecision` and `DEFAULT_PRECISION` in `frontend/tests/unit/components/year-table.precision.test.ts`: assert `DEFAULT_PRECISION === 1`, `resolvePrecision({}) === 1`, `resolvePrecision({ precision: 2 }) === 2`, `resolvePrecision({ precision: 0 }) === 0`. Confirm RED (symbols not yet exported).
 - [ ] T003 Add `export const DEFAULT_PRECISION = 1;` and `export function resolvePrecision(cfg: { precision?: number }): number { return cfg.precision ?? DEFAULT_PRECISION; }` at module scope in `frontend/src/components/year-table.ts`. Confirm T002 GREEN.
 
-**Checkpoint**: Helper exists and is unit-tested; render sites can now adopt it.
+**Checkpoint**: Helper exists and is unit-tested; the shared formatter can now adopt it.
 
 ---
 
@@ -59,9 +59,8 @@ Single frontend project (HA Lovelace card):
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Replace the entity-day-cell formatter default in `frontend/src/components/year-table.ts` (~L196): use `resolvePrecision(cfg)` as the fixed precision for `Intl.NumberFormat` (set both `minimumFractionDigits` and `maximumFractionDigits` to that value), replacing `cfg.precision ?? 20` / `cfg.precision ?? 0`.
-- [ ] T006 [US1] Replace the summary/cumulative formatter default in `frontend/src/components/year-table.ts` (~L281, `const precision = cfg.precision ?? 20`): use `resolvePrecision(cfg)`.
-- [ ] T007 [US1] Run `npm test` — confirm T004 and T002 GREEN and no prior test regressed (notably existing `year-table` and editor tests). Investigate any newly-failing baseline test before proceeding.
+- [ ] T005 [US1] Replace the shared `nf` formatter default in `frontend/src/components/year-table.ts` (~L196): set both `minimumFractionDigits` and `maximumFractionDigits` to `resolvePrecision(cfg)`, replacing `cfg.precision ?? 20` / `cfg.precision ?? 0`. This single `nf` constant formats every numeric cell (daily L247/256/265, summary L285-287, cumulative summary L359-362, total L366), so the one edit covers all cells for both entity and expression rows.
+- [ ] T006 [US1] Run `npm test` — confirm T004 and T002 GREEN and no prior test regressed (notably existing `year-table` and editor tests). Investigate any newly-failing baseline test before proceeding.
 
 **Checkpoint**: Unset-precision rows display one decimal everywhere; MVP functional and independently testable.
 
@@ -75,11 +74,11 @@ Single frontend project (HA Lovelace card):
 
 ### Tests for User Story 2 ⚠️ (write first, confirm RED or document why already covered)
 
-- [ ] T008 [US2] Add component test(s) in `frontend/tests/component/year-table.test.ts`: a row with `precision: 2` renders `1.234` as `1.23`; a row with `precision: 0` renders `1.6` as `2`; a second row with no `precision` in the same render still shows one decimal (mixed-row isolation). Confirm test state (RED if not yet covered).
+- [ ] T007 [US2] Add component test(s) in `frontend/tests/component/year-table.test.ts`: a row with `precision: 2` renders `1.234` as `1.23`; a row with `precision: 0` renders `1.6` as `2`; a second row with no `precision` in the same render still shows one decimal (mixed-row isolation). Confirm test state (RED if not yet covered).
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] No source change expected — `resolvePrecision` already passes explicit values through. Run `npm test`; if T008 fails, fix the formatter call sites so explicit `precision` (including `0`) is honored at both sites. Confirm GREEN.
+- [ ] T008 [US2] No source change expected — `resolvePrecision` already passes explicit values through the single `nf`. Run `npm test`; if T007 fails, fix the L196 formatter so explicit `precision` (including `0`) is honored. Confirm GREEN.
 
 **Checkpoint**: Override behavior proven intact alongside the new default.
 
@@ -89,11 +88,11 @@ Single frontend project (HA Lovelace card):
 
 **Purpose**: Documentation alignment (FR-006, FR-007, SC-004) and final validation.
 
-- [ ] T010 [P] Update `docs/README.md` entity-row table (~L92): change `precision` Default cell from `native` to `1` and reword the description to "Decimal digits shown in day cells and summary columns. Omit to use the default of 1." (remove the "HA's native precision (no rounding)" wording).
-- [ ] T011 [P] Update `docs/README.md` expression-row table (~L114): change `precision` Default cell from `full` to `1` and reword to "Decimal digits in displayed values. Omit to use the default of 1."
-- [ ] T012 Audit `docs/README.md` example snippets (~L192–234) for any contradiction with the new default; explicit `precision` examples stay as-is (no change expected per research Finding 4). Note result.
-- [ ] T013 Run `npm run lint` and `npm run build` in `frontend/`; confirm clean lint and a successful bundle to `frontend/dist/calendar-stats-card.js`.
-- [ ] T014 Execute `quickstart.md` acceptance mapping (SC-001..SC-004) and confirm each row passes.
+- [ ] T009 Update `docs/README.md` entity-row table (~L92): change `precision` Default cell from `native` to `1` and reword the description to "Decimal digits shown in day cells and summary columns. Omit to use the default of 1." (remove the "HA's native precision (no rounding)" wording).
+- [ ] T010 Update `docs/README.md` expression-row table (~L114): change `precision` Default cell from `full` to `1` and reword to "Decimal digits in displayed values. Omit to use the default of 1."
+- [ ] T011 Audit `docs/README.md` example snippets (~L192–234) for any contradiction with the new default; explicit `precision` examples stay as-is (no change expected per research Finding 4). Note result.
+- [ ] T012 Run `npm run lint` and `npm run build` in `frontend/`; confirm clean lint and a successful bundle to `frontend/dist/calendar-stats-card.js`.
+- [ ] T013 Execute `quickstart.md` acceptance mapping (SC-001..SC-004) and confirm each row passes.
 
 ---
 
@@ -102,20 +101,20 @@ Single frontend project (HA Lovelace card):
 ### Phase Dependencies
 
 - **Setup (T001)**: none — start immediately.
-- **Foundational (T002–T003)**: after Setup. T003 blocks all rendering tasks; T002 (test) precedes T003.
-- **US1 (T004–T007)**: after Foundational. T004 (test) → T005, T006 (impl) → T007 (verify).
-- **US2 (T008–T009)**: after Foundational; independently testable. Cleanest after US1 but does not depend on US1 source changes.
-- **Polish (T010–T014)**: docs tasks after behavior is final; T013/T014 last.
+- **Foundational (T002–T003)**: after Setup. T003 blocks the rendering edit; T002 (test) precedes T003.
+- **US1 (T004–T006)**: after Foundational. T004 (test) → T005 (impl) → T006 (verify).
+- **US2 (T007–T008)**: after Foundational; independently testable. Cleanest after US1 but does not depend on US1 source changes.
+- **Polish (T009–T013)**: docs tasks after behavior is final; T012/T013 last.
 
 ### Within Each User Story
 
 - Test task written and RED before implementation (Constitution II).
-- T005 and T006 touch the same file (`year-table.ts`) → NOT parallel; run sequentially.
+- US1 needs only a single source edit (T005) at the shared `nf`; no same-file conflict.
 
 ### Parallel Opportunities
 
-- T010 and T011 [P]: same file (`docs/README.md`) different rows — treat as sequential if edited via exact-string replace to avoid churn; mark [P] only because they are logically independent.
 - T002 [P]: independent test file from any other in-flight work.
+- T009 and T010 edit the same file (`docs/README.md`, different rows) → run sequentially; not marked [P].
 
 ---
 
@@ -123,7 +122,7 @@ Single frontend project (HA Lovelace card):
 
 ### MVP First (User Story 1)
 
-1. T001 baseline → T002/T003 helper → T004 test → T005/T006 impl → T007 verify.
+1. T001 baseline → T002/T003 helper → T004 test → T005 impl → T006 verify.
 2. STOP and validate: unset rows show one decimal. Demo-ready.
 
 ### Incremental Delivery
@@ -136,7 +135,7 @@ Single frontend project (HA Lovelace card):
 
 ## Notes
 
-- [P] = different files, no dependencies. T005/T006 share `year-table.ts` — sequential.
+- [P] = different files, no dependencies.
 - Verify each test RED before its implementation; verify suite GREEN after.
 - No new i18n strings (uses existing `this.lang` in `Intl.NumberFormat`).
 - Commit handling is via Speckit hooks; do not commit manually mid-workflow.

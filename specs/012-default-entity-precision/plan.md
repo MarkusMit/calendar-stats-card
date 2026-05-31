@@ -1,115 +1,77 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Default Entity Precision of 1
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit-plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
+**Branch**: `012-default-entity-precision` | **Date**: 2026-05-31 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/012-default-entity-precision/spec.md`
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Change the card's default numeric display precision from "native / no rounding" to a fixed **1 decimal place** for any row (entity or expression) that does not set `precision`.
+The per-row `precision` option and its existing fixed-decimal behavior are unchanged.
+Documentation (`docs/README.md`) is updated to match.
+
+Technical approach: the default currently lives as inline `?? 20` / `?? 0` fallbacks in the single shared `Intl.NumberFormat` constant `nf` inside `year-table.ts` (`renderEntityRows`, ~L196).
+That one `nf` formats every numeric cell — daily values (L247/256/265), summary min/avg/max (L285-287), cumulative summary (L359-362), and totals (L366) — for both entity and expression rows.
+Single-source the default into a `DEFAULT_PRECISION` constant plus a tiny pure `resolvePrecision()` helper, change the fallback value to `1`, and apply it at that one formatter site.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: TypeScript (ES2022 target), Node.js 24.15 (WSL2) for build/test
+**Primary Dependencies**: Lit (custom element), `Intl.NumberFormat` (built-in) — no new dependencies
+**Storage**: N/A (card config is HA-managed Lovelace YAML/JSON)
+**Testing**: Vitest (`frontend/`); TDD per Constitution II
+**Target Platform**: Home Assistant 2026.5.0+ (browser, WASM-free)
+**Project Type**: Single frontend project (HA Lovelace custom card)
+**Performance Goals**: No change; formatting is per-cell `Intl.NumberFormat`, unaffected
+**Constraints**: UTF-8 + LF; i18n via existing localize mechanism (no new strings here)
+**Scale/Scope**: 1 shared-formatter edit in 1 source file + 1 new helper/constant + README text (2 cells)
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- [ ] **I. HA-Native Design** — UI approach uses HA design tokens and Lovelace card conventions;
-  any custom styling is justified.
-- [ ] **II. Test-First** — test plan defined for every implementation task; tests written and
-  confirmed failing before implementation code is written.
-- [ ] **III. Density & Data Fidelity** — layout is dense (no decorative whitespace); computation
-  rules for scalar / range / cumulative entities are correctly specified in the design.
-- [ ] **IV. i18n from Day One** — all user-visible strings use the i18n mechanism from their first
-  introduction; no hard-coded display strings.
-- [ ] **V. Simplicity** — no out-of-scope features included; every abstraction has a current
-  concrete need; complexity justified in Complexity Tracking table if present.
+- [x] **I. HA-Native Design** — no UI/styling change; only the default decimal count of already-rendered cells. Uses standard `Intl.NumberFormat`. Compliant.
+- [x] **II. Test-First** — failing Vitest unit test for `resolvePrecision()` (and the `DEFAULT_PRECISION` value) written and confirmed red before the source change. Compliant.
+- [x] **III. Density & Data Fidelity** — display-format only; no change to any min/avg/max/total computation path or `device_class`/`show_zero` logic. Compliant.
+- [x] **IV. i18n from Day One** — no new user-visible strings; `Intl.NumberFormat` already receives `this.lang`. Compliant.
+- [x] **V. Simplicity** — single-sourcing the default replaces inline magic numbers in the shared formatter and is the minimum needed for FR-005 consistency + testability; no speculative abstraction. Compliant.
 
-*Violations require a row in the Complexity Tracking table below before work proceeds.*
+No violations. Complexity Tracking table omitted.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit-plan command output)
-├── research.md          # Phase 0 output (/speckit-plan command)
-├── data-model.md        # Phase 1 output (/speckit-plan command)
-├── quickstart.md        # Phase 1 output (/speckit-plan command)
-├── contracts/           # Phase 1 output (/speckit-plan command)
-└── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)
+specs/012-default-entity-precision/
+├── plan.md              # This file
+├── research.md          # Phase 0 output
+├── data-model.md        # Phase 1 output
+├── quickstart.md        # Phase 1 output
+├── contracts/
+│   └── precision-default.md   # Phase 1 output (display contract)
+└── tasks.md             # Phase 2 output (/speckit-tasks)
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
 frontend/
 ├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
+│   └── components/
+│       └── year-table.ts          # shared `nf` formatter default (~L196) + new DEFAULT_PRECISION/resolvePrecision
 └── tests/
+    └── unit/
+        └── components/
+            └── year-table.precision.test.ts   # NEW — failing-first unit test
 
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+docs/
+└── README.md                      # precision default text (entity row ~L92, expression row ~L114)
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Existing single-frontend layout.
+The only source file touched is `frontend/src/components/year-table.ts`; a new colocated unit test under `frontend/tests/unit/components/`; documentation in `docs/README.md`.
+No new module or directory is introduced.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+No constitution violations; table intentionally empty.
