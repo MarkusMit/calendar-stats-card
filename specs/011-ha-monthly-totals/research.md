@@ -4,7 +4,9 @@
 
 **Decision**: Change the monthly `fetchMonthlyStats` call's `startTime` parameter in `calendar-stats-card.ts:219` from `${year}-01-01T00:00:00Z` to `${year - 1}-12-01T00:00:00Z`.
 The `endTime` stays at `${year + 1}-01-01T00:00:00Z`.
-HA's `recorder/statistics_during_period` with `period: 'month'` snaps to month boundaries; passing Dec-1 (UTC) returns the December entry of the prior year alongside the requested year's twelve months — thirteen entries total per entity instead of twelve.
+HA's `recorder/statistics_during_period` with `period: 'month'` snaps to month boundaries in the HA server's configured timezone (local midnight), not UTC; passing Dec-1 returns the December entry of the prior year alongside the requested year's twelve months — thirteen entries total per entity instead of twelve.
+Bucket `start` timestamps therefore fall in the *previous* UTC month for timezones east of UTC (e.g. Europe/Vienna May bucket starts `2026-04-30T22:00:00Z`), so month attribution must use `hass.config.time_zone`, never UTC getters.
+(Correction 2026-06-05: the original "(UTC)" claim here was wrong and led to a one-month bucket-attribution shift, fixed in `transformMonthlyStats`.)
 
 **Rationale**: Single-fetch extension is simpler than a separate prior-year fetch and matches how the daily fetch already over-reaches into the prior year (`dailyStartTime = ${year - 1}-12-31T00:00:00Z`).
 HA returns the additional entry in the same WebSocket round-trip; no extra request needed.
