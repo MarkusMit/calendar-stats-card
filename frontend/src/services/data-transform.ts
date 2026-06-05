@@ -24,6 +24,16 @@ function todayStringInTz(timeZone: string, nowMs: number): string {
 
 type HourlyEntry = { start: number; end: number };
 
+function yearMonthInTz(timestampMs: number, timeZone: string): { year: number; month: number } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+  }).format(new Date(timestampMs));
+  const [y, m] = parts.split('-').map(Number);
+  return { year: y!, month: m! };
+}
+
 function hourInTz(timestampMs: number, timeZone: string): number {
   return Number(
     new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hour12: false }).format(
@@ -205,6 +215,7 @@ export function transformMonthlyStats(
   dailyValues: Map<string, DailyValue>,
   entityConfigs: EntityConfig[],
   viewingYear: number,
+  timeZone: string,
 ): Map<string, MonthlySummary> {
   const result = new Map<string, MonthlySummary>();
 
@@ -223,9 +234,9 @@ export function transformMonthlyStats(
     const sorted = [...entries].sort((a, b) => a.start - b.start);
 
     sorted.forEach((entry, i) => {
-      const date = new Date(entry.start);
-      const year = date.getUTCFullYear();
-      const month = date.getUTCMonth() + 1;
+      // HA monthly buckets start at LOCAL midnight in the server timezone — derive
+      // year/month in that zone, not UTC, or every bucket east of UTC shifts back a month.
+      const { year, month } = yearMonthInTz(entry.start, timeZone);
       // Lookup-only entries from before the viewing year (e.g. Dec-of-prior-year fetched to
       // enable January's cross-year delta) MUST NOT produce a summary entry. FR-007.
       if (year < viewingYear) return;
@@ -247,9 +258,7 @@ export function transformMonthlyStats(
           if (i > 0) {
             const prev = sorted[i - 1]!;
             if (prev.sum !== undefined) {
-              const prevDate = new Date(prev.start);
-              const prevYear = prevDate.getUTCFullYear();
-              const prevMonth = prevDate.getUTCMonth() + 1;
+              const { year: prevYear, month: prevMonth } = yearMonthInTz(prev.start, timeZone);
               const expectedPrevYear = month === 1 ? year - 1 : year;
               const expectedPrevMonth = month === 1 ? 12 : month - 1;
               if (prevYear === expectedPrevYear && prevMonth === expectedPrevMonth) {

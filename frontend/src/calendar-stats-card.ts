@@ -314,7 +314,7 @@ export class CalendarStatsCard extends LitElement {
         }
       }
 
-      const monthlySummaries = transformMonthlyStats(monthlyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, dailyValues, this._config.entities, year);
+      const monthlySummaries = transformMonthlyStats(monthlyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, dailyValues, this._config.entities, year, tz);
 
       // Compute expression monthly summaries from expression daily values.
       // min/mean/max exclude zero-value days when the row's show_zero is false (FR-003);

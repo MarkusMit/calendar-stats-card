@@ -224,7 +224,7 @@ describe('transformMonthlyStats — edge cases', () => {
   it('entity in rawStats but absent from metadataMap → skipped', () => {
     const start = new Date('2025-01-01T00:00:00Z').getTime();
     const raw = { 'sensor.unknown': [{ start, end: start + 86400_000 }] };
-    const result = transformMonthlyStats(raw, {}, new Map(), [], 2025);
+    const result = transformMonthlyStats(raw, {}, new Map(), [], 2025, TZ);
     expect(result.size).toBe(0);
   });
 
@@ -233,7 +233,7 @@ describe('transformMonthlyStats — edge cases', () => {
     // min/mean/max still require daily values; absent → null.
     const start = new Date('2025-01-01T00:00:00Z').getTime();
     const raw = { 'sensor.energy': [{ start, end: start + 2678400_000, sum: 50 }] };
-    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025);
+    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025, TZ);
     const summary = result.get('0::sensor.energy::2025-1');
     expect(summary?.min).toBeNull();
     expect(summary?.max).toBeNull();
@@ -252,7 +252,7 @@ describe('transformMonthlyStats', () => {
       ['sensor.temp::2025-01-01', { kind: 'measurement', entityId: 'sensor.temp', date: '2025-01-01', min: -14, mean: -3, max: 10, partialCoverage: false }],
       ['sensor.temp::2025-01-02', { kind: 'measurement', entityId: 'sensor.temp', date: '2025-01-02', min: -7, mean: 2, max: 8, partialCoverage: false }],
     ]);
-    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, dailyValues, [{ entity: 'sensor.temp' }], 2025);
+    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, dailyValues, [{ entity: 'sensor.temp' }], 2025, TZ);
     const summary = result.get('0::sensor.temp::2025-1');
     expect(summary).toBeDefined();
     expect(summary?.min).toBe(-14);
@@ -266,7 +266,7 @@ describe('transformMonthlyStats', () => {
     const raw: Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]> = {
       'sensor.temp': [{ start, end: start + 2678400_000, mean: 18, min: 5, max: 30 }],
     };
-    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, new Map(), [{ entity: 'sensor.temp' }], 2025);
+    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, new Map(), [{ entity: 'sensor.temp' }], 2025, TZ);
     const summary = result.get('0::sensor.temp::2025-1');
     expect(summary).toBeDefined();
     expect(summary?.min).toBeNull();
@@ -286,7 +286,7 @@ describe('transformMonthlyStats', () => {
       'sensor.rain': [{ start: new Date('2025-01-01T00:00:00Z').getTime(), end: new Date('2025-02-01T00:00:00Z').getTime(), sum: 15 }],
     };
     const cfgs: EntityConfig[] = [{ entity: 'sensor.rain', show_zero: false }];
-    const result = transformMonthlyStats(monthlyRaw, { 'sensor.rain': precipMeta }, dailyValues, cfgs, 2025);
+    const result = transformMonthlyStats(monthlyRaw, { 'sensor.rain': precipMeta }, dailyValues, cfgs, 2025, TZ);
     const summary = result.get('0::sensor.rain::2025-1');
     expect(summary?.min).toBe(5);   // 0 excluded
     expect(summary?.max).toBe(10);
@@ -302,7 +302,7 @@ describe('transformMonthlyStats', () => {
       'sensor.energy': [{ start: new Date('2025-01-01T00:00:00Z').getTime(), end: new Date('2025-02-01T00:00:00Z').getTime(), sum: 10 }],
     };
     const cfgs: EntityConfig[] = [{ entity: 'sensor.energy' }]; // show_zero omitted = default include
-    const result = transformMonthlyStats(monthlyRaw, { 'sensor.energy': energyMeta }, dailyValues, cfgs, 2025);
+    const result = transformMonthlyStats(monthlyRaw, { 'sensor.energy': energyMeta }, dailyValues, cfgs, 2025, TZ);
     const summary = result.get('0::sensor.energy::2025-1');
     expect(summary?.min).toBe(0);   // zero included
     expect(summary?.max).toBe(10);
@@ -321,7 +321,7 @@ describe('transformMonthlyStats', () => {
       'sensor.rain': [{ start: new Date('2025-01-01T00:00:00Z').getTime(), end: new Date('2025-02-01T00:00:00Z').getTime(), sum: 12 }],
     };
     const cfgs: EntityConfig[] = [{ entity: 'sensor.rain' }];
-    const result = transformMonthlyStats(monthlyRaw, { 'sensor.rain': precipMeta }, dailyValues, cfgs, 2025);
+    const result = transformMonthlyStats(monthlyRaw, { 'sensor.rain': precipMeta }, dailyValues, cfgs, 2025, TZ);
     const summary = result.get('0::sensor.rain::2025-1');
     expect(summary?.min).toBe(0);   // zero now INCLUDED for precipitation
     expect(summary?.max).toBe(8);
@@ -338,7 +338,7 @@ describe('transformMonthlyStats', () => {
       'sensor.energy': [{ start: new Date('2025-01-01T00:00:00Z').getTime(), end: new Date('2025-02-01T00:00:00Z').getTime(), sum: 0 }],
     };
     const cfgs: EntityConfig[] = [{ entity: 'sensor.energy', show_zero: false }];
-    const result = transformMonthlyStats(monthlyRaw, { 'sensor.energy': energyMeta }, dailyValues, cfgs, 2025);
+    const result = transformMonthlyStats(monthlyRaw, { 'sensor.energy': energyMeta }, dailyValues, cfgs, 2025, TZ);
     const summary = result.get('0::sensor.energy::2025-1');
     expect(summary).toBeDefined();
     expect(summary?.min).toBeNull();
@@ -378,7 +378,7 @@ describe('transformMonthlyStats', () => {
       'sensor.energy': [{ start: d1, end: new Date('2025-02-01T00:00:00Z').getTime(), sum: 100 }],
     };
     const cfgs: EntityConfig[] = [{ entity: 'sensor.energy', show_zero: false }];
-    const result = transformMonthlyStats(monthlyRaw, { 'sensor.energy': energyMeta }, dailyValues, cfgs, 2025);
+    const result = transformMonthlyStats(monthlyRaw, { 'sensor.energy': energyMeta }, dailyValues, cfgs, 2025, TZ);
     const summary = result.get('0::sensor.energy::2025-1');
     // Only days 1 (delta=100) and 2 (delta=100) survive the exclusion. Day 1's sum was the baseline (no prevSum) so its delta is 100.
     expect(summary?.min).toBe(100);
@@ -396,8 +396,8 @@ describe('transformMonthlyStats', () => {
     };
     const cfgsWithShow: EntityConfig[] = [{ entity: 'sensor.temp', show_zero: true }];
     const cfgsWithoutShow: EntityConfig[] = [{ entity: 'sensor.temp', show_zero: false }];
-    const resultShow = transformMonthlyStats(monthlyRaw, { 'sensor.temp': tempMeta }, dailyValues, cfgsWithShow, 2025);
-    const resultHide = transformMonthlyStats(monthlyRaw, { 'sensor.temp': tempMeta }, dailyValues, cfgsWithoutShow, 2025);
+    const resultShow = transformMonthlyStats(monthlyRaw, { 'sensor.temp': tempMeta }, dailyValues, cfgsWithShow, 2025, TZ);
+    const resultHide = transformMonthlyStats(monthlyRaw, { 'sensor.temp': tempMeta }, dailyValues, cfgsWithoutShow, 2025, TZ);
     const sShow = resultShow.get('0::sensor.temp::2025-1');
     const sHide = resultHide.get('0::sensor.temp::2025-1');
     // Both summaries identical for measurement state_class (show_zero is inapplicable per FR-007).
@@ -423,7 +423,7 @@ describe('transformMonthlyStats', () => {
       { entity: 'sensor.rain', name: 'Rain (include zeros)' },                  // row 0, show_zero default true
       { entity: 'sensor.rain', name: 'Rain (exclude zeros)', show_zero: false }, // row 1, show_zero false
     ];
-    const result = transformMonthlyStats(monthlyRaw, { 'sensor.rain': precipMeta }, dailyValues, cfgs, 2025);
+    const result = transformMonthlyStats(monthlyRaw, { 'sensor.rain': precipMeta }, dailyValues, cfgs, 2025, TZ);
 
     const row0 = result.get('0::sensor.rain::2025-1');
     const row1 = result.get('1::sensor.rain::2025-1');
@@ -466,7 +466,7 @@ describe('transformMonthlyStats', () => {
       ['sensor.energy::2025-02-01', { kind: 'cumulative' as const, entityId: 'sensor.energy', date: '2025-02-01', sum: 30, partialCoverage: false }],
     ]);
     const cfgs: EntityConfig[] = [{ entity: 'sensor.energy', show_zero: false }];
-    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, dailyValues, cfgs, 2025);
+    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, dailyValues, cfgs, 2025, TZ);
     const jan = result.get('0::sensor.energy::2025-1');
     const feb = result.get('0::sensor.energy::2025-2');
     expect(jan?.total).toBe(100);  // first-month fallback: sum[Jan] = 100 (no prev)
@@ -568,7 +568,7 @@ describe('transformMonthlyStats — HA monthly sum delta (feature 011)', () => {
     const raw: Record<string, { start: number; end: number; sum?: number }[]> = {
       'sensor.energy': [{ start: tsJan2025, end: tsFeb2025, sum: 250 }],
     };
-    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025);
+    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025, TZ);
     const jan = result.get('0::sensor.energy::2025-1');
     expect(jan?.total).toBe(250);
   });
@@ -577,7 +577,7 @@ describe('transformMonthlyStats — HA monthly sum delta (feature 011)', () => {
     const raw: Record<string, { start: number; end: number; sum?: number }[]> = {
       'sensor.energy': [{ start: tsJan2025, end: tsFeb2025 /* sum omitted */ }],
     };
-    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025);
+    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025, TZ);
     const jan = result.get('0::sensor.energy::2025-1');
     expect(jan?.total).toBeNull();
   });
@@ -590,7 +590,7 @@ describe('transformMonthlyStats — HA monthly sum delta (feature 011)', () => {
         { start: tsFeb2025, end: tsMar2025, sum: 50 },
       ],
     };
-    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025);
+    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025, TZ);
     const feb = result.get('0::sensor.energy::2025-2');
     expect(feb?.total).toBe(0);  // clamped: total_increasing never goes negative
   });
@@ -603,7 +603,7 @@ describe('transformMonthlyStats — HA monthly sum delta (feature 011)', () => {
         { start: tsFeb2025, end: tsMar2025, sum: 50 },
       ],
     };
-    const result = transformMonthlyStats(raw, { 'sensor.net': totalMeta }, new Map(), [{ entity: 'sensor.net' }], 2025);
+    const result = transformMonthlyStats(raw, { 'sensor.net': totalMeta }, new Map(), [{ entity: 'sensor.net' }], 2025, TZ);
     const feb = result.get('0::sensor.net::2025-2');
     expect(feb?.total).toBe(-950);  // raw delta preserved for `total` state class
   });
@@ -618,7 +618,7 @@ describe('transformMonthlyStats — HA monthly sum delta (feature 011)', () => {
         { start: tsMar2025, end: new Date('2025-04-01T00:00:00Z').getTime(), sum: 350 },
       ],
     };
-    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025);
+    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025, TZ);
     const jan = result.get('0::sensor.energy::2025-1');
     const mar = result.get('0::sensor.energy::2025-3');
     expect(jan?.total).toBe(100);   // first tracked month
@@ -634,7 +634,7 @@ describe('transformMonthlyStats — HA monthly sum delta (feature 011)', () => {
         { start: tsJan2025, end: tsFeb2025, sum: 800 },   // viewing year
       ],
     };
-    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025);
+    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, new Map(), [{ entity: 'sensor.energy' }], 2025, TZ);
     expect(result.has('0::sensor.energy::2024-12')).toBe(false);
     expect(result.has('0::sensor.energy::2025-1')).toBe(true);
     const jan = result.get('0::sensor.energy::2025-1');
@@ -651,12 +651,56 @@ describe('transformMonthlyStats — HA monthly sum delta (feature 011)', () => {
       ['sensor.temp::2025-01-01', { kind: 'measurement' as const, entityId: 'sensor.temp', date: '2025-01-01', min: -14, mean: -3, max: 10, partialCoverage: false }],
       ['sensor.temp::2025-01-02', { kind: 'measurement' as const, entityId: 'sensor.temp', date: '2025-01-02', min: -7, mean: 2, max: 8, partialCoverage: false }],
     ]);
-    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, dailyValues, [{ entity: 'sensor.temp' }], 2025);
+    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, dailyValues, [{ entity: 'sensor.temp' }], 2025, TZ);
     const summary = result.get('0::sensor.temp::2025-1');
     expect(summary).toBeDefined();
     expect(summary?.min).toBe(-14);                 // from daily, not HA monthly min=5
     expect(summary?.mean).toBeCloseTo((-3 + 2) / 2); // from daily, not HA monthly mean=18
     expect(summary?.max).toBe(10);                  // from daily, not HA monthly max=30
     expect(summary?.total).toBeNull();              // measurement entities have no total
+  });
+});
+
+describe('transformMonthlyStats — timezone bucket attribution', () => {
+  // HA returns monthly buckets starting at LOCAL midnight in the server timezone.
+  // In Europe/Vienna (UTC+2 in summer) the May bucket starts 2026-04-30T22:00:00Z;
+  // UTC getters mislabel it as April, shifting every monthly total back one month.
+  it('attributes monthly buckets via HA timezone, not UTC (bug: May column showed June-to-date total)', () => {
+    const monthlyRaw: Record<string, { start: number; end: number; sum?: number }[]> = {
+      'sensor.rain': [
+        { start: Date.parse('2026-03-31T22:00:00Z'), end: Date.parse('2026-04-30T22:00:00Z'), sum: 100 }, // April bucket
+        { start: Date.parse('2026-04-30T22:00:00Z'), end: Date.parse('2026-05-31T22:00:00Z'), sum: 130 }, // May bucket
+        { start: Date.parse('2026-05-31T22:00:00Z'), end: Date.parse('2026-06-30T22:00:00Z'), sum: 137 }, // June bucket (in progress)
+      ],
+    };
+    const cfgs: EntityConfig[] = [{ entity: 'sensor.rain' }];
+    const result = transformMonthlyStats(monthlyRaw, { 'sensor.rain': precipMeta }, new Map(), cfgs, 2026, 'Europe/Vienna');
+    expect(result.get('0::sensor.rain::2026-4')?.total).toBe(100); // first-tracked-month fallback
+    expect(result.get('0::sensor.rain::2026-5')?.total).toBe(30);  // May = 130 - 100
+    expect(result.get('0::sensor.rain::2026-6')?.total).toBe(7);   // June-to-date = 137 - 130
+  });
+
+  it('January bucket starting Dec 31 UTC (local midnight Jan 1 CET) is not dropped by the viewing-year guard', () => {
+    const monthlyRaw: Record<string, { start: number; end: number; sum?: number }[]> = {
+      'sensor.rain': [
+        { start: Date.parse('2025-12-31T23:00:00Z'), end: Date.parse('2026-01-31T23:00:00Z'), sum: 20 }, // Jan 2026 bucket (CET = UTC+1)
+      ],
+    };
+    const cfgs: EntityConfig[] = [{ entity: 'sensor.rain' }];
+    const result = transformMonthlyStats(monthlyRaw, { 'sensor.rain': precipMeta }, new Map(), cfgs, 2026, 'Europe/Vienna');
+    expect(result.get('0::sensor.rain::2026-1')?.total).toBe(20);
+  });
+
+  it('Dec-of-prior-year lookup bucket (local midnight Dec 1 CET) stays excluded from summaries', () => {
+    const monthlyRaw: Record<string, { start: number; end: number; sum?: number }[]> = {
+      'sensor.rain': [
+        { start: Date.parse('2025-11-30T23:00:00Z'), end: Date.parse('2025-12-31T23:00:00Z'), sum: 10 }, // Dec 2025 bucket
+        { start: Date.parse('2025-12-31T23:00:00Z'), end: Date.parse('2026-01-31T23:00:00Z'), sum: 25 }, // Jan 2026 bucket
+      ],
+    };
+    const cfgs: EntityConfig[] = [{ entity: 'sensor.rain' }];
+    const result = transformMonthlyStats(monthlyRaw, { 'sensor.rain': precipMeta }, new Map(), cfgs, 2026, 'Europe/Vienna');
+    expect(result.get('0::sensor.rain::2025-12')).toBeUndefined(); // lookup-only, FR-007
+    expect(result.get('0::sensor.rain::2026-1')?.total).toBe(15);  // cross-year delta: 25 - 10
   });
 });
