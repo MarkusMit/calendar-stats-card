@@ -42,6 +42,7 @@ export class YearTable extends LitElement {
     table {
       border-collapse: collapse;
       white-space: nowrap;
+      -webkit-user-select: text;
       user-select: text;
     }
     th, td {
