@@ -48,8 +48,10 @@ export class YearTable extends LitElement {
     if (!this._contrastProbe) {
       const span = document.createElement('span');
       span.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none';
-      // Light-DOM child of the table: inherits theme CSS vars, not slotted/rendered.
-      this.appendChild(span);
+      // Append to document.body so the probe is actually rendered (in the flat
+      // tree): getComputedStyle then resolves named colors and global theme
+      // var(...) values. Named colors also resolve statically via parseRgb.
+      document.body.appendChild(span);
       this._contrastProbe = span;
     }
     const result = autoContrastText(bg, this._contrastProbe);

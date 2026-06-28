@@ -1091,4 +1091,17 @@ describe('YearTable — auto-contrast text color', () => {
     const style = cell?.getAttribute('style');
     expect(style == null || !style.includes('color:#')).toBe(true);
   });
+
+  it('named light background → black auto-contrast text (regression)', async () => {
+    const el = await renderCell({ background_color: 'lightblue' }, 5);
+    const cell = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(cell?.getAttribute('style')).toContain('color:#000000');
+    expect(cell?.getAttribute('style')).toContain('background-color:lightblue');
+  });
+
+  it('named dark background → white auto-contrast text', async () => {
+    const el = await renderCell({ background_color: 'darkred' }, 5);
+    const cell = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(cell?.getAttribute('style')).toContain('color:#ffffff');
+  });
 });
