@@ -33,11 +33,17 @@ describe('parseRgb', () => {
     expect(parseRgb('var(--my-color)')).toBeNull();
   });
 
-  it('returns null for bare named color', () => {
-    expect(parseRgb('orange')).toBeNull();
+  it('resolves CSS named colors', () => {
+    expect(parseRgb('orange')).toEqual({ r: 255, g: 165, b: 0 });
+    expect(parseRgb('lightblue')).toEqual({ r: 173, g: 216, b: 230 });
+    expect(parseRgb('LightYellow')).toEqual({ r: 255, g: 255, b: 224 }); // case-insensitive
+    expect(parseRgb('darkred')).toEqual({ r: 139, g: 0, b: 0 });
+    expect(parseRgb('white')).toEqual({ r: 255, g: 255, b: 255 });
+    expect(parseRgb('transparent')).toEqual({ r: 0, g: 0, b: 0 });
   });
 
-  it('returns null for garbage', () => {
+  it('returns null for unknown names and garbage', () => {
+    expect(parseRgb('notacolor')).toBeNull();
     expect(parseRgb('')).toBeNull();
     expect(parseRgb('#12')).toBeNull();
   });
@@ -94,6 +100,18 @@ describe('autoContrastText', () => {
   it('dark hex bg → white text', () => {
     const probe = document.createElement('span');
     expect(autoContrastText('#8b0000', probe)).toBe('#ffffff');
+  });
+
+  it('named light bg → black text (no DOM resolution needed)', () => {
+    const probe = document.createElement('span');
+    expect(autoContrastText('lightblue', probe)).toBe('#000000');
+    expect(autoContrastText('lightyellow', probe)).toBe('#000000');
+  });
+
+  it('named dark bg → white text', () => {
+    const probe = document.createElement('span');
+    expect(autoContrastText('darkred', probe)).toBe('#ffffff');
+    expect(autoContrastText('navy', probe)).toBe('#ffffff');
   });
 
   it('unresolvable color → undefined', () => {
