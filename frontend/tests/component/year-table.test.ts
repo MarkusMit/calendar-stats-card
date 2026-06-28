@@ -1036,3 +1036,59 @@ describe('YearTable — cumulative total column ignores thresholds', () => {
     expect(cols[cols.length - 1]?.getAttribute('style')).toContain('background-color:gray');
   });
 });
+
+describe('YearTable — auto-contrast text color', () => {
+  const RAIN_ID = 'sensor.rain';
+
+  async function renderCell(cfg: Partial<EntityConfig>, dayValue: number) {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = [{ entity: RAIN_ID, ...cfg } as EntityConfig];
+    const dayVal: CumulativeDailyValue = {
+      kind: 'cumulative', entityId: RAIN_ID, date: '2025-01-01',
+      sum: dayValue, partialCoverage: false,
+    };
+    el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
+    el.monthlySummaries = new Map();
+    el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('light hex background, no text_color → black auto-contrast text', async () => {
+    const el = await renderCell({ background_color: '#cce8f5' }, 5);
+    const cell = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(cell?.getAttribute('style')).toContain('color:#000000');
+    expect(cell?.getAttribute('style')).toContain('background-color:#cce8f5');
+  });
+
+  it('dark hex threshold background → white auto-contrast text', async () => {
+    const el = await renderCell(
+      { thresholds: [{ operator: 'above', value: 10, background_color: '#8b0000' }] }, 20,
+    );
+    const cell = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(cell?.getAttribute('style')).toContain('color:#ffffff');
+    expect(cell?.getAttribute('style')).toContain('background-color:#8b0000');
+  });
+
+  it('explicit text_color is respected (auto-contrast does not override)', async () => {
+    const el = await renderCell({ background_color: '#cce8f5', text_color: 'red' }, 5);
+    const cell = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    expect(cell?.getAttribute('style')).toContain('color:red');
+    expect(cell?.getAttribute('style')).not.toContain('color:#000000');
+  });
+
+  it('no background → no injected color', async () => {
+    const el = await renderCell({}, 5);
+    const cell = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
+    const style = cell?.getAttribute('style');
+    expect(style == null || !style.includes('color:#')).toBe(true);
+  });
+});

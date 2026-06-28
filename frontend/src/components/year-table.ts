@@ -6,6 +6,7 @@ import { rowKey } from '../types/card-config';
 import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
+import { autoContrastText } from '../services/readable-text';
 import { rowSummaryKey } from '../services/data-transform';
 
 const TOTAL_DAYS = 31;
@@ -30,6 +31,37 @@ export class YearTable extends LitElement {
   @property({ type: String }) lang = 'en';
 
   private _triggeredRules = new Set<ThresholdRule>();
+
+  /** Hidden probe (light DOM child) used to resolve CSS colors via the browser. */
+  private _contrastProbe?: HTMLSpanElement;
+  /** Cache: effective background string → auto-contrast text color. */
+  private _contrastCache = new Map<string, string | undefined>();
+
+  /**
+   * Auto-contrast text color (black/white) for a cell background, or undefined
+   * when no background is set or the color cannot be resolved.
+   */
+  private autoTextFor(bg: string | undefined): string | undefined {
+    if (!bg) return undefined;
+    const cached = this._contrastCache.get(bg);
+    if (cached !== undefined || this._contrastCache.has(bg)) return cached;
+    if (!this._contrastProbe) {
+      const span = document.createElement('span');
+      span.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none';
+      // Light-DOM child of the table: inherits theme CSS vars, not slotted/rendered.
+      this.appendChild(span);
+      this._contrastProbe = span;
+    }
+    const result = autoContrastText(bg, this._contrastProbe);
+    this._contrastCache.set(bg, result);
+    return result;
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._contrastProbe?.remove();
+    this._contrastProbe = undefined;
+  }
 
   static styles = css`
     :host {
@@ -215,10 +247,12 @@ export class YearTable extends LitElement {
     const summaryKey = rowSummaryKey(rowIndex, key, this.year, month);
     const summary = this.monthlySummaries.get(summaryKey);
 
-    const colorParts: string[] = [];
-    if (cfg.text_color) colorParts.push(`color:${cfg.text_color}`);
-    if (cfg.background_color) colorParts.push(`background-color:${cfg.background_color}`);
-    const staticStyle = colorParts.length ? colorParts.join(';') : undefined;
+    const staticStyle = buildCellStyle(
+      cfg.text_color,
+      cfg.background_color,
+      undefined,
+      this.autoTextFor(cfg.background_color),
+    );
 
     if (isMeasurement && !hasError) {
       const erc = 'entity' in cfg ? cfg : null;
@@ -253,7 +287,7 @@ export class YearTable extends LitElement {
           } else {
             const minRule = resolveThreshold(minV, cfg.thresholds ?? [], 'min');
             if (minRule) this._triggeredRules.add(minRule);
-            const minStyle = buildCellStyle(cfg.text_color, cfg.background_color, minRule);
+            const minStyle = buildCellStyle(cfg.text_color, cfg.background_color, minRule, this.autoTextFor(minRule?.background_color ?? cfg.background_color));
             minCells.push(html`<td class="data-cell has-data" style=${ifDefined(minStyle)}>${nf.format(minV)}${pc}</td>`);
           }
 
@@ -262,7 +296,7 @@ export class YearTable extends LitElement {
           } else {
             const avgRule = resolveThreshold(meanV, cfg.thresholds ?? [], 'avg');
             if (avgRule) this._triggeredRules.add(avgRule);
-            const avgStyle = buildCellStyle(cfg.text_color, cfg.background_color, avgRule);
+            const avgStyle = buildCellStyle(cfg.text_color, cfg.background_color, avgRule, this.autoTextFor(avgRule?.background_color ?? cfg.background_color));
             meanCells.push(html`<td class="data-cell has-data" style=${ifDefined(avgStyle)}>${nf.format(meanV)}</td>`);
           }
 
@@ -271,7 +305,7 @@ export class YearTable extends LitElement {
           } else {
             const maxRule = resolveThreshold(maxV, cfg.thresholds ?? [], 'max');
             if (maxRule) this._triggeredRules.add(maxRule);
-            const maxStyle = buildCellStyle(cfg.text_color, cfg.background_color, maxRule);
+            const maxStyle = buildCellStyle(cfg.text_color, cfg.background_color, maxRule, this.autoTextFor(maxRule?.background_color ?? cfg.background_color));
             maxCells.push(html`<td class="data-cell has-data" style=${ifDefined(maxStyle)}>${nf.format(maxV)}${pc}</td>`);
           }
         } else {
@@ -313,7 +347,7 @@ export class YearTable extends LitElement {
             const role = row === 'min' ? 'summary-min' : row === 'avg' ? 'summary-avg' : 'summary-max';
             const rule = resolveThreshold(v, cfg.thresholds ?? [], role);
             if (rule) this._triggeredRules.add(rule);
-            summaryStyles[row] = buildCellStyle(cfg.text_color, cfg.background_color, rule);
+            summaryStyles[row] = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
           }
         }
       }
@@ -355,7 +389,7 @@ export class YearTable extends LitElement {
       if (numericValue !== undefined) {
         const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar');
         if (rule) this._triggeredRules.add(rule);
-        cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule);
+        cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
       }
       dayCells.push(html`<td class="data-cell ${cellContent ? 'has-data' : ''}" style=${ifDefined(cellStyle)}>${cellContent}</td>`);
     }
@@ -381,7 +415,7 @@ export class YearTable extends LitElement {
     if (summary?.mean != null && (showMin || showAvg || showMax)) {
       const rule = resolveThreshold(summary.mean * f, cfg.thresholds ?? [], 'summary-scalar');
       if (rule) this._triggeredRules.add(rule);
-      cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule);
+      cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
     }
 
     return html`

@@ -42,12 +42,18 @@ export function buildCellStyle(
   staticTextColor: string | undefined,
   staticBgColor: string | undefined,
   threshold: ThresholdRule | undefined,
+  autoTextColor?: string,
 ): string | undefined {
   let text = staticTextColor;
   let bg = staticBgColor;
   if (threshold) {
     if (threshold.text_color !== undefined) text = threshold.text_color;
     if (threshold.background_color !== undefined) bg = threshold.background_color;
+  }
+  // No explicit text color but a background is present → use auto-contrast
+  // text (black/white by luminance) for dark-mode readability.
+  if (text === undefined && bg !== undefined && autoTextColor !== undefined) {
+    text = autoTextColor;
   }
   const parts: string[] = [];
   if (text) parts.push(`color:${text}`);

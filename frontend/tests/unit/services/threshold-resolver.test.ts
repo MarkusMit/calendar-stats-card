@@ -285,4 +285,32 @@ describe('buildCellStyle', () => {
     // threshold has no color fields; buildCellStyle doesn't filter — it just won't add anything
     expect(buildCellStyle(undefined, undefined, rule)).toBeUndefined();
   });
+
+  // --- autoTextColor (4th param) ---
+
+  it('autoText injected when bg set and no explicit text', () => {
+    expect(buildCellStyle(undefined, '#cce8f5', undefined, '#000000'))
+      .toBe('color:#000000;background-color:#cce8f5');
+  });
+
+  it('autoText applies to threshold background when no text', () => {
+    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: '#8b0000' };
+    expect(buildCellStyle(undefined, undefined, rule, '#ffffff'))
+      .toBe('color:#ffffff;background-color:#8b0000');
+  });
+
+  it('explicit static text_color wins over autoText', () => {
+    expect(buildCellStyle('black', '#cce8f5', undefined, '#000000'))
+      .toBe('color:black;background-color:#cce8f5');
+  });
+
+  it('explicit threshold text_color wins over autoText', () => {
+    const rule: ThresholdRule = { operator: 'above', value: 10, text_color: 'blue', background_color: '#8b0000' };
+    expect(buildCellStyle(undefined, undefined, rule, '#ffffff'))
+      .toBe('color:blue;background-color:#8b0000');
+  });
+
+  it('autoText ignored when no background', () => {
+    expect(buildCellStyle(undefined, undefined, undefined, '#000000')).toBeUndefined();
+  });
 });
