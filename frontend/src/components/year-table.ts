@@ -376,16 +376,12 @@ export class YearTable extends LitElement {
     const totalContent = summary?.total != null ? nf.format(summary.total * f) : '';
 
     let cumulSummaryStyle = staticStyle;
-    let cumulTotalStyle = staticStyle;
+    // Total column never gets threshold coloring — static color only.
+    const cumulTotalStyle = staticStyle;
     if (summary?.mean != null && (showMin || showAvg || showMax)) {
       const rule = resolveThreshold(summary.mean * f, cfg.thresholds ?? [], 'summary-scalar');
       if (rule) this._triggeredRules.add(rule);
       cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule);
-    }
-    if (summary?.total != null) {
-      const rule = resolveThreshold(summary.total * f, cfg.thresholds ?? [], 'summary-scalar');
-      if (rule) this._triggeredRules.add(rule);
-      cumulTotalStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule);
     }
 
     return html`

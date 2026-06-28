@@ -986,3 +986,53 @@ describe('YearTable — measurement threshold coloring', () => {
     expect(summaries[2]?.getAttribute('style')).toContain('background-color:green');
   });
 });
+
+describe('YearTable — cumulative total column ignores thresholds', () => {
+  const RAIN_ID = 'sensor.rain';
+
+  async function renderTotal(thresholds: ThresholdRule[], total: number, staticBg?: string) {
+    const el = new YearTable();
+    el.year = 2025;
+    el.visibleMonths = [1];
+    el.entityConfigs = [{
+      entity: RAIN_ID,
+      ...(staticBg ? { background_color: staticBg } : {}),
+      thresholds,
+    }];
+    el.dailyValues = new Map();
+    el.monthlySummaries = new Map([[
+      `0::${RAIN_ID}::2025-1`,
+      { entityId: RAIN_ID, year: 2025, month: 1, min: 1, mean: 5, max: 9, total },
+    ]]);
+    el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('no root');
+    }, { timeout: 3000 });
+    return el;
+  }
+
+  it('threshold matching total value does not color total cell; static color applies', async () => {
+    const el = await renderTotal(
+      [{ operator: 'above', value: 50, background_color: 'red' }], 100, 'gray',
+    );
+    const cols = el.shadowRoot!.querySelectorAll('td.summary-column');
+    const totalCell = cols[cols.length - 1];
+    expect(totalCell?.textContent?.trim()).toBe('100.0');
+    expect(totalCell?.getAttribute('style')).not.toContain('background-color:red');
+    expect(totalCell?.getAttribute('style')).toContain('background-color:gray');
+  });
+
+  it('threshold still colors the summary (mean) column', async () => {
+    const el = await renderTotal(
+      [{ operator: 'above', value: 1, background_color: 'red' }], 100, 'gray',
+    );
+    const cols = el.shadowRoot!.querySelectorAll('td.summary-column');
+    // mean=5 > 1 → summary cell red; total cell stays gray
+    expect(cols[0]?.getAttribute('style')).toContain('background-color:red');
+    expect(cols[cols.length - 1]?.getAttribute('style')).toContain('background-color:gray');
+  });
+});
