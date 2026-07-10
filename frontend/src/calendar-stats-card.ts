@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { CardConfig, ThresholdRule } from './types/card-config';
+import type { CardConfig, ThresholdRule, ThresholdLegendGroup } from './types/card-config';
 import type { HomeAssistant } from './types/ha-types';
 import type { ViewState, YearStatistics } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
@@ -18,7 +18,8 @@ import './components/calendar-stats-card-editor';
 export class CalendarStatsCard extends LitElement {
   @state() private _config: CardConfig | null = null;
   @state() private _hass: HomeAssistant | null = null;
-  @state() private _triggeredThresholds: ThresholdRule[] = [];
+  @state() private _thresholdGroups: ThresholdLegendGroup[] = [];
+  @state() private _legendOpen = false;
   @state() private _inEditor = false;
   @state() private _viewState: ViewState = {
     selectedYear: new Date().getFullYear(),
@@ -47,6 +48,10 @@ export class CalendarStatsCard extends LitElement {
     .card-content {
       padding: 8px;
     }
+    /* Reserve space so the fixed bottom bar never covers the last data rows. */
+    .card-content:not(.in-editor) {
+      padding-bottom: calc(56px + max(16px, var(--safe-area-inset-bottom, 0px)));
+    }
     .bottom-bar {
       position: fixed;
       bottom: max(16px, var(--safe-area-inset-bottom, 0px));
@@ -64,10 +69,39 @@ export class CalendarStatsCard extends LitElement {
       color: var(--secondary-text-color);
       padding: 8px;
     }
-    .legend {
-      margin-top: 8px;
-      padding: 4px 8px;
-      border-top: 1px solid var(--divider-color, #e0e0e0);
+    .legend-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--primary-text-color);
+      padding: 4px 12px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 16px;
+      transition: background-color 0.15s ease-in-out;
+    }
+    .legend-toggle:hover,
+    .legend-toggle[aria-expanded="true"] {
+      background-color: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+    }
+    .legend-toggle:focus-visible {
+      outline: none;
+      background-color: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+    }
+    .legend-popover {
+      position: absolute;
+      bottom: 100%;
+      right: 0;
+      margin-bottom: 8px;
+      max-width: min(90vw, 480px);
+      max-height: 50vh;
+      overflow: auto;
+      padding: 6px 10px;
+      background: var(--ha-card-background, var(--card-background-color, white));
+      border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      border-radius: 8px;
+      box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.24);
     }
     .legend-title {
       font-size: 0.75em;
@@ -75,10 +109,21 @@ export class CalendarStatsCard extends LitElement {
       color: var(--secondary-text-color);
       margin-bottom: 4px;
     }
-    .legend-entries {
+    .legend-groups {
       display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .legend-group {
+      display: flex;
+      align-items: center;
       flex-wrap: wrap;
       gap: 8px;
+    }
+    .legend-group-label {
+      font-size: 0.8em;
+      font-weight: 600;
+      color: var(--secondary-text-color);
     }
     .legend-entry {
       display: flex;
@@ -411,38 +456,82 @@ export class CalendarStatsCard extends LitElement {
     return this._visibleMonths(this._viewState.selectedYear).length;
   }
 
-  private _onThresholdsApplied(e: CustomEvent<{ rules: ThresholdRule[] }>): void {
-    const newRules = e.detail.rules;
-    const old = this._triggeredThresholds;
-    if (newRules.length !== old.length || newRules.some((r, i) => r !== old[i])) {
-      this._triggeredThresholds = newRules;
+  private _onThresholdsApplied(e: CustomEvent<{ groups: ThresholdLegendGroup[] }>): void {
+    this._thresholdGroups = e.detail.groups ?? [];
+    if (this._displayGroups().length === 0 && this._legendOpen) {
+      this._setLegendOpen(false);
     }
   }
 
-  private _buildLegend(rules: ThresholdRule[], lang: string) {
-    const seen = new Set<string>();
-    const named: ThresholdRule[] = [];
-    for (const r of rules) {
-      if (r.name && !seen.has(r.name)) {
-        seen.add(r.name);
-        named.push(r);
+  /** Groups with rules deduped by name (first-seen wins); groups with no named rule dropped. */
+  private _displayGroups(): ThresholdLegendGroup[] {
+    const result: ThresholdLegendGroup[] = [];
+    for (const g of this._thresholdGroups) {
+      const seen = new Set<string>();
+      const named: ThresholdRule[] = [];
+      for (const r of g.rules) {
+        if (r.name && !seen.has(r.name)) {
+          seen.add(r.name);
+          named.push(r);
+        }
       }
+      if (named.length > 0) result.push({ label: g.label, rules: named });
     }
-    if (named.length === 0) return '';
+    return result;
+  }
+
+  private _onDocClick = (e: MouseEvent): void => {
+    const bar = this.shadowRoot?.querySelector('.bottom-bar');
+    if (bar && e.composedPath().includes(bar)) return;
+    this._setLegendOpen(false);
+  };
+
+  private _setLegendOpen(open: boolean): void {
+    if (this._legendOpen === open) return;
+    this._legendOpen = open;
+    if (open) {
+      document.addEventListener('click', this._onDocClick);
+    } else {
+      document.removeEventListener('click', this._onDocClick);
+    }
+  }
+
+  private _toggleLegend(): void {
+    this._setLegendOpen(!this._legendOpen);
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    document.removeEventListener('click', this._onDocClick);
+  }
+
+  /** Legend toggle button + popover, rendered inside the floating bottom bar. */
+  private _renderLegend(lang: string) {
+    const groups = this._displayGroups();
+    if (groups.length === 0) return '';
     return html`
-      <div class="legend">
-        <div class="legend-title">${localize('legend.title', lang)}</div>
-        <div class="legend-entries">
-          ${named.map(r => html`
-            <span class="legend-entry">
-              <span class="legend-swatch" style=${ifDefined(
-                r.background_color ? `background-color:${r.background_color}` : undefined,
-              )}></span>
-              ${r.name}
-            </span>
-          `)}
-        </div>
-      </div>
+      <button class="legend-toggle" aria-expanded=${this._legendOpen} @click=${this._toggleLegend}>
+        ${localize('legend.title', lang)}
+      </button>
+      ${this._legendOpen ? html`
+        <div class="legend-popover">
+          <div class="legend-title">${localize('legend.title', lang)}</div>
+          <div class="legend-groups">
+            ${groups.map(g => html`
+              <div class="legend-group">
+                <span class="legend-group-label">${g.label}:</span>
+                ${g.rules.map(r => html`
+                  <span class="legend-entry">
+                    <span class="legend-swatch" style=${ifDefined(
+                      r.background_color ? `background-color:${r.background_color}` : undefined,
+                    )}></span>
+                    ${r.name}
+                  </span>
+                `)}
+              </div>
+            `)}
+          </div>
+        </div>` : ''}
     `;
   }
 
@@ -461,7 +550,7 @@ export class CalendarStatsCard extends LitElement {
     return html`
       <ha-card>
         <calendar-stats-loading-overlay .visible=${isLoading} .lang=${lang}></calendar-stats-loading-overlay>
-        <div class="card-content">
+        <div class="card-content ${this._inEditor ? 'in-editor' : ''}">
           ${!isLoading && config && config.entities.length === 0
             ? html`<p class="no-entities">${localize('card.no_entities', lang)}</p>`
             : ''}
@@ -476,11 +565,11 @@ export class CalendarStatsCard extends LitElement {
                 .entityErrors=${this._viewState.entityErrors}
                 .lang=${lang}
                 @thresholds-applied=${this._onThresholdsApplied}
-              ></calendar-stats-year-table>
-              ${this._buildLegend(this._triggeredThresholds, lang)}`
+              ></calendar-stats-year-table>`
             : ''}
         </div>
         ${!this._inEditor ? html`<div class="bottom-bar">
+          ${this._renderLegend(lang)}
           ${config
             ? html`<calendar-stats-year-navigator
                 .year=${selectedYear}
