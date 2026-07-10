@@ -22,6 +22,8 @@ export function resolvePrecision(cfg: { precision?: number }): number {
 @customElement('calendar-stats-year-table')
 export class YearTable extends LitElement {
   @property({ type: Number }) year = 2025;
+  /** When true, the year is shown alongside each month name (for multi-year ranges). */
+  @property({ type: Boolean }) showYear = false;
   @property({ attribute: false }) visibleMonths: number[] = [];
   @property({ attribute: false }) entityConfigs: EntityConfig[] = [];
   @property({ attribute: false }) dailyValues: Map<string, DailyValue> = new Map();
@@ -477,7 +479,7 @@ export class YearTable extends LitElement {
             return html`
               <thead>
                 <tr class="month-header-row">
-                  <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this.monthName(month)}</th>
+                  <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this.monthName(month)}${this.showYear ? ` ${this.year}` : ''}</th>
                   ${dayHeaders}
                   <th class="summary-column">${localize('table.summary', this.lang)}</th>
                   ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}

@@ -12,6 +12,19 @@
     "previous_year": "Vorjahr",
     "next_year": "Nächstes Jahr"
   },
+  "range": {
+    "this_month": "Dieser Monat",
+    "this_quarter": "Dieses Quartal",
+    "this_year": "Dieses Jahr",
+    "last_3_months": "Letzte 3 Monate",
+    "last_12_months": "Letzte 12 Monate",
+    "custom": "Benutzerdefiniert",
+    "from": "Von",
+    "to": "Bis",
+    "apply": "Übernehmen",
+    "prev": "Vorheriger Zeitraum",
+    "next": "Nächster Zeitraum"
+  },
   "summary": {
     "min": "min",
     "avg": "Ø",
