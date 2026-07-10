@@ -49,6 +49,22 @@ async function renderYearTable(overrides: Partial<{
   return el;
 }
 
+describe('YearTable — showYear month header', () => {
+  it('showYear=false → month header has no year', async () => {
+    const el = await renderYearTable();
+    const header = el.shadowRoot!.querySelector('.month-name')!.textContent!;
+    expect(header).not.toContain('2025');
+  });
+
+  it('showYear=true → month header includes the year', async () => {
+    const el = await renderYearTable();
+    el.showYear = true;
+    await el.updateComplete;
+    const header = el.shadowRoot!.querySelector('.month-name')!.textContent!;
+    expect(header).toContain('2025');
+  });
+});
+
 describe('YearTable — measurement sub-label column', () => {
   it('measurement entity → 3 td.sub-label cells with min/avg/max text (EN)', async () => {
     const el = await renderYearTable();

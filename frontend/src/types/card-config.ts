@@ -14,6 +14,12 @@ export interface ThresholdRule {
   background_color?: string;
 }
 
+/** One entity's triggered threshold rules, for the grouped legend. */
+export interface ThresholdLegendGroup {
+  label: string;          // entity display label incl. unit, e.g. "Temperature [°C]"
+  rules: ThresholdRule[]; // triggered rules for this entity (object-deduped)
+}
+
 export interface PredecessorConfig {
   entity: string;
   replaced_on?: string; // ISO date YYYY-MM-DD; predecessor covers dates strictly before this

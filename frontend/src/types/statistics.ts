@@ -49,8 +49,29 @@ export interface YearStatistics {
   entityMetadata: Map<string, EntityMetadata>;
 }
 
+/** A month within a year. `month` is 1-12. */
+export interface MonthAnchor {
+  year: number;
+  month: number;
+}
+
+export type RangePreset =
+  | 'this_month'
+  | 'this_quarter'
+  | 'this_year'
+  | 'last_3_months'
+  | 'last_12_months'
+  | 'custom';
+
+/** Inclusive month-to-month range. `preset` drives the label and stepping unit. */
+export interface DateRange {
+  start: MonthAnchor;
+  end: MonthAnchor;
+  preset: RangePreset;
+}
+
 export interface ViewState {
-  selectedYear: number;
+  range: DateRange;
   earliestDataYear: number | null;
   earliestDataMonth: number | null;
   isLoading: boolean;

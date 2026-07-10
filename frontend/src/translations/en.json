@@ -12,6 +12,19 @@
     "previous_year": "Previous year",
     "next_year": "Next year"
   },
+  "range": {
+    "this_month": "This month",
+    "this_quarter": "This quarter",
+    "this_year": "This year",
+    "last_3_months": "Last 3 months",
+    "last_12_months": "Last 12 months",
+    "custom": "Custom",
+    "from": "From",
+    "to": "To",
+    "apply": "Apply",
+    "prev": "Previous period",
+    "next": "Next period"
+  },
   "summary": {
     "min": "min",
     "avg": "avg",

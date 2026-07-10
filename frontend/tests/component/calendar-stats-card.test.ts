@@ -39,10 +39,12 @@ async function createCard(config: CardConfig = CONFIG, hass?: HomeAssistant): Pr
 }
 
 describe('CalendarStatsCard — year/month logic', () => {
-  it('defaults to current year on non-Jan-1 date', async () => {
+  it('defaults to the current year (this_year preset)', async () => {
     const el = await createCard(CONFIG, makeHass());
     const currentYear = new Date().getFullYear();
-    expect(el.selectedYear).toBe(currentYear);
+    expect(el.range.preset).toBe('this_year');
+    expect(el.range.start).toEqual({ year: currentYear, month: 1 });
+    expect(el.range.end.year).toBe(currentYear);
   });
 
   it('shows monthly tables from Jan through current month for current year', async () => {
@@ -122,25 +124,25 @@ describe('CalendarStatsCard — localized display (T036)', () => {
     }, { timeout: 3000 });
   });
 
-  it('year-navigator prev button has lang-aware aria-label', async () => {
+  it('range-navigator prev button has lang-aware aria-label', async () => {
     const el = await createCard(CONFIG, makeHass({ selectedLanguage: 'de', language: 'de' }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator');
+      const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator');
       if (!nav || !nav.shadowRoot) throw new Error('navigator not ready');
       const prevBtn = nav.shadowRoot.querySelector('button.prev');
-      expect(prevBtn?.getAttribute('aria-label')).toBe('Vorjahr');
+      expect(prevBtn?.getAttribute('aria-label')).toBe('Vorheriger Zeitraum');
     }, { timeout: 3000 });
   });
 
-  it('year-navigator next button has lang-aware aria-label', async () => {
+  it('range-navigator next button has lang-aware aria-label', async () => {
     const el = await createCard(CONFIG, makeHass({ selectedLanguage: 'de', language: 'de' }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator');
+      const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator');
       if (!nav || !nav.shadowRoot) throw new Error('navigator not ready');
       const nextBtn = nav.shadowRoot.querySelector('button.next');
-      expect(nextBtn?.getAttribute('aria-label')).toBe('Nächstes Jahr');
+      expect(nextBtn?.getAttribute('aria-label')).toBe('Nächster Zeitraum');
     }, { timeout: 3000 });
   });
 });
@@ -229,18 +231,18 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     const el = await createCard(CONFIG, makeHass());
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator');
+      const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator');
       expect(nav).toBeTruthy();
     }, { timeout: 3000 });
   });
 
-  it('right arrow disabled when at current year', async () => {
+  it('right arrow disabled when at current period (atEnd)', async () => {
     const el = await createCard(CONFIG, makeHass());
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator') as (HTMLElement & { atCurrentYear: boolean }) | null;
+      const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator') as (HTMLElement & { atEnd: boolean }) | null;
       expect(nav).toBeTruthy();
-      expect(nav!.atCurrentYear).toBe(true);
+      expect(nav!.atEnd).toBe(true);
     }, { timeout: 3000 });
   });
 
@@ -253,11 +255,11 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      expect(el.shadowRoot!.querySelector('calendar-stats-year-navigator')).toBeTruthy();
+      expect(el.shadowRoot!.querySelector('calendar-stats-range-navigator')).toBeTruthy();
     }, { timeout: 3000 });
     const callsBefore = sendMsg.mock.calls.length;
-    const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator')!;
-    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
+    const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator')!;
+    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-range', { bubbles: true }));
     await vi.waitFor(async () => {
       expect(sendMsg.mock.calls.length).toBeGreaterThan(callsBefore);
     }, { timeout: 3000 });
@@ -272,10 +274,10 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      expect(el.shadowRoot!.querySelector('calendar-stats-year-navigator')).toBeTruthy();
+      expect(el.shadowRoot!.querySelector('calendar-stats-range-navigator')).toBeTruthy();
     }, { timeout: 3000 });
-    const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator')!;
-    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
+    const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator')!;
+    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-range', { bubbles: true }));
     await vi.waitFor(async () => {
       await el.updateComplete;
       const yearTable = el.shadowRoot!.querySelector('calendar-stats-year-table');
@@ -295,10 +297,10 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      expect(el.shadowRoot!.querySelector('calendar-stats-year-navigator')).toBeTruthy();
+      expect(el.shadowRoot!.querySelector('calendar-stats-range-navigator')).toBeTruthy();
     }, { timeout: 3000 });
-    const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator')!;
-    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
+    const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator')!;
+    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-range', { bubbles: true }));
     await vi.waitFor(async () => {
       await el.updateComplete;
       const yearTable = el.shadowRoot!.querySelector('calendar-stats-year-table');
@@ -310,7 +312,7 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     }, { timeout: 3000 });
   });
 
-  it('left arrow disabled when at earliest year', async () => {
+  it('left arrow disabled when at earliest year (atStart)', async () => {
     const currentYear = new Date().getFullYear();
     const earliestStart = new Date(currentYear - 1, 0, 1).getTime();
     const sendMsg = vi.fn()
@@ -319,14 +321,14 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      expect(el.shadowRoot!.querySelector('calendar-stats-year-navigator')).toBeTruthy();
+      expect(el.shadowRoot!.querySelector('calendar-stats-range-navigator')).toBeTruthy();
     }, { timeout: 3000 });
-    const nav = el.shadowRoot!.querySelector('calendar-stats-year-navigator')!;
-    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
+    const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator')!;
+    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-range', { bubbles: true }));
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const nav2 = el.shadowRoot!.querySelector('calendar-stats-year-navigator') as (HTMLElement & { atEarliestYear: boolean }) | null;
-      expect(nav2!.atEarliestYear).toBe(true);
+      const nav2 = el.shadowRoot!.querySelector('calendar-stats-range-navigator') as (HTMLElement & { atStart: boolean }) | null;
+      expect(nav2!.atStart).toBe(true);
     }, { timeout: 3000 });
   });
 });
@@ -494,9 +496,11 @@ describe('CalendarStatsCard — monthly fetch range (feature 011 T018)', () => {
   });
 });
 
-// --- Legend (T014) ---
+// --- Legend (grouped by entity, in floating bar behind toggle button) ---
 
-async function triggerThresholdsApplied(card: CalendarStatsCard, rules: ThresholdRule[]): Promise<void> {
+interface LegendGroupInput { label: string; rules: ThresholdRule[]; }
+
+async function applyThresholdGroups(card: CalendarStatsCard, groups: LegendGroupInput[]): Promise<void> {
   let yearTable: Element | null = null;
   await vi.waitFor(async () => {
     await card.updateComplete;
@@ -506,102 +510,160 @@ async function triggerThresholdsApplied(card: CalendarStatsCard, rules: Threshol
   yearTable!.dispatchEvent(new CustomEvent('thresholds-applied', {
     bubbles: true,
     composed: true,
-    detail: { rules },
+    detail: { groups },
   }));
   await card.updateComplete;
 }
 
-describe('CalendarStatsCard — threshold legend', () => {
-  it('no triggered thresholds → no legend', async () => {
+/** Click the legend toggle button (if present) to open the popover. */
+async function openLegend(card: CalendarStatsCard): Promise<void> {
+  const btn = card.shadowRoot!.querySelector('.legend-toggle') as HTMLElement | null;
+  btn?.click();
+  await card.updateComplete;
+}
+
+/** Convenience: single-entity group. */
+function group(label: string, ...rules: ThresholdRule[]): LegendGroupInput {
+  return { label, rules };
+}
+
+describe('CalendarStatsCard — threshold legend (grouped, floating bar)', () => {
+  it('no triggered thresholds → no legend button', async () => {
     const card = await createCard(CONFIG, makeHass());
-    await triggerThresholdsApplied(card, []);
-    expect(card.shadowRoot!.querySelector('.legend')).toBeNull();
+    await applyThresholdGroups(card, []);
+    expect(card.shadowRoot!.querySelector('.legend-toggle')).toBeNull();
   });
 
-  it('unnamed triggered threshold → no legend', async () => {
+  it('only unnamed triggered threshold → no legend button', async () => {
     const card = await createCard(CONFIG, makeHass());
-    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'red' };
-    await triggerThresholdsApplied(card, [rule]);
-    expect(card.shadowRoot!.querySelector('.legend')).toBeNull();
+    await applyThresholdGroups(card, [group('sensor.temp', { operator: 'above', value: 10, background_color: 'red' })]);
+    expect(card.shadowRoot!.querySelector('.legend-toggle')).toBeNull();
   });
 
-  it('named triggered threshold → legend shown with name', async () => {
+  it('named triggered threshold → button shown; popover lists name after open', async () => {
     const card = await createCard(CONFIG, makeHass());
-    const rule: ThresholdRule = { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' };
-    await triggerThresholdsApplied(card, [rule]);
-    const legend = card.shadowRoot!.querySelector('.legend');
-    expect(legend).not.toBeNull();
-    expect(legend!.textContent).toContain('Summer day');
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' })]);
+    const btn = card.shadowRoot!.querySelector('.legend-toggle');
+    expect(btn).not.toBeNull();
+    // Popover closed initially
+    expect(card.shadowRoot!.querySelector('.legend-popover')).toBeNull();
+    await openLegend(card);
+    const popover = card.shadowRoot!.querySelector('.legend-popover');
+    expect(popover).not.toBeNull();
+    expect(popover!.textContent).toContain('Summer day');
+  });
+
+  it('popover group label shows entity label', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' })]);
+    await openLegend(card);
+    const groupLabel = card.shadowRoot!.querySelector('.legend-group-label');
+    expect(groupLabel?.textContent).toContain('Temperature [°C]');
   });
 
   it('legend entry swatch has background_color style', async () => {
     const card = await createCard(CONFIG, makeHass());
-    const rule: ThresholdRule = { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' };
-    await triggerThresholdsApplied(card, [rule]);
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' })]);
+    await openLegend(card);
     const swatch = card.shadowRoot!.querySelector('.legend-swatch') as HTMLElement | null;
     expect(swatch).not.toBeNull();
     expect(swatch!.style.backgroundColor).toBeTruthy();
   });
 
-  it('multiple named triggered thresholds → one entry each', async () => {
+  it('multiple named rules in one entity → one entry each, one group', async () => {
     const card = await createCard(CONFIG, makeHass());
-    const rules: ThresholdRule[] = [
+    await applyThresholdGroups(card, [group('Temperature [°C]',
       { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' },
       { operator: 'above', value: 30, background_color: 'red', name: 'Heat day' },
-    ];
-    await triggerThresholdsApplied(card, rules);
-    const entries = card.shadowRoot!.querySelectorAll('.legend-entry');
-    expect(entries.length).toBe(2);
+    )]);
+    await openLegend(card);
+    expect(card.shadowRoot!.querySelectorAll('.legend-group').length).toBe(1);
+    expect(card.shadowRoot!.querySelectorAll('.legend-entry').length).toBe(2);
   });
 
-  it('duplicate names → deduplicated, first-seen wins', async () => {
+  it('duplicate names within an entity → deduplicated, first-seen wins', async () => {
     const card = await createCard(CONFIG, makeHass());
-    const rules: ThresholdRule[] = [
+    await applyThresholdGroups(card, [group('Temperature [°C]',
       { operator: 'above', value: 25, background_color: 'orange', name: 'Warm' },
       { operator: 'above', value: 30, background_color: 'red', name: 'Warm' },
-    ];
-    await triggerThresholdsApplied(card, rules);
+    )]);
+    await openLegend(card);
     const entries = card.shadowRoot!.querySelectorAll('.legend-entry');
     expect(entries.length).toBe(1);
     const swatch = entries[0]!.querySelector('.legend-swatch') as HTMLElement | null;
     expect(swatch!.getAttribute('style')).toContain('orange');
   });
 
+  it('same rule name across two entities → two groups, two entries (not cross-deduped)', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await applyThresholdGroups(card, [
+      group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'orange', name: 'High' }),
+      group('Humidity [%]', { operator: 'above', value: 80, background_color: 'blue', name: 'High' }),
+    ]);
+    await openLegend(card);
+    const groups = card.shadowRoot!.querySelectorAll('.legend-group');
+    expect(groups.length).toBe(2);
+    expect(card.shadowRoot!.querySelectorAll('.legend-entry').length).toBe(2);
+    const labels = Array.from(card.shadowRoot!.querySelectorAll('.legend-group-label')).map((n) => n.textContent ?? '');
+    // Config order preserved
+    expect(labels[0]).toContain('Temperature');
+    expect(labels[1]).toContain('Humidity');
+  });
+
   it('legend title uses i18n — en: "Legend"', async () => {
     const card = await createCard(CONFIG, makeHass({ language: 'en' }));
-    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'blue', name: 'Cool' };
-    await triggerThresholdsApplied(card, [rule]);
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 10, background_color: 'blue', name: 'Cool' })]);
+    await openLegend(card);
     const title = card.shadowRoot!.querySelector('.legend-title');
     expect(title?.textContent?.trim()).toBe('Legend');
   });
 
   it('legend title uses i18n — de: "Legende"', async () => {
     const card = await createCard(CONFIG, makeHass({ language: 'de' }));
-    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'blue', name: 'Kühl' };
-    await triggerThresholdsApplied(card, [rule]);
+    await applyThresholdGroups(card, [group('Temperatur [°C]', { operator: 'above', value: 10, background_color: 'blue', name: 'Kühl' })]);
+    await openLegend(card);
     const title = card.shadowRoot!.querySelector('.legend-title');
     expect(title?.textContent?.trim()).toBe('Legende');
   });
 
-  it('legend disappears after re-trigger with no named rules', async () => {
+  it('button disappears after re-trigger with no named rules', async () => {
     const card = await createCard(CONFIG, makeHass());
-    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'blue', name: 'Cool' };
-    await triggerThresholdsApplied(card, [rule]);
-    expect(card.shadowRoot!.querySelector('.legend')).not.toBeNull();
-    await triggerThresholdsApplied(card, []);
-    expect(card.shadowRoot!.querySelector('.legend')).toBeNull();
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 10, background_color: 'blue', name: 'Cool' })]);
+    expect(card.shadowRoot!.querySelector('.legend-toggle')).not.toBeNull();
+    await applyThresholdGroups(card, []);
+    expect(card.shadowRoot!.querySelector('.legend-toggle')).toBeNull();
+    expect(card.shadowRoot!.querySelector('.legend-popover')).toBeNull();
   });
 
-  it('mixed named + unnamed triggered → only named shown', async () => {
+  it('mixed named + unnamed in one entity → only named shown', async () => {
     const card = await createCard(CONFIG, makeHass());
-    const rules: ThresholdRule[] = [
+    await applyThresholdGroups(card, [group('Temperature [°C]',
       { operator: 'above', value: 10, background_color: 'blue' },
       { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' },
-    ];
-    await triggerThresholdsApplied(card, rules);
+    )]);
+    await openLegend(card);
     const entries = card.shadowRoot!.querySelectorAll('.legend-entry');
     expect(entries.length).toBe(1);
-    expect(card.shadowRoot!.querySelector('.legend')!.textContent).toContain('Summer day');
+    expect(card.shadowRoot!.querySelector('.legend-popover')!.textContent).toContain('Summer day');
+  });
+
+  it('toggle button opens then closes popover', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' })]);
+    await openLegend(card);
+    expect(card.shadowRoot!.querySelector('.legend-popover')).not.toBeNull();
+    await openLegend(card); // second click closes
+    expect(card.shadowRoot!.querySelector('.legend-popover')).toBeNull();
+  });
+
+  it('click outside closes the popover', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' })]);
+    await openLegend(card);
+    expect(card.shadowRoot!.querySelector('.legend-popover')).not.toBeNull();
+    document.body.click();
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('.legend-popover')).toBeNull();
   });
 });
 
@@ -622,7 +684,7 @@ describe('CalendarStatsCard — floating bottom bar', () => {
     const card = await createCard(CONFIG, makeHass());
     await vi.waitFor(async () => {
       await card.updateComplete;
-      expect(card.shadowRoot!.querySelector('.bottom-bar calendar-stats-year-navigator')).not.toBeNull();
+      expect(card.shadowRoot!.querySelector('.bottom-bar calendar-stats-range-navigator')).not.toBeNull();
     }, { timeout: 3000 });
   });
 
@@ -633,7 +695,7 @@ describe('CalendarStatsCard — floating bottom bar', () => {
       await card.updateComplete;
       const bar = card.shadowRoot!.querySelector('.bottom-bar');
       expect(bar).not.toBeNull();
-      const navs = Array.from(card.shadowRoot!.querySelectorAll('calendar-stats-year-navigator'));
+      const navs = Array.from(card.shadowRoot!.querySelectorAll('calendar-stats-range-navigator'));
       expect(navs.length).toBeGreaterThan(0);
       navs.forEach(nav => expect(bar!.contains(nav)).toBe(true));
     }, { timeout: 3000 });
@@ -649,7 +711,7 @@ describe('CalendarStatsCard — floating bottom bar', () => {
   });
 
   // T006
-  it('year-changed event from .bottom-bar navigator updates selected year', async () => {
+  it('prev-range event from .bottom-bar navigator steps the range back a year', async () => {
     const currentYear = new Date().getFullYear();
     const earliestStart = new Date(currentYear - 1, 0, 1).getTime();
     const sendMsg = vi.fn()
@@ -658,13 +720,14 @@ describe('CalendarStatsCard — floating bottom bar', () => {
     const card = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
       await card.updateComplete;
-      expect(card.shadowRoot!.querySelector('.bottom-bar calendar-stats-year-navigator')).not.toBeNull();
+      expect(card.shadowRoot!.querySelector('.bottom-bar calendar-stats-range-navigator')).not.toBeNull();
     }, { timeout: 3000 });
-    const nav = card.shadowRoot!.querySelector('.bottom-bar calendar-stats-year-navigator')!;
-    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-year', { bubbles: true }));
+    const nav = card.shadowRoot!.querySelector('.bottom-bar calendar-stats-range-navigator')!;
+    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-range', { bubbles: true }));
     await vi.waitFor(async () => {
       await card.updateComplete;
-      expect(card.selectedYear).toBe(currentYear - 1);
+      expect(card.range.start.year).toBe(currentYear - 1);
+      expect(card.range.preset).toBe('this_year');
     }, { timeout: 3000 });
   });
 
@@ -676,28 +739,29 @@ describe('CalendarStatsCard — floating bottom bar', () => {
     expect(cssText).toContain('--ha-card-background');
   });
 
-  // T010: US2 — legend inside .card-content, not .bottom-bar
-  it('legend is inside .card-content, not .bottom-bar', async () => {
+  // Legend popover lives in .bottom-bar, not .card-content
+  it('opened legend popover is inside .bottom-bar, not .card-content', async () => {
     const card = await createCard(CONFIG, makeHass());
-    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'orange', name: 'Warm' };
-    await triggerThresholdsApplied(card, [rule]);
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 10, background_color: 'orange', name: 'Warm' })]);
+    await openLegend(card);
     const bar = card.shadowRoot!.querySelector('.bottom-bar');
     expect(bar).not.toBeNull();
-    expect(bar!.querySelector('.legend')).toBeNull();
+    expect(bar!.querySelector('.legend-popover')).not.toBeNull();
     const content = card.shadowRoot!.querySelector('.card-content');
     expect(content).not.toBeNull();
-    expect(content!.querySelector('.legend')).not.toBeNull();
+    expect(content!.querySelector('.legend-popover')).toBeNull();
   });
 
-  // T011: US2 — .card-content contains both year-table and .legend
-  it('.card-content contains both year-table and .legend when thresholds triggered', async () => {
+  // .card-content holds the year-table, never the legend
+  it('.card-content contains year-table but not the legend', async () => {
     const card = await createCard(CONFIG, makeHass());
-    const rule: ThresholdRule = { operator: 'above', value: 10, background_color: 'orange', name: 'Warm' };
-    await triggerThresholdsApplied(card, [rule]);
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 10, background_color: 'orange', name: 'Warm' })]);
+    await openLegend(card);
     const content = card.shadowRoot!.querySelector('.card-content');
     expect(content).not.toBeNull();
     expect(content!.querySelector('calendar-stats-year-table')).not.toBeNull();
-    expect(content!.querySelector('.legend')).not.toBeNull();
+    expect(content!.querySelector('.legend-popover')).toBeNull();
+    expect(content!.querySelector('.legend-toggle')).toBeNull();
   });
 });
 

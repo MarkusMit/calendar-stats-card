@@ -1,27 +1,29 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { CardConfig, ThresholdRule } from './types/card-config';
+import type { CardConfig, ThresholdRule, ThresholdLegendGroup } from './types/card-config';
 import type { HomeAssistant } from './types/ha-types';
-import type { ViewState, YearStatistics } from './types/statistics';
+import type { ViewState, YearStatistics, DateRange, RangePreset, MonthAnchor } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
 import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues, rowSummaryKey } from './services/data-transform';
 import { resolvePredecessorData } from './services/predecessor-resolver';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
+import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd } from './services/date-range';
 import { localize } from './localize/localize';
 import './components/loading-overlay';
 import './components/year-table';
-import './components/year-navigator';
+import './components/range-navigator';
 import './components/calendar-stats-card-editor';
 
 @customElement('calendar-stats-card')
 export class CalendarStatsCard extends LitElement {
   @state() private _config: CardConfig | null = null;
   @state() private _hass: HomeAssistant | null = null;
-  @state() private _triggeredThresholds: ThresholdRule[] = [];
+  @state() private _thresholdGroups: ThresholdLegendGroup[] = [];
+  @state() private _legendOpen = false;
   @state() private _inEditor = false;
   @state() private _viewState: ViewState = {
-    selectedYear: new Date().getFullYear(),
+    range: presetToRange('this_year', { year: new Date().getFullYear(), month: new Date().getMonth() + 1 }),
     earliestDataYear: null,
     earliestDataMonth: null,
     isLoading: false,
@@ -35,7 +37,6 @@ export class CalendarStatsCard extends LitElement {
   private readonly _emptyDailyValues = new Map();
   private readonly _emptyMonthlySummaries = new Map();
   private readonly _emptyEntityMetadata = new Map();
-  private _cachedVisibleMonths: { year: number; start: number; end: number; months: number[] } | null = null;
 
   static styles = css`
     :host {
@@ -46,6 +47,10 @@ export class CalendarStatsCard extends LitElement {
     }
     .card-content {
       padding: 8px;
+    }
+    /* Reserve space so the fixed bottom bar never covers the last data rows. */
+    .card-content:not(.in-editor) {
+      padding-bottom: calc(56px + max(16px, var(--safe-area-inset-bottom, 0px)));
     }
     .bottom-bar {
       position: fixed;
@@ -64,10 +69,39 @@ export class CalendarStatsCard extends LitElement {
       color: var(--secondary-text-color);
       padding: 8px;
     }
-    .legend {
-      margin-top: 8px;
-      padding: 4px 8px;
-      border-top: 1px solid var(--divider-color, #e0e0e0);
+    .legend-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--primary-text-color);
+      padding: 4px 12px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 16px;
+      transition: background-color 0.15s ease-in-out;
+    }
+    .legend-toggle:hover,
+    .legend-toggle[aria-expanded="true"] {
+      background-color: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+    }
+    .legend-toggle:focus-visible {
+      outline: none;
+      background-color: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+    }
+    .legend-popover {
+      position: absolute;
+      bottom: 100%;
+      right: 0;
+      margin-bottom: 8px;
+      max-width: min(90vw, 480px);
+      max-height: 50vh;
+      overflow: auto;
+      padding: 6px 10px;
+      background: var(--ha-card-background, var(--card-background-color, white));
+      border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      border-radius: 8px;
+      box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.24);
     }
     .legend-title {
       font-size: 0.75em;
@@ -75,10 +109,21 @@ export class CalendarStatsCard extends LitElement {
       color: var(--secondary-text-color);
       margin-bottom: 4px;
     }
-    .legend-entries {
+    .legend-groups {
       display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .legend-group {
+      display: flex;
+      align-items: center;
       flex-wrap: wrap;
       gap: 8px;
+    }
+    .legend-group-label {
+      font-size: 0.8em;
+      font-weight: 600;
+      color: var(--secondary-text-color);
     }
     .legend-entry {
       display: flex;
@@ -96,8 +141,8 @@ export class CalendarStatsCard extends LitElement {
     }
   `;
 
-  get selectedYear(): number {
-    return this._viewState.selectedYear;
+  get range(): DateRange {
+    return this._viewState.range;
   }
 
   connectedCallback(): void {
@@ -142,33 +187,14 @@ export class CalendarStatsCard extends LitElement {
     this._hass = hass;
 
     if (firstSet && this._config) {
-      const year = this._resolveDefaultYear(hass);
-      this._viewState = { ...this._viewState, selectedYear: year };
-      void this._fetchYear(year);
+      const range = presetToRange('this_year', this._currentYearMonth());
+      this._viewState = { ...this._viewState, range };
+      void this._fetchRange(range);
     }
   }
 
   get hass(): HomeAssistant | null {
     return this._hass;
-  }
-
-  private _resolveDefaultYear(hass: HomeAssistant): number {
-    const tz = hass.config.time_zone;
-    const now = Date.now();
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: tz,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-    const dateStr = formatter.format(new Date(now));
-    const [yearStr, monthStr, dayStr] = dateStr.split('-');
-    const year = Number(yearStr);
-    const month = Number(monthStr);
-    const day = Number(dayStr);
-    // If today is Jan 1, default to previous year
-    if (month === 1 && day === 1) return year - 1;
-    return year;
   }
 
   private _currentYearMonth(): { year: number; month: number } {
@@ -182,28 +208,33 @@ export class CalendarStatsCard extends LitElement {
     return { year: y ?? new Date().getFullYear(), month: m ?? new Date().getMonth() + 1 };
   }
 
-  private _visibleMonths(year: number): number[] {
+  private _earliestAnchor(): MonthAnchor | null {
     const { earliestDataYear, earliestDataMonth } = this._viewState;
-    const { year: currentYear, month: currentMonth } = this._currentYearMonth();
-
-    const startMonth = (year < currentYear && year === earliestDataYear && earliestDataMonth != null)
-      ? earliestDataMonth : 1;
-    const endMonth = year < currentYear ? 12 : currentMonth;
-
-    const c = this._cachedVisibleMonths;
-    if (c && c.year === year && c.start === startMonth && c.end === endMonth) return c.months;
-
-    const months = Array.from({ length: endMonth - startMonth + 1 }, (_, i) => startMonth + i);
-    this._cachedVisibleMonths = { year, start: startMonth, end: endMonth, months };
-    return months;
+    if (earliestDataYear === null || earliestDataMonth === null) return null;
+    return { year: earliestDataYear, month: earliestDataMonth };
   }
 
-  private async _fetchYear(year: number): Promise<void> {
+  /** Fetch every year the range spans that is not already cached, under one loading state. */
+  private async _fetchRange(range: DateRange): Promise<void> {
     if (!this._hass || !this._config) return;
 
     const token = ++this._fetchAbortFlag;
     this._viewState = { ...this._viewState, isLoading: true };
     this.requestUpdate();
+
+    const years = rangeYears(range).filter((y) => !this._viewState.statisticsByYear.has(y));
+    for (const y of years) {
+      const ok = await this._fetchOneYear(y, token);
+      if (!ok) return; // a newer fetch superseded this one
+    }
+
+    if (token !== this._fetchAbortFlag) return;
+    this._viewState = { ...this._viewState, isLoading: false };
+    this.requestUpdate();
+  }
+
+  private async _fetchOneYear(year: number, token: number): Promise<boolean> {
+    if (!this._hass || !this._config) return false;
 
     const entityIds = [...new Set(
       this._config.entities.flatMap((cfg) => {
@@ -225,7 +256,7 @@ export class CalendarStatsCard extends LitElement {
       // Resolve earliest data year on first fetch
       if (this._viewState.earliestDataYear === null) {
         const meta = await this._service.getStatisticsMetadata(this._hass, entityIds);
-        if (token !== this._fetchAbortFlag) return;
+        if (token !== this._fetchAbortFlag) return false;
         this._viewState = {
           ...this._viewState,
           earliestDataYear: meta.earliestYear,
@@ -238,7 +269,7 @@ export class CalendarStatsCard extends LitElement {
         this._service.fetchMonthlyStats(this._hass, entityIds, monthlyStartTime, endTime),
       ]);
 
-      if (token !== this._fetchAbortFlag) return;
+      if (token !== this._fetchAbortFlag) return false;
 
       // Build metadata map from hass.states
       const metadataMap: Record<string, import('./types/statistics').EntityMetadata> = {};
@@ -374,122 +405,187 @@ export class CalendarStatsCard extends LitElement {
       const newByYear = new Map(this._viewState.statisticsByYear);
       newByYear.set(year, yearStats);
 
-      this._viewState = { ...this._viewState, isLoading: false, statisticsByYear: newByYear };
+      this._viewState = { ...this._viewState, statisticsByYear: newByYear };
     } catch {
-      if (token !== this._fetchAbortFlag) return;
+      if (token !== this._fetchAbortFlag) return false;
       this._viewState = {
         ...this._viewState,
-        isLoading: false,
         entityErrors: new Set(entityIds),
       };
     }
 
     this.requestUpdate();
+    return true;
   }
 
-  private _onPrevYear() {
-    const { selectedYear, earliestDataYear } = this._viewState;
-    const floor = earliestDataYear ?? selectedYear;
-    if (selectedYear <= floor) return;
-    const newYear = selectedYear - 1;
-    this._viewState = { ...this._viewState, selectedYear: newYear };
+  private _applyRange(range: DateRange): void {
+    this._viewState = { ...this._viewState, range };
     this.requestUpdate();
-    void this._fetchYear(newYear);
+    void this._fetchRange(range);
   }
 
-  private _onNextYear() {
-    const { selectedYear } = this._viewState;
-    const { year: currentYear } = this._currentYearMonth();
-    if (selectedYear >= currentYear) return;
-    const newYear = selectedYear + 1;
-    this._viewState = { ...this._viewState, selectedYear: newYear };
-    this.requestUpdate();
-    void this._fetchYear(newYear);
+  private _onPrevRange = (): void => {
+    if (atRangeStart(this._viewState.range, this._earliestAnchor())) return;
+    this._applyRange(stepRange(this._viewState.range, -1, this._currentYearMonth()));
+  };
+
+  private _onNextRange = (): void => {
+    if (atRangeEnd(this._viewState.range, this._currentYearMonth())) return;
+    this._applyRange(stepRange(this._viewState.range, 1, this._currentYearMonth()));
+  };
+
+  private _onRangeSelected(e: CustomEvent): void {
+    const d = e.detail as { preset?: RangePreset; start?: MonthAnchor; end?: MonthAnchor };
+    let range: DateRange;
+    if (d.preset) range = presetToRange(d.preset, this._currentYearMonth());
+    else if (d.start && d.end) range = { start: d.start, end: d.end, preset: 'custom' };
+    else return;
+    this._applyRange(range);
   }
 
   getCardSize(): number {
-    return this._visibleMonths(this._viewState.selectedYear).length;
+    const range = this._viewState.range;
+    const now = this._currentYearMonth();
+    const earliest = this._earliestAnchor();
+    const total = rangeYears(range).reduce(
+      (sum, y) => sum + visibleMonthsForYear(range, y, now, earliest).length,
+      0,
+    );
+    return total || 1;
   }
 
-  private _onThresholdsApplied(e: CustomEvent<{ rules: ThresholdRule[] }>): void {
-    const newRules = e.detail.rules;
-    const old = this._triggeredThresholds;
-    if (newRules.length !== old.length || newRules.some((r, i) => r !== old[i])) {
-      this._triggeredThresholds = newRules;
+  private _onThresholdsApplied(e: CustomEvent<{ groups: ThresholdLegendGroup[] }>): void {
+    this._thresholdGroups = e.detail.groups ?? [];
+    if (this._displayGroups().length === 0 && this._legendOpen) {
+      this._setLegendOpen(false);
     }
   }
 
-  private _buildLegend(rules: ThresholdRule[], lang: string) {
-    const seen = new Set<string>();
-    const named: ThresholdRule[] = [];
-    for (const r of rules) {
-      if (r.name && !seen.has(r.name)) {
-        seen.add(r.name);
-        named.push(r);
+  /** Groups with rules deduped by name (first-seen wins); groups with no named rule dropped. */
+  private _displayGroups(): ThresholdLegendGroup[] {
+    const result: ThresholdLegendGroup[] = [];
+    for (const g of this._thresholdGroups) {
+      const seen = new Set<string>();
+      const named: ThresholdRule[] = [];
+      for (const r of g.rules) {
+        if (r.name && !seen.has(r.name)) {
+          seen.add(r.name);
+          named.push(r);
+        }
       }
+      if (named.length > 0) result.push({ label: g.label, rules: named });
     }
-    if (named.length === 0) return '';
+    return result;
+  }
+
+  private _onDocClick = (e: MouseEvent): void => {
+    const bar = this.shadowRoot?.querySelector('.bottom-bar');
+    if (bar && e.composedPath().includes(bar)) return;
+    this._setLegendOpen(false);
+  };
+
+  private _setLegendOpen(open: boolean): void {
+    if (this._legendOpen === open) return;
+    this._legendOpen = open;
+    if (open) {
+      document.addEventListener('click', this._onDocClick);
+    } else {
+      document.removeEventListener('click', this._onDocClick);
+    }
+  }
+
+  private _toggleLegend(): void {
+    this._setLegendOpen(!this._legendOpen);
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    document.removeEventListener('click', this._onDocClick);
+  }
+
+  /** Legend toggle button + popover, rendered inside the floating bottom bar. */
+  private _renderLegend(lang: string) {
+    const groups = this._displayGroups();
+    if (groups.length === 0) return '';
     return html`
-      <div class="legend">
-        <div class="legend-title">${localize('legend.title', lang)}</div>
-        <div class="legend-entries">
-          ${named.map(r => html`
-            <span class="legend-entry">
-              <span class="legend-swatch" style=${ifDefined(
-                r.background_color ? `background-color:${r.background_color}` : undefined,
-              )}></span>
-              ${r.name}
-            </span>
-          `)}
-        </div>
-      </div>
+      <button class="legend-toggle" aria-expanded=${this._legendOpen} @click=${this._toggleLegend}>
+        ${localize('legend.title', lang)}
+      </button>
+      ${this._legendOpen ? html`
+        <div class="legend-popover">
+          <div class="legend-title">${localize('legend.title', lang)}</div>
+          <div class="legend-groups">
+            ${groups.map(g => html`
+              <div class="legend-group">
+                <span class="legend-group-label">${g.label}:</span>
+                ${g.rules.map(r => html`
+                  <span class="legend-entry">
+                    <span class="legend-swatch" style=${ifDefined(
+                      r.background_color ? `background-color:${r.background_color}` : undefined,
+                    )}></span>
+                    ${r.name}
+                  </span>
+                `)}
+              </div>
+            `)}
+          </div>
+        </div>` : ''}
     `;
   }
 
   render() {
-    const { isLoading, selectedYear } = this._viewState;
+    const { isLoading, range } = this._viewState;
     const config = this._config;
     const hass = this._hass;
     const lang = hass?.selectedLanguage ?? hass?.language ?? 'en';
 
-    const yearStats = this._viewState.statisticsByYear.get(selectedYear);
-    const { year: currentYear } = this._currentYearMonth();
-    const { earliestDataYear } = this._viewState;
-    const atCurrentYear = selectedYear >= currentYear;
-    const atEarliestYear = earliestDataYear !== null && selectedYear <= earliestDataYear;
+    const now = this._currentYearMonth();
+    const earliest = this._earliestAnchor();
+    // Years with at least one visible month, in chronological order.
+    const yearSegments = rangeYears(range)
+      .map((year) => ({ year, months: visibleMonthsForYear(range, year, now, earliest) }))
+      .filter((seg) => seg.months.length > 0);
+    const showYear = yearSegments.length > 1;
 
     return html`
       <ha-card>
         <calendar-stats-loading-overlay .visible=${isLoading} .lang=${lang}></calendar-stats-loading-overlay>
-        <div class="card-content">
+        <div class="card-content ${this._inEditor ? 'in-editor' : ''}">
           ${!isLoading && config && config.entities.length === 0
             ? html`<p class="no-entities">${localize('card.no_entities', lang)}</p>`
             : ''}
           ${!isLoading && config && config.entities.length > 0
-            ? html`<calendar-stats-year-table
-                .year=${selectedYear}
-                .visibleMonths=${this._visibleMonths(selectedYear)}
-                .entityConfigs=${config.entities}
-                .dailyValues=${yearStats?.dailyValues ?? this._emptyDailyValues}
-                .monthlySummaries=${yearStats?.monthlySummaries ?? this._emptyMonthlySummaries}
-                .entityMetadata=${yearStats?.entityMetadata ?? this._emptyEntityMetadata}
-                .entityErrors=${this._viewState.entityErrors}
-                .lang=${lang}
-                @thresholds-applied=${this._onThresholdsApplied}
-              ></calendar-stats-year-table>
-              ${this._buildLegend(this._triggeredThresholds, lang)}`
+            ? yearSegments.map((seg) => {
+                const yearStats = this._viewState.statisticsByYear.get(seg.year);
+                return html`<calendar-stats-year-table
+                  .year=${seg.year}
+                  .showYear=${showYear}
+                  .visibleMonths=${seg.months}
+                  .entityConfigs=${config.entities}
+                  .dailyValues=${yearStats?.dailyValues ?? this._emptyDailyValues}
+                  .monthlySummaries=${yearStats?.monthlySummaries ?? this._emptyMonthlySummaries}
+                  .entityMetadata=${yearStats?.entityMetadata ?? this._emptyEntityMetadata}
+                  .entityErrors=${this._viewState.entityErrors}
+                  .lang=${lang}
+                  @thresholds-applied=${this._onThresholdsApplied}
+                ></calendar-stats-year-table>`;
+              })
             : ''}
         </div>
         ${!this._inEditor ? html`<div class="bottom-bar">
+          ${this._renderLegend(lang)}
           ${config
-            ? html`<calendar-stats-year-navigator
-                .year=${selectedYear}
-                .atCurrentYear=${atCurrentYear}
-                .atEarliestYear=${atEarliestYear}
+            ? html`<calendar-stats-range-navigator
+                .range=${range}
+                .now=${now}
+                .earliest=${earliest}
+                .atStart=${atRangeStart(range, earliest)}
+                .atEnd=${atRangeEnd(range, now)}
                 .lang=${lang}
-                @calendar-stats-prev-year=${this._onPrevYear}
-                @calendar-stats-next-year=${this._onNextYear}
-              ></calendar-stats-year-navigator>`
+                @calendar-stats-prev-range=${this._onPrevRange}
+                @calendar-stats-next-range=${this._onNextRange}
+                @calendar-stats-range-select=${this._onRangeSelected}
+              ></calendar-stats-range-navigator>`
             : ''}
         </div>` : ''}
       </ha-card>
