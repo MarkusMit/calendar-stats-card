@@ -18,6 +18,7 @@ const YEAR_PRESETS: RangePreset[] = [
   'last_year',
   'last_3_years',
   'last_5_years',
+  'all',
 ];
 
 @customElement('calendar-stats-range-navigator')

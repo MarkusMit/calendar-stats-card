@@ -55,9 +55,9 @@ describe('CalendarStatsCard — yearly view rendering (T006)', () => {
 
   it('renders one year-summary-table per year segment, chronological', async () => {
     const currentYear = new Date().getFullYear();
-    const earliestStart = new Date(currentYear - 1, 0, 1).getTime();
+    const earliestStart = Date.UTC(currentYear - 1, 0, 2);
     const sendMsg = vi.fn()
-      .mockResolvedValueOnce([{ statistic_id: 'sensor.temp', start: earliestStart }])
+      .mockResolvedValueOnce({ 'sensor.temp': [{ start: earliestStart, end: earliestStart + 1, sum: 1 }] })
       .mockResolvedValue({});
     const el = await createCard(makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {

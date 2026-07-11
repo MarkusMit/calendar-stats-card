@@ -84,29 +84,39 @@ export class StatisticsService {
     });
   }
 
-  async getStatisticsMetadata(
+  /**
+   * Find the first recorded data point across the given entities by probing
+   * monthly statistics over a wide window. `recorder/get_statistics_metadata`
+   * does not expose an earliest-data timestamp, so the earliest monthly bucket
+   * is the authoritative source. Returns null when no entity has statistics.
+   */
+  async findEarliestDataPoint(
     hass: HomeAssistant,
     entityIds: string[],
-  ): Promise<StatisticsMetadataResult> {
-    const entries = await hass.connection.sendMessagePromise<StatisticMetaEntry[]>({
-      type: 'recorder/get_statistics_metadata',
-      statistic_ids: entityIds,
-    });
+  ): Promise<StatisticsMetadataResult | null> {
+    const stats = await this.fetchMonthlyStats(
+      hass,
+      entityIds,
+      '2000-01-01T00:00:00Z',
+      new Date().toISOString(),
+    );
 
     let earliestMs: number | null = null;
-    for (const entry of entries) {
-      if (entry.start != null) {
-        if (earliestMs === null || entry.start < earliestMs) {
+    for (const entries of Object.values(stats ?? {})) {
+      if (!Array.isArray(entries)) continue;
+      for (const entry of entries) {
+        if (entry?.start != null && (earliestMs === null || entry.start < earliestMs)) {
           earliestMs = entry.start;
         }
       }
     }
+    if (earliestMs === null) return null;
 
-    if (earliestMs === null) {
-      return { earliestYear: new Date().getFullYear() - 10, earliestMonth: 1 };
-    }
-
-    const d = new Date(earliestMs);
-    return { earliestYear: d.getFullYear(), earliestMonth: d.getMonth() + 1 };
+    // Monthly buckets start at local midnight in the HA server timezone.
+    const tz = hass.config.time_zone;
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit' })
+      .format(new Date(earliestMs));
+    const [y, m] = parts.split('-').map(Number);
+    return { earliestYear: y!, earliestMonth: m! };
   }
 }

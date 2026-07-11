@@ -40,9 +40,10 @@ async function createCard(hass: HomeAssistant): Promise<CalendarStatsCard> {
 
 function hassWithEarliest(yearsBack: number) {
   const currentYear = new Date().getFullYear();
-  const earliestStart = new Date(currentYear - yearsBack, 0, 1).getTime();
+  const earliestStart = Date.UTC(currentYear - yearsBack, 0, 2);
   const sendMsg = vi.fn()
-    .mockResolvedValueOnce([{ statistic_id: 'sensor.temp', start: earliestStart }])
+    // first call is the earliest-data probe (monthly statistics_during_period)
+    .mockResolvedValueOnce({ 'sensor.temp': [{ start: earliestStart, end: earliestStart + 1, sum: 1 }] })
     .mockResolvedValue({});
   return makeHass({ connection: { sendMessagePromise: sendMsg } });
 }
@@ -118,6 +119,47 @@ describe('CalendarStatsCard — view switching (T019, FR-011/FR-016)', () => {
     await vi.waitFor(async () => {
       await el.updateComplete;
       expect(el.range.start.year).toBeGreaterThanOrEqual(currentYear - 1);
+    }, { timeout: 3000 });
+  });
+
+  it('yearly mode: a 5-year preset is clamped to the earliest-data year — no empty years (bugfix)', async () => {
+    const currentYear = new Date().getFullYear();
+    const el = await createCard(hassWithEarliest(1)); // data starts last year
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('calendar-stats-range-navigator')).toBeTruthy();
+    }, { timeout: 3000 });
+    el.viewMode = 'yearly';
+    await el.updateComplete;
+    const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator')!;
+    nav.dispatchEvent(new CustomEvent('calendar-stats-range-select', {
+      detail: { preset: 'last_5_years' }, bubbles: true, composed: true,
+    }));
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      expect(el.range.start.year).toBe(currentYear - 1);
+      const blocks = el.shadowRoot!.querySelectorAll('calendar-stats-year-summary-table');
+      expect(blocks.length).toBe(2); // earliest year + current year only
+    }, { timeout: 3000 });
+  });
+
+  it('yearly mode: All preset spans the earliest-data year through the current year', async () => {
+    const currentYear = new Date().getFullYear();
+    const el = await createCard(hassWithEarliest(3));
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('calendar-stats-range-navigator')).toBeTruthy();
+    }, { timeout: 3000 });
+    el.viewMode = 'yearly';
+    await el.updateComplete;
+    const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator')!;
+    nav.dispatchEvent(new CustomEvent('calendar-stats-range-select', {
+      detail: { preset: 'all' }, bubbles: true, composed: true,
+    }));
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      expect(el.range.start).toEqual({ year: currentYear - 3, month: 1 });
+      expect(el.range.end).toEqual({ year: currentYear, month: 12 });
     }, { timeout: 3000 });
   });
 

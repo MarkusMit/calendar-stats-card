@@ -36,6 +36,8 @@ export class CalendarStatsCard extends LitElement {
 
   private _service = new StatisticsService();
   private _fetchAbortFlag = 0;
+  /** True once the earliest-data probe ran (whether or not it found data). */
+  private _earliestProbed = false;
   private _warnedPredecessors = new Set<string>();
   private readonly _emptyDailyValues = new Map();
   private readonly _emptyMonthlySummaries = new Map();
@@ -286,15 +288,19 @@ export class CalendarStatsCard extends LitElement {
     const endTime = `${year + 1}-01-01T00:00:00Z`;
 
     try {
-      // Resolve earliest data year on first fetch
-      if (this._viewState.earliestDataYear === null) {
-        const meta = await this._service.getStatisticsMetadata(this._hass, entityIds);
+      // Resolve the first recorded data point once, from the earliest monthly
+      // statistics bucket (HA metadata carries no earliest-data timestamp).
+      if (!this._earliestProbed) {
+        const meta = await this._service.findEarliestDataPoint(this._hass, entityIds);
         if (token !== this._fetchAbortFlag) return false;
-        this._viewState = {
-          ...this._viewState,
-          earliestDataYear: meta.earliestYear,
-          earliestDataMonth: meta.earliestMonth,
-        };
+        this._earliestProbed = true;
+        if (meta) {
+          this._viewState = {
+            ...this._viewState,
+            earliestDataYear: meta.earliestYear,
+            earliestDataMonth: meta.earliestMonth,
+          };
+        }
       }
 
       const [dailyRaw, monthlyRaw] = await Promise.all([
@@ -481,7 +487,7 @@ export class CalendarStatsCard extends LitElement {
     let range: DateRange;
     if (d.preset) {
       range = gran === 'year'
-        ? yearPresetToRange(d.preset, this._currentYearMonth().year)
+        ? yearPresetToRange(d.preset, this._currentYearMonth().year, this._viewState.earliestDataYear)
         : presetToRange(d.preset, this._currentYearMonth());
     } else if (d.start && d.end) {
       range = { start: d.start, end: d.end, preset: 'custom' };

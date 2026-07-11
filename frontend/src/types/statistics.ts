@@ -64,6 +64,7 @@ export type RangePreset =
   | 'last_year'
   | 'last_3_years'
   | 'last_5_years'
+  | 'all'
   | 'custom';
 
 /** Inclusive month-to-month range. `preset` drives the label and stepping unit. */

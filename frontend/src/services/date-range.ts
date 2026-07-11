@@ -59,14 +59,19 @@ export function presetToRange(preset: RangePreset, now: MonthAnchor): DateRange 
     case 'last_year':
     case 'last_3_years':
     case 'last_5_years':
+    case 'all':
       return yearPresetToRange(preset, now.year);
     case 'custom':
       return { start: now, end: now, preset };
   }
 }
 
-/** Build a whole-calendar-year range for a year-granular preset (FR-016). */
-export function yearPresetToRange(preset: RangePreset, nowYear: number): DateRange {
+/**
+ * Build a whole-calendar-year range for a year-granular preset (FR-016).
+ * `earliestYear` (first year with recorded data) anchors the 'all' preset;
+ * when unknown, 'all' falls back to the current year.
+ */
+export function yearPresetToRange(preset: RangePreset, nowYear: number, earliestYear?: number | null): DateRange {
   const fullYears = (fromYear: number, toYear: number): DateRange => ({
     start: { year: fromYear, month: 1 },
     end: { year: toYear, month: 12 },
@@ -79,6 +84,8 @@ export function yearPresetToRange(preset: RangePreset, nowYear: number): DateRan
       return fullYears(nowYear - 2, nowYear);
     case 'last_5_years':
       return fullYears(nowYear - 4, nowYear);
+    case 'all':
+      return fullYears(earliestYear ?? nowYear, nowYear);
     case 'this_year':
     default:
       return fullYears(nowYear, nowYear);

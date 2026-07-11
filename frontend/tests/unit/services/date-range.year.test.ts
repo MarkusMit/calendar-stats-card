@@ -22,6 +22,12 @@ describe('yearPresetToRange (T016, FR-016)', () => {
   it('last_5_years → five whole years ending this year', () => {
     expect(yearPresetToRange('last_5_years', 2026)).toEqual({ start: a(2022, 1), end: a(2026, 12), preset: 'last_5_years' });
   });
+  it('all → from the earliest-data year through this year', () => {
+    expect(yearPresetToRange('all', 2026, 2021)).toEqual({ start: a(2021, 1), end: a(2026, 12), preset: 'all' });
+  });
+  it('all without a known earliest year → current year only', () => {
+    expect(yearPresetToRange('all', 2026, null)).toEqual({ start: a(2026, 1), end: a(2026, 12), preset: 'all' });
+  });
 });
 
 describe('snapRangeToYears (T016, FR-016)', () => {

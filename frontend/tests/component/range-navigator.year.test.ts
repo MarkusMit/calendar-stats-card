@@ -49,6 +49,7 @@ describe('RangeNavigator — year granularity (T018, FR-016)', () => {
     expect(presets).toContain('Last year');
     expect(presets).toContain('Last 3 years');
     expect(presets).toContain('Last 5 years');
+    expect(presets).toContain('All');
     // year selects, no month selects
     expect(el.shadowRoot!.querySelector('select.from-year')).toBeTruthy();
     expect(el.shadowRoot!.querySelector('select.from-month')).toBeNull();
@@ -63,6 +64,17 @@ describe('RangeNavigator — year granularity (T018, FR-016)', () => {
     const lastYear = [...el.shadowRoot!.querySelectorAll('.preset')].find((b) => b.textContent!.includes('Last year')) as HTMLButtonElement;
     lastYear.click();
     expect(spy).toHaveBeenCalledWith({ preset: 'last_year' });
+  });
+
+  it('All preset click emits range-select with preset all', async () => {
+    const el = await renderYearNav(thisYear);
+    (el.shadowRoot!.querySelector('.range-label') as HTMLButtonElement).click();
+    await el.updateComplete;
+    const spy = vi.fn();
+    el.addEventListener('calendar-stats-range-select', (e) => spy((e as CustomEvent).detail));
+    const all = [...el.shadowRoot!.querySelectorAll('.preset')].find((b) => b.textContent!.trim() === 'All') as HTMLButtonElement;
+    all.click();
+    expect(spy).toHaveBeenCalledWith({ preset: 'all' });
   });
 
   it('custom year From/To Apply emits year-aligned anchors', async () => {
