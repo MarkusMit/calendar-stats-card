@@ -60,7 +60,7 @@ Below the summary table, the comparison view shows the selected month's daily va
 ### User Story 3 - Return to the yearly view (Priority: P3)
 
 The user finishes the comparison and wants to get back to where they came from.
-A back control returns them to the yearly view with the same range, entities, and scroll context they left.
+A back control returns them to the yearly view with the same range and entities they left.
 
 **Why this priority**: Necessary for a round trip, but trivial compared to the comparison content itself.
 
@@ -75,7 +75,8 @@ A back control returns them to the yearly view with the same range, entities, an
 
 ### Edge Cases
 
-- **Single-year range**: the comparison still opens; no previous-year differences exist, and the deviation from the average is zero for every value.
+- **Single-year range**: the comparison still opens; no previous-year differences exist, and the deviation from the average is zero for every complete value.
+- **Lone incomplete month**: when the only compared value is the incomplete current month, no cross-year average exists (it is excluded from the average), so its average deviation is omitted.
 - **Year without data for the month**: that year renders empty summary cells, is excluded from the cross-year average, and yields no previous-year difference for the following year.
 - **Incomplete current month**: the current (partial) month is shown with its data to date and visibly marked as incomplete; it is excluded from the cross-year average so it does not skew the baseline.
 - **Future months**: month labels that hold no data in any year of the range (e.g. future months of the current year in a single-year range) do not open a comparison on click; such months remain reachable via the comparison view's next/previous month controls and then show the empty state.
