@@ -119,3 +119,4 @@ navigation (either mode):
 | Earliest-data navigation floor (shared) | FR-015 |
 | Year-granular range + snap on switch | FR-016 |
 | Threshold coloring + legend on cells | FR-017 |
+| Cumulative yearly Summary over monthly totals | FR-018 |

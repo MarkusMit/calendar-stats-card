@@ -51,9 +51,9 @@ description: "Task list for Yearly Summary View (013)"
 
 ### Tests for User Story 1 (write first, confirm RED) ⚠️
 
-- [ ] T004 [P] [US1] Component test: `year-summary-table` renders 12 month columns (Jan–Dec) and one row per entity; measurement entity → 3 sub-rows (min/avg/max) honoring show_min/avg/max; cumulative entity → month totals; a no-data month → empty cell (not zero); each cell value sourced from `monthlySummaries`. File `frontend/tests/component/year-summary-table.test.ts`.
+- [ ] T004 [P] [US1] Component test: `year-summary-table` renders 12 month columns (Jan–Dec) and one row per entity; measurement entity → 3 sub-rows (min/avg/max) honoring show_min/avg/max; cumulative entity → month totals; a no-data month → empty cell (not zero); the label column shows the entity name + unit (FR-012); each cell value sourced from `monthlySummaries`. File `frontend/tests/component/year-summary-table.test.ts`.
 - [ ] T005 [P] [US1] Component test: threshold rules color each yearly cell (per cell's displayed value) and the table emits `thresholds-applied`. File `frontend/tests/component/year-summary-table.thresholds.test.ts`.
-- [ ] T006 [P] [US1] Component test: card renders one `calendar-stats-year-summary-table` per non-empty year segment when `viewMode='yearly'` (state set directly), fed from `statisticsByYear`. File `frontend/tests/component/calendar-stats-card.yearly-render.test.ts`.
+- [ ] T006 [P] [US1] Component test: card renders one `calendar-stats-year-summary-table` per non-empty year segment when `viewMode='yearly'` (state set directly), fed from `statisticsByYear`; for the current year, months after the current month render no data (FR-007 / SC-005). File `frontend/tests/component/calendar-stats-card.yearly-render.test.ts`.
 
 ### Implementation for User Story 1
 
@@ -74,7 +74,7 @@ description: "Task list for Yearly Summary View (013)"
 ### Tests for User Story 2 (write first, confirm RED) ⚠️
 
 - [ ] T010 [P] [US2] Unit test `computeMeasurementYearRollup`: year min = min of monthly mins, year max = max of monthly maxes, year avg = day-weighted mean from daily values; empty months excluded. File `frontend/tests/unit/services/data-transform.year-rollup.test.ts`.
-- [ ] T011 [P] [US2] Unit test `computeCumulativeYearRollup`: total = Σ monthly totals; min/avg/max over monthly totals; zero-total months excluded when `show_zero=false`. File `frontend/tests/unit/services/data-transform.cumulative-rollup.test.ts`.
+- [ ] T011 [P] [US2] Unit test `computeCumulativeYearRollup` (FR-006, FR-018): total = Σ monthly totals; min/avg/max over the monthly totals (min = lowest, max = highest, avg = mean of monthly totals); zero-total months excluded when `show_zero=false`, included otherwise. File `frontend/tests/unit/services/data-transform.cumulative-rollup.test.ts`.
 - [ ] T012 [P] [US2] Component test: `year-summary-table` renders a yearly Summary column for every row and a yearly Total column when any cumulative row is present, with values matching the roll-up helpers. File `frontend/tests/component/year-summary-table.rollup.test.ts`.
 
 ### Implementation for User Story 2

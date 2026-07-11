@@ -46,7 +46,7 @@ Alongside the twelve month columns, the user wants a roll-up for the whole year 
 
 **Acceptance Scenarios**:
 
-1. **Given** a measurement row across a year, **When** the yearly Summary column is shown, **Then** it presents the year's min/avg/max derived from the months in view.
+1. **Given** a measurement row across a year, **When** the yearly Summary column is shown, **Then** it presents the year's min (lowest monthly min), max (highest monthly max), and day-weighted average (the mean of all recorded daily values in the year).
 2. **Given** a cumulative row across a year, **When** the yearly Total column is shown, **Then** it presents the sum of the months' totals.
 3. **Given** a row configured to exclude zero-value periods, **When** the yearly Summary is computed, **Then** zero-value months are included or excluded consistently with that row's existing zero-handling setting.
 
@@ -99,6 +99,7 @@ A user wants to move between the detailed monthly (day-by-day) view and the new 
 - **FR-015**: Navigation into the past MUST be clamped to the period containing the first recorded data point: the "previous" control MUST be disabled once the visible range reaches that first-data period, and no fully-empty period before the first data MUST be reachable. This floor applies to the shared navigation used by both the monthly and yearly views.
 - **FR-016**: In the yearly view, the selectable time range MUST be restricted to whole calendar years — range presets and custom selection operate at year granularity and navigation steps by whole years. When the user switches from the monthly view to the yearly view, the current range MUST expand to the full calendar year(s) it spans. (Within a shown year, the current-month and earliest-data clamps of FR-007 and FR-015 still apply, leaving those boundary cells blank.)
 - **FR-017**: The yearly view MUST apply each row's threshold rules to its cells — evaluated against each cell's displayed value — and MUST present the threshold legend, consistent with the monthly view's threshold coloring.
+- **FR-018**: For a cumulative (or expression) row, the yearly Summary min/avg/max MUST be computed over that row's twelve monthly totals (min = lowest monthly total, max = highest monthly total, avg = mean of the monthly totals), with zero-total months excluded when the row's `show_zero` is `false` and included otherwise.
 
 ### Key Entities *(include if feature involves data)*
 
