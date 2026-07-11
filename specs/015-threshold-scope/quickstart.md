@@ -8,7 +8,7 @@
 ## TDD order
 
 1. **Resolver** — extend `tests/unit/services/threshold-resolver.test.ts`:
-   scope-less rule matches `day` cells only; `month`/`year` rules match only their scope; mixed lists rank closest-wins within the cell's scope only; invalid scope string behaves as `day`; role exclusions (`not-below`/`not-above`) still apply within each scope.
+   rules with only a day `value` match `day` cells only; `value_month`/`value_year` gate month/year cells; mixed lists rank closest-wins per period using the period threshold; a rule without any period value is ignored; role exclusions (`not-below`/`not-above`) still apply per period.
    Then implement the `cellScope` parameter + filter in `src/services/threshold-resolver.ts` and update `src/types/card-config.ts`.
 2. **Yearly view** — extend `tests/component/year-summary-table.thresholds.test.ts`:
    day-rule no longer colors cumulative month cells or the cumulative rollup; month-rule colors exactly the qualifying month cells and rollup; year-rule colors the yearly Total column; measurement cells keep day-rule coloring.
@@ -20,7 +20,7 @@
    cumulative value cells and cross-year average obey `month` scope; measurement cells obey `day` scope; diff cells stay uncolored.
    Then update `src/components/month-comparison-table.ts`.
 5. **Editor** — extend `tests/component/threshold-list-editor.test.ts`:
-   scope select present with Day/Month/Year, defaults to Day for scope-less rules, change event writes `scope`, German labels.
+   three value inputs present (day/month/year), empty for absent values, change events write/remove the fields, German labels.
    Then update `src/components/threshold-list-editor.ts` + `src/translations/en.json` / `de.json`.
 
 ## Verification
@@ -31,8 +31,8 @@ npm run lint
 npm run build
 ```
 
-Manual check in HA: precipitation row with `above: 10` (no scope) + `above: 150, scope: month`:
+Manual check in HA: precipitation rule `above` with `value: 10`, `value_month: 150`, `value_year: 1200`:
 
 - Monthly view: rainy days colored as before; Total column colored only when the month exceeds 150.
-- Yearly view: month cells colored only by the month rule; no cell colored by the day rule.
+- Yearly view: month cells gated only by the month value; yearly Total gated by the year value; no sum cell gated by the day value.
 - Comparison view: same gating; legend lists only rules that fired.

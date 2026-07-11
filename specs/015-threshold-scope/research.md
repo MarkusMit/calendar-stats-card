@@ -2,11 +2,17 @@
 
 No NEEDS CLARIFICATION items remained in the Technical Context; the decisions below were settled during pre-spec analysis (plan-mode session 2026-07-11) with the user.
 
-## Decision 1: Scope field on the rule vs. alternatives
+## Decision 1 (revised): Per-period threshold values on each rule
 
-- **Decision**: Add `scope?: 'day' | 'month' | 'year'` to `ThresholdRule`, default `day`.
-- **Rationale**: One config surface, one editor list, legend untouched; enables coexisting "wet day" and "wet month" rules on the same row; absent field keeps existing correct behavior and silently removes the wrong aggregate coloring.
+- **Decision**: Extend `ThresholdRule` with optional `value_month` and `value_year` beside the (now optional) day `value`; a rule is evaluated for a cell only when it defines a threshold for that cell's period.
+- **Rationale**: Matches the user's mental model — one phenomenon ("Wet"), one rule, one color/name/legend entry, three magnitudes.
+Month-only or year-only rules fall out naturally by omitting the other values.
+- **Revision note**: The first implementation used a per-rule `scope` enum (one period per rule).
+The user corrected the design after seeing it: per-period values were the intended shape.
+The `scope` field was removed before release, so no compatibility surface remains.
 - **Alternatives considered**:
+  - Per-rule `scope` enum — implemented first, then replaced; forces three rules (and three legend entries) for one phenomenon across periods.
+  - Supporting both `scope` and per-period values — ambiguity rules needed, more config surface; rejected per constitution simplicity.
   - Separate `monthly_thresholds` / `yearly_thresholds` lists — same power, more config surface, duplicated editor UI; rejected.
   - Auto-normalizing monthly totals by day count before evaluating daily rules — semantically misleading ("day above 10" ≠ "month averaging 10/day"), breaks legend meaning; rejected.
   - Removing threshold coloring from sum cells with no replacement — loses the "flag notable months" capability the user wants; rejected.
