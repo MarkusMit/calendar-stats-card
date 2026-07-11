@@ -81,6 +81,7 @@
     "threshold_operator": "Operator",
     "threshold_value": "Wert",
     "threshold_name": "Bezeichnung (optional)",
+    "threshold_scope": "Bezugszeitraum",
     "predecessors": "Vorgänger",
     "add_predecessor": "Vorgänger hinzufügen",
     "remove_predecessor": "Vorgänger entfernen",
@@ -99,6 +100,11 @@
       "below": "Darunter (<)",
       "not_below": "Nicht darunter (≥)",
       "not_above": "Nicht darüber (≤)"
+    },
+    "scopes": {
+      "day": "Tag",
+      "month": "Monat",
+      "year": "Jahr"
     }
   }
 }

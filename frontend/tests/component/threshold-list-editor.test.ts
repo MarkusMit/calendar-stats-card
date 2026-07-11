@@ -118,3 +118,46 @@ describe('ThresholdListEditor — (T020)', () => {
     expect(operatorField).toBeTruthy();
   });
 });
+
+describe('ThresholdListEditor — scope selector (015/US4)', () => {
+  it('renders a scope select with Day/Month/Year options for each rule', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
+    const scopeField = el.shadowRoot!.querySelector<HTMLSelectElement>('select[data-field="scope"]');
+    expect(scopeField).toBeTruthy();
+    const labels = [...scopeField!.querySelectorAll('option')].map((o) => o.textContent!.trim());
+    expect(labels).toEqual(['Day', 'Month', 'Year']);
+  });
+
+  it('displays Day for a rule without a scope', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
+    const scopeField = el.shadowRoot!.querySelector<HTMLSelectElement>('select[data-field="scope"]')!;
+    const selected = scopeField.querySelector<HTMLOptionElement>('option[selected]') ?? scopeField.options[scopeField.selectedIndex];
+    expect(selected?.value).toBe('day');
+  });
+
+  it('displays the stored scope for a month rule', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 150, scope: 'month' }]);
+    const scopeField = el.shadowRoot!.querySelector<HTMLSelectElement>('select[data-field="scope"]')!;
+    const selected = scopeField.querySelector<HTMLOptionElement>('option[selected]');
+    expect(selected?.value).toBe('month');
+  });
+
+  it('changing the scope dispatches thresholds-changed with the updated rule', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('thresholds-changed', (e) => dispatched.push(e as CustomEvent));
+    const scopeField = el.shadowRoot!.querySelector<HTMLSelectElement>('select[data-field="scope"]')!;
+    scopeField.value = 'month';
+    scopeField.dispatchEvent(new Event('change'));
+    expect(dispatched).toHaveLength(1);
+    const result = dispatched[0]!.detail.thresholds as ThresholdRule[];
+    expect(result[0]!.scope).toBe('month');
+  });
+
+  it('german labels: Tag/Monat/Jahr', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }], 'de');
+    const scopeField = el.shadowRoot!.querySelector<HTMLSelectElement>('select[data-field="scope"]')!;
+    const labels = [...scopeField.querySelectorAll('option')].map((o) => o.textContent!.trim());
+    expect(labels).toEqual(['Tag', 'Monat', 'Jahr']);
+  });
+});

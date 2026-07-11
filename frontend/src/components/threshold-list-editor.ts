@@ -1,9 +1,11 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { ThresholdRule, ThresholdOperator } from '../types/card-config';
+import type { ThresholdRule, ThresholdOperator, ThresholdScope } from '../types/card-config';
 import { localize } from '../localize/localize';
 
 const OPERATORS: ThresholdOperator[] = ['above', 'equals-above', 'equals-below', 'below', 'not-below', 'not-above'];
+
+const SCOPES: ThresholdScope[] = ['day', 'month', 'year'];
 
 const OPERATOR_SYMBOL: Record<ThresholdOperator, string> = {
   'above': '>',
@@ -166,6 +168,17 @@ export class ThresholdListEditor extends LitElement {
                   this._handleRuleChange(i, 'value', isNaN(v) ? 0 : v);
                 }}
               />
+            </div>
+            <div class="field">
+              <label>${localize('editor.threshold_scope', lang)}</label>
+              <select
+                data-field="scope"
+                @change=${(e: Event) => this._handleRuleChange(i, 'scope', (e.target as HTMLSelectElement).value)}
+              >
+                ${SCOPES.map((s) => html`
+                  <option value=${s} ?selected=${(rule.scope ?? 'day') === s}>${localize(`threshold.scopes.${s}`, lang)}</option>
+                `)}
+              </select>
             </div>
             <div class="field">
               <label>${localize('editor.threshold_name', lang)}</label>

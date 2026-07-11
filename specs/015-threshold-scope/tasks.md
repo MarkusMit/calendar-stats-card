@@ -87,10 +87,10 @@ Every test task MUST be written and confirmed failing before its implementation 
 
 **Independent Test**: Open editor, rule without scope shows Day; select Month → change event carries `scope: 'month'`; German UI shows Tag/Monat/Jahr.
 
-- [ ] T019 [P] [US4] Write failing component tests in `frontend/tests/component/threshold-list-editor.test.ts`: scope `select` with `data-field="scope"` present per rule; displays Day for scope-less rules; change dispatches `thresholds-changed` with updated `scope`; option labels localized (en: Day/Month/Year, de: Tag/Monat/Jahr)
-- [ ] T020 [P] [US4] Add translation keys `editor.threshold_scope` and `threshold.scopes.day|month|year` to `frontend/src/translations/en.json` and `frontend/src/translations/de.json`
-- [ ] T021 [US4] Add the scope dropdown to `frontend/src/components/threshold-list-editor.ts` (same field markup as the operator select; localized via `threshold.scopes.*`)
-- [ ] T022 [US4] Run `npm test` — T019 green, no regressions
+- [X] T019 [P] [US4] Write failing component tests in `frontend/tests/component/threshold-list-editor.test.ts`: scope `select` with `data-field="scope"` present per rule; displays Day for scope-less rules; change dispatches `thresholds-changed` with updated `scope`; option labels localized (en: Day/Month/Year, de: Tag/Monat/Jahr)
+- [X] T020 [P] [US4] Add translation keys `editor.threshold_scope` and `threshold.scopes.day|month|year` to `frontend/src/translations/en.json` and `frontend/src/translations/de.json`
+- [X] T021 [US4] Add the scope dropdown to `frontend/src/components/threshold-list-editor.ts` (same field markup as the operator select; localized via `threshold.scopes.*`)
+- [X] T022 [US4] Run `npm test` — T019 green, no regressions
 
 **Checkpoint**: All user stories complete.
 
