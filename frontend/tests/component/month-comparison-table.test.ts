@@ -210,14 +210,46 @@ describe('MonthComparisonTable — incomplete current month (FR-007)', () => {
   });
 });
 
-describe('MonthComparisonTable — thresholds (FR-011)', () => {
-  it('colors value cells via threshold rules, never diff cells, and emits thresholds-applied', async () => {
+describe('MonthComparisonTable — thresholds (FR-011, scope-gated per 015)', () => {
+  it('scope-less (day) rule does NOT color cumulative value cells nor the cross-year average (015/US1)', async () => {
+    const el = await renderTable({
+      entityConfigs: [{
+        entity: 'sensor.rain',
+        thresholds: [{ operator: 'above', value: 12, name: 'wet', background_color: '#ff0000' }],
+      }],
+    });
+    const colored = cells(el, 'td.data-cell').filter((c) => (c.getAttribute('style') ?? '').includes('background-color'));
+    expect(colored.length).toBe(0);
+    const coloredAvg = cells(el, 'td.avg-cell').filter((c) => (c.getAttribute('style') ?? '').includes('background-color'));
+    expect(coloredAvg.length).toBe(0);
+  });
+
+  it('measurement cells KEEP day-rule coloring (015/US1)', async () => {
+    const segments = makeSegments([
+      { year: 2024, summaries: [{ rowIndex: 0, entityId: 'sensor.temp', values: { mean: 10 } }] },
+      { year: 2025, summaries: [{ rowIndex: 0, entityId: 'sensor.temp', values: { mean: 14 } }] },
+    ]);
+    const el = await renderTable({
+      segments,
+      entityConfigs: [{
+        entity: 'sensor.temp', show_min: false, show_max: false,
+        thresholds: [{ operator: 'above', value: 12, background_color: '#ff0000' }],
+      }],
+    });
+    const colored = cells(el, 'td.data-cell').filter((c) => (c.getAttribute('style') ?? '').includes('background-color'));
+    expect(colored.length).toBe(1); // only the 14.0 cell (2025) exceeds 12
+    // cross-year avg = 12 → not above 12 → not colored
+    const coloredAvg = cells(el, 'td.avg-cell').filter((c) => (c.getAttribute('style') ?? '').includes('background-color'));
+    expect(coloredAvg.length).toBe(0);
+  });
+
+  it('month-scope rule colors qualifying cumulative cells, never diff cells, and emits thresholds-applied (015/US2)', async () => {
     const listener = vi.fn();
     document.body.addEventListener('thresholds-applied', listener);
     const el = await renderTable({
       entityConfigs: [{
         entity: 'sensor.rain',
-        thresholds: [{ operator: 'above', value: 12, name: 'wet', background_color: '#ff0000' }],
+        thresholds: [{ operator: 'above', value: 12, scope: 'month', name: 'wet', background_color: '#ff0000' }],
       }],
     });
     await el.updateComplete;
@@ -232,5 +264,33 @@ describe('MonthComparisonTable — thresholds (FR-011)', () => {
       expect(groups[0]!.rules[0]!.name).toBe('wet');
     });
     document.body.removeEventListener('thresholds-applied', listener);
+  });
+
+  it('month-scope rule colors the cumulative cross-year average (015/US2)', async () => {
+    const el = await renderTable({
+      entityConfigs: [{
+        entity: 'sensor.rain',
+        thresholds: [{ operator: 'above', value: 11, scope: 'month', background_color: '#ff0000' }],
+      }],
+    });
+    // cross-year avg = 12 > 11 → colored
+    const coloredAvg = cells(el, 'td.avg-cell').filter((c) => (c.getAttribute('style') ?? '').includes('background-color'));
+    expect(coloredAvg.length).toBe(1);
+  });
+
+  it('month-scope rule never colors measurement cells (015/US2)', async () => {
+    const segments = makeSegments([
+      { year: 2024, summaries: [{ rowIndex: 0, entityId: 'sensor.temp', values: { mean: 10 } }] },
+      { year: 2025, summaries: [{ rowIndex: 0, entityId: 'sensor.temp', values: { mean: 14 } }] },
+    ]);
+    const el = await renderTable({
+      segments,
+      entityConfigs: [{
+        entity: 'sensor.temp', show_min: false, show_max: false,
+        thresholds: [{ operator: 'above', value: 12, scope: 'month', background_color: '#ff0000' }],
+      }],
+    });
+    const colored = cells(el, 'td.data-cell').filter((c) => (c.getAttribute('style') ?? '').includes('background-color'));
+    expect(colored.length).toBe(0);
   });
 });

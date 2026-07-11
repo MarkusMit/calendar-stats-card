@@ -405,7 +405,8 @@ export class YearSummaryTable extends LitElement {
       }
       let cellStyle = staticStyle;
       if (numericValue !== undefined && cellContent) {
-        const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar', 'day');
+        // Monthly totals are month-scale sums — gated by month-scope rules (015).
+        const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar', 'month');
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
         cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
       }
@@ -432,7 +433,8 @@ export class YearSummaryTable extends LitElement {
     // Total column never gets threshold coloring — static color only (mirrors the monthly view).
     const cumulTotalStyle = staticStyle;
     if (rollup.mean != null && (showMin || showAvg || showMax)) {
-      const rule = resolveThreshold(rollup.mean * f, cfg.thresholds ?? [], 'summary-scalar', 'day');
+      // Rollup over monthly totals inherits their month scale (015).
+      const rule = resolveThreshold(rollup.mean * f, cfg.thresholds ?? [], 'summary-scalar', 'month');
       if (rule) this._addTriggered(rowIndex, groupLabel, rule);
       cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
     }

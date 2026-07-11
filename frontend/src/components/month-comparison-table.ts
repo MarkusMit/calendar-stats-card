@@ -348,8 +348,8 @@ export class MonthComparisonTable extends LitElement {
     return html`
       <tr>
         <td class="label-column" colspan="${hasMeasurement ? 2 : 1}" style=${ifDefined(staticStyle)}>${hasError ? '— ' : ''}${groupLabel}</td>
-        ${series.entries.map((entry) => this._renderEntryCells(entry, cfg, rowIndex, groupLabel, 'scalar', 'day', f, nf, sf, pf, staticStyle))}
-        ${this._renderAvgCell(series, cfg, rowIndex, groupLabel, 'summary-scalar', 'day', f, nf, staticStyle)}
+        ${series.entries.map((entry) => this._renderEntryCells(entry, cfg, rowIndex, groupLabel, 'scalar', 'month', f, nf, sf, pf, staticStyle))}
+        ${this._renderAvgCell(series, cfg, rowIndex, groupLabel, 'summary-scalar', 'month', f, nf, staticStyle)}
       </tr>
     `;
   }

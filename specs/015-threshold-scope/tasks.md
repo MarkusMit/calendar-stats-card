@@ -42,11 +42,11 @@ Every test task MUST be written and confirmed failing before its implementation 
 
 **Independent Test**: Cumulative row with `above: 10` (no scope), monthly totals ~100: yearly view month cells, cumulative year rollup, and comparison value/average cells show NO threshold coloring; monthly-view daily cells and all measurement cells keep their coloring.
 
-- [ ] T007 [P] [US1] Write failing component tests in `frontend/tests/component/year-summary-table.thresholds.test.ts`: day rule does not color cumulative month cells (spec US1-AS1) nor the cumulative year rollup (US1-AS4); measurement month cells keep day-rule coloring (US1-AS5)
-- [ ] T008 [P] [US1] Write failing component tests in `frontend/tests/component/month-comparison-table.test.ts`: day rule does not color cumulative summary values or the cross-year average (US1-AS3); measurement cells keep day-rule coloring
-- [ ] T009 [US1] Pass `'month'` as cell scope for cumulative month cells and the cumulative year rollup in `frontend/src/components/year-summary-table.ts` (sites at former lines 408 and 435)
-- [ ] T010 [US1] Pass `'month'` (cumulative/expression rows) vs `'day'` (measurement rows) for summary values and cross-year average in `frontend/src/components/month-comparison-table.ts` (sites at former lines 256 and 284)
-- [ ] T011 [US1] Run `npm test` — T007/T008 green, monthly-view tests unchanged (US1-AS2 covered by existing suite)
+- [X] T007 [P] [US1] Write failing component tests in `frontend/tests/component/year-summary-table.thresholds.test.ts`: day rule does not color cumulative month cells (spec US1-AS1) nor the cumulative year rollup (US1-AS4); measurement month cells keep day-rule coloring (US1-AS5)
+- [X] T008 [P] [US1] Write failing component tests in `frontend/tests/component/month-comparison-table.test.ts`: day rule does not color cumulative summary values or the cross-year average (US1-AS3); measurement cells keep day-rule coloring
+- [X] T009 [US1] Pass `'month'` as cell scope for cumulative month cells and the cumulative year rollup in `frontend/src/components/year-summary-table.ts` (sites at former lines 408 and 435)
+- [X] T010 [US1] Pass `'month'` (cumulative/expression rows) vs `'day'` (measurement rows) for summary values and cross-year average in `frontend/src/components/month-comparison-table.ts` (sites at former lines 256 and 284)
+- [X] T011 [US1] Run `npm test` — T007/T008 green, monthly-view tests unchanged (US1-AS2 covered by existing suite)
 
 **Checkpoint**: The reported defect is fixed; MVP deliverable.
 
