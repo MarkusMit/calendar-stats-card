@@ -5,6 +5,13 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-07-11
+
+### Fixed
+
+- In the yearly view, all years of a multi-year range now render inside one table, so every year shares the same column widths; previously each year's table sized its columns independently, breaking the layout.
+- The threshold legend now lists rules triggered in any year of a multi-year yearly range; previously only the last year's triggered rules survived.
+
 ## [0.4.0] - 2026-07-11
 
 ### Added
@@ -69,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Threshold coloring is no longer applied to a cumulative row's total column; the total uses the static color only.
 - Table text can now be selected (for copying) in the macOS Home Assistant app by adding `-webkit-user-select` for WKWebView.
 
+[0.4.1]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.2.1...v0.3.0
