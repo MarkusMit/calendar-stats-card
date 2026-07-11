@@ -132,6 +132,15 @@ describe('YearSummaryTable — month-scope rules color monthly totals (015/US2)'
     expect((rollup as HTMLElement).getAttribute('style') ?? '').toContain('background-color:blue');
   });
 
+  it('month rule never colors the yearly Total column', async () => {
+    // yearly total = 42 + 5 = 47 > 20, but the Total cell is year-scale
+    const el = await renderRain([monthRule]);
+    const summaryCells = [...el.shadowRoot!.querySelectorAll('tbody td.summary-column')];
+    const total = summaryCells.find((c) => (c.textContent ?? '').trim() === '47.0');
+    expect(total).toBeTruthy();
+    expect((total as HTMLElement).getAttribute('style') ?? '').not.toContain('background-color:blue');
+  });
+
   it('emits thresholds-applied with the triggered month-scope rule group', async () => {
     const groups: unknown[] = [];
     const el = new YearSummaryTable();
@@ -158,5 +167,39 @@ describe('YearSummaryTable — month-scope rules color monthly totals (015/US2)'
     const g = groups[0] as { label: string; rules: { name?: string }[] };
     expect(g.label).toContain('Rain');
     expect(g.rules.some((r) => r.name === 'Wet month')).toBe(true);
+  });
+});
+
+describe('YearSummaryTable — year-scope rules color the yearly Total (015/US3)', () => {
+  // yearly total = 42 + 5 = 47
+  const yearRule: ThresholdRule = { operator: 'above', value: 45, scope: 'year', background_color: 'purple', name: 'Wet year' };
+
+  function yearlyTotalCell(el: YearSummaryTable): HTMLElement {
+    const summaryCells = [...el.shadowRoot!.querySelectorAll<HTMLElement>('tbody td.summary-column')];
+    const total = summaryCells.find((c) => (c.textContent ?? '').trim() === '47.0');
+    if (!total) throw new Error('yearly total cell not found');
+    return total;
+  }
+
+  it('year rule colors a qualifying yearly Total cell', async () => {
+    const el = await renderRain([yearRule]);
+    expect(yearlyTotalCell(el).getAttribute('style') ?? '').toContain('background-color:purple');
+  });
+
+  it('year rule leaves a non-qualifying yearly Total plain', async () => {
+    const el = await renderRain([{ ...yearRule, value: 50 }]);
+    expect(yearlyTotalCell(el).getAttribute('style') ?? '').not.toContain('background-color:purple');
+  });
+
+  it('year rule never colors month cells', async () => {
+    const el = await renderRain([{ ...yearRule, value: 40 }]);
+    const cells = [...el.shadowRoot!.querySelectorAll('tbody td.data-cell')];
+    const jan = cells.find((c) => c.textContent!.includes('42'));
+    expect((jan as HTMLElement).getAttribute('style') ?? '').not.toContain('background-color:purple');
+  });
+
+  it('day rule never colors the yearly Total', async () => {
+    const el = await renderRain([{ operator: 'above', value: 20, background_color: 'red' }]);
+    expect(yearlyTotalCell(el).getAttribute('style') ?? '').not.toContain('background-color:red');
   });
 });

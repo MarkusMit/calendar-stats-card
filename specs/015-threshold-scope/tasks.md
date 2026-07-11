@@ -73,9 +73,9 @@ Every test task MUST be written and confirmed failing before its implementation 
 
 **Independent Test**: Cumulative row with `above: 1200, scope: year`: yearly Total 1300 colored, 900 not; no month or daily cell ever colored by it.
 
-- [ ] T016 [P] [US3] Write failing component tests in `frontend/tests/component/year-summary-table.thresholds.test.ts`: year rule colors qualifying yearly Total cells only (US3-AS1/AS2); year rule never colors month cells; month/day rules never color the yearly Total (US3-AS3)
-- [ ] T017 [US3] Evaluate the yearly Total column in `frontend/src/components/year-summary-table.ts` (replace static-only `cumulTotalStyle` with `resolveThreshold(total, thresholds, 'scalar', 'year')` + `buildCellStyle` + `_addTriggered`)
-- [ ] T018 [US3] Run `npm test` — T016 green, no regressions
+- [X] T016 [P] [US3] Write failing component tests in `frontend/tests/component/year-summary-table.thresholds.test.ts`: year rule colors qualifying yearly Total cells only (US3-AS1/AS2); year rule never colors month cells; month/day rules never color the yearly Total (US3-AS3)
+- [X] T017 [US3] Evaluate the yearly Total column in `frontend/src/components/year-summary-table.ts` (replace static-only `cumulTotalStyle` with `resolveThreshold(total, thresholds, 'scalar', 'year')` + `buildCellStyle` + `_addTriggered`)
+- [X] T018 [US3] Run `npm test` — T016 green, no regressions
 
 **Checkpoint**: All three scopes gate correctly in every view.
 

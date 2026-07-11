@@ -430,8 +430,13 @@ export class YearSummaryTable extends LitElement {
     const totalContent = rollup.total != null ? nf.format(rollup.total * f) : '';
 
     let cumulSummaryStyle = staticStyle;
-    // Total column never gets threshold coloring — static color only (mirrors the monthly view).
-    const cumulTotalStyle = staticStyle;
+    // Yearly total is a year-scale sum — colorable by year-scope rules (015).
+    let cumulTotalStyle = staticStyle;
+    if (rollup.total != null) {
+      const rule = resolveThreshold(rollup.total * f, cfg.thresholds ?? [], 'scalar', 'year');
+      if (rule) this._addTriggered(rowIndex, groupLabel, rule);
+      cumulTotalStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+    }
     if (rollup.mean != null && (showMin || showAvg || showMax)) {
       // Rollup over monthly totals inherits their month scale (015).
       const rule = resolveThreshold(rollup.mean * f, cfg.thresholds ?? [], 'summary-scalar', 'month');
