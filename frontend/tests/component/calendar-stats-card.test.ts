@@ -248,9 +248,9 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
 
   it('prev-year event triggers re-fetch for new year', async () => {
     const currentYear = new Date().getFullYear();
-    const earliestStart = new Date(currentYear - 1, 0, 1).getTime();
+    const earliestStart = Date.UTC(currentYear - 1, 0, 2);
     const sendMsg = vi.fn()
-      .mockResolvedValueOnce([{ statistic_id: 'sensor.temp', start: earliestStart }])
+      .mockResolvedValueOnce({ 'sensor.temp': [{ start: earliestStart, end: earliestStart + 1, sum: 1 }] })
       .mockResolvedValue({});
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
@@ -267,9 +267,9 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
 
   it('fully past year shows 12 month sections', async () => {
     const currentYear = new Date().getFullYear();
-    const earliestStart = new Date(currentYear - 1, 0, 1).getTime();
+    const earliestStart = Date.UTC(currentYear - 1, 0, 2);
     const sendMsg = vi.fn()
-      .mockResolvedValueOnce([{ statistic_id: 'sensor.temp', start: earliestStart }])
+      .mockResolvedValueOnce({ 'sensor.temp': [{ start: earliestStart, end: earliestStart + 1, sum: 1 }] })
       .mockResolvedValue({});
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
@@ -290,9 +290,9 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
 
   it('earliest year shows only months from earliestDataMonth onward', async () => {
     const currentYear = new Date().getFullYear();
-    const earliestStart = new Date(currentYear - 1, 5, 1).getTime(); // June (month index 5)
+    const earliestStart = Date.UTC(currentYear - 1, 5, 2); // June (month index 5)
     const sendMsg = vi.fn()
-      .mockResolvedValueOnce([{ statistic_id: 'sensor.temp', start: earliestStart }])
+      .mockResolvedValueOnce({ 'sensor.temp': [{ start: earliestStart, end: earliestStart + 1, sum: 1 }] })
       .mockResolvedValue({});
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
@@ -314,9 +314,9 @@ describe('CalendarStatsCard — year navigation (T030)', () => {
 
   it('left arrow disabled when at earliest year (atStart)', async () => {
     const currentYear = new Date().getFullYear();
-    const earliestStart = new Date(currentYear - 1, 0, 1).getTime();
+    const earliestStart = Date.UTC(currentYear - 1, 0, 2);
     const sendMsg = vi.fn()
-      .mockResolvedValueOnce([{ statistic_id: 'sensor.temp', start: earliestStart }])
+      .mockResolvedValueOnce({ 'sensor.temp': [{ start: earliestStart, end: earliestStart + 1, sum: 1 }] })
       .mockResolvedValue({});
     const el = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {
@@ -475,15 +475,19 @@ describe('CalendarStatsCard — monthly fetch range (feature 011 T018)', () => {
 
     await createCard(config, hass);
 
+    // Exclude the wide earliest-data probe (start_time 2000-01-01) — only the
+    // per-year monthly summary fetch is under test here.
+    const nonProbeMonthly = () => sendMessagePromise.mock.calls.filter((c: unknown[]) => {
+      const msg = c[0] as Record<string, unknown>;
+      return msg?.type === 'recorder/statistics_during_period' && msg?.period === 'month'
+        && msg?.start_time !== '2000-01-01T00:00:00Z';
+    });
+
     await vi.waitFor(() => {
-      expect(sendMessagePromise).toHaveBeenCalled();
+      expect(nonProbeMonthly().length).toBeGreaterThan(0);
     }, { timeout: 3000 });
 
-    const monthlyCalls = sendMessagePromise.mock.calls.filter((c: unknown[]) => {
-      const msg = c[0] as Record<string, unknown>;
-      return msg?.type === 'recorder/statistics_during_period' && msg?.period === 'month';
-    });
-    expect(monthlyCalls.length).toBeGreaterThan(0);
+    const monthlyCalls = nonProbeMonthly();
 
     const currentYear = new Date().getFullYear();
     // On Jan 1 the card defaults to previous year (per spec 001 FR-001), so viewing year may be currentYear or currentYear - 1.
@@ -713,9 +717,9 @@ describe('CalendarStatsCard — floating bottom bar', () => {
   // T006
   it('prev-range event from .bottom-bar navigator steps the range back a year', async () => {
     const currentYear = new Date().getFullYear();
-    const earliestStart = new Date(currentYear - 1, 0, 1).getTime();
+    const earliestStart = Date.UTC(currentYear - 1, 0, 2);
     const sendMsg = vi.fn()
-      .mockResolvedValueOnce([{ statistic_id: 'sensor.temp', start: earliestStart }])
+      .mockResolvedValueOnce({ 'sensor.temp': [{ start: earliestStart, end: earliestStart + 1, sum: 1 }] })
       .mockResolvedValue({});
     const card = await createCard(CONFIG, makeHass({ connection: { sendMessagePromise: sendMsg } }));
     await vi.waitFor(async () => {

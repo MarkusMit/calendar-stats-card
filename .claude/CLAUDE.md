@@ -30,12 +30,10 @@ Displays HA entity statistics in dense monthly tables. Entities are user-configu
 
 Supported from day one: `en`, `de`.
 
-### Out of Scope (do not implement)
+### For Later Implementation
 
-- Color coding for threshold violations
 - Separate min/max rows
 - Manual weather/snowfall input
-- Yearly summary tab
 - Cross-year month comparison
 
 ## Dev Environment
@@ -47,7 +45,7 @@ Supported from day one: `en`, `de`.
 ## Build & Test Commands
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/012-default-entity-precision/plan.md](../specs/012-default-entity-precision/plan.md)
+Active feature plan: [specs/013-yearly-summary-view/plan.md](../specs/013-yearly-summary-view/plan.md)
 <!-- SPECKIT END -->
 
 All commands run in WSL2, from the `frontend/` directory:

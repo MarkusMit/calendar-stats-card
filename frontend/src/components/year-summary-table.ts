@@ -1,0 +1,420 @@
+import { LitElement, html, css } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
+import type { EntityConfig, ThresholdRule, ThresholdLegendGroup } from '../types/card-config';
+import { rowKey } from '../types/card-config';
+import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
+import { localize } from '../localize/localize';
+import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
+import { autoContrastText } from '../services/readable-text';
+import { rowSummaryKey, computeMeasurementYearRollup, computeCumulativeYearRollup } from '../services/data-transform';
+import { resolvePrecision } from './year-table';
+
+const ALL_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
+
+/**
+ * Yearly view: one table per calendar year — columns are the twelve months,
+ * rows are the configured entities/expressions, each cell is that month's
+ * summary (measurement min/avg/max sub-rows; cumulative monthly total).
+ */
+@customElement('calendar-stats-year-summary-table')
+export class YearSummaryTable extends LitElement {
+  @property({ type: Number }) year = 2025;
+  @property({ attribute: false }) visibleMonths: number[] = [];
+  @property({ attribute: false }) entityConfigs: EntityConfig[] = [];
+  @property({ attribute: false }) monthlySummaries: Map<string, MonthlySummary> = new Map();
+  @property({ attribute: false }) dailyValues: Map<string, DailyValue> = new Map();
+  @property({ attribute: false }) entityMetadata: Map<string, EntityMetadata> = new Map();
+  @property({ attribute: false }) entityErrors: Set<string> = new Set();
+  @property({ type: String }) lang = 'en';
+
+  /** Triggered threshold rules grouped by entity row index (preserves config order). */
+  private _triggeredGroups = new Map<number, { label: string; rules: Set<ThresholdRule> }>();
+
+  private _addTriggered(rowIndex: number, label: string, rule: ThresholdRule): void {
+    let g = this._triggeredGroups.get(rowIndex);
+    if (!g) {
+      g = { label, rules: new Set() };
+      this._triggeredGroups.set(rowIndex, g);
+    }
+    g.rules.add(rule);
+  }
+
+  /** Hidden probe (light DOM child) used to resolve CSS colors via the browser. */
+  private _contrastProbe?: HTMLSpanElement;
+  private _contrastCache = new Map<string, string | undefined>();
+
+  private autoTextFor(bg: string | undefined): string | undefined {
+    if (!bg) return undefined;
+    const cached = this._contrastCache.get(bg);
+    if (cached !== undefined || this._contrastCache.has(bg)) return cached;
+    if (!this._contrastProbe) {
+      const span = document.createElement('span');
+      span.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none';
+      document.body.appendChild(span);
+      this._contrastProbe = span;
+    }
+    const result = autoContrastText(bg, this._contrastProbe);
+    this._contrastCache.set(bg, result);
+    return result;
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._contrastProbe?.remove();
+    this._contrastProbe = undefined;
+  }
+
+  static styles = css`
+    :host {
+      display: block;
+    }
+    .table-container {
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+    table {
+      border-collapse: collapse;
+      white-space: nowrap;
+      -webkit-user-select: text;
+      user-select: text;
+    }
+    th, td {
+      padding: 1px 4px;
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--divider-color, #e0e0e0);
+    }
+    tbody tr.sub-row td.sub-label {
+      border-bottom: hidden;
+    }
+    td.data-cell {
+      padding: 1px 4px;
+      color: var(--primary-text-color);
+      text-align: right;
+      min-width: 34px;
+    }
+    td.data-cell.has-data {
+      border-left: 1px solid var(--divider-color, #ccc);
+      border-right: 1px solid var(--divider-color, #ccc);
+    }
+    td.pad-cell {
+      min-width: 34px;
+      padding: 1px 4px;
+      background: var(--secondary-background-color, #f5f5f5);
+      opacity: 0.3;
+    }
+    .label-column {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background: var(--card-background-color, #fff);
+      color: var(--secondary-text-color);
+      white-space: nowrap;
+      padding: 1px 6px 1px 4px;
+      vertical-align: top;
+    }
+    .year-header-row th {
+      font-weight: normal;
+      font-size: 0.9em;
+      color: var(--secondary-text-color);
+      text-align: center;
+      padding: 1px 4px;
+      background: var(--secondary-background-color, #f0f0f0);
+      border-bottom: 1px solid var(--divider-color, #ccc);
+    }
+    .year-header-row th.year-name {
+      font-weight: bold;
+      font-size: 1em;
+      color: var(--primary-text-color);
+      text-align: left;
+      padding: 4px 6px;
+      position: sticky;
+      left: 0;
+      z-index: 1;
+    }
+    th.month-col.pad-month {
+      opacity: 0.45;
+    }
+    .summary-column {
+      color: var(--secondary-text-color);
+      border: 1px solid var(--divider-color, #ccc);
+      text-align: right;
+      padding: 1px 4px;
+    }
+    .cumul-summary {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      white-space: nowrap;
+    }
+    .cumul-minmax {
+      display: flex;
+      justify-content: space-between;
+      gap: 4px;
+      width: 100%;
+      font-size: 0.85em;
+      opacity: 0.8;
+    }
+    .sub-label {
+      position: sticky;
+      left: var(--label-col-width, 0px);
+      z-index: 1;
+      background: var(--card-background-color, #fff);
+      text-align: right;
+      color: var(--secondary-text-color);
+      font-size: 0.8em;
+      padding: 1px 4px;
+      white-space: nowrap;
+    }
+    td.sub-label,
+    td.label-column[colspan="2"] {
+      border-right: 1px solid var(--divider-color, #ccc);
+    }
+  `;
+
+  private _lastDispatchedGroups: ThresholdLegendGroup[] = [];
+
+  override updated() {
+    const labelCol = this.shadowRoot?.querySelector<HTMLElement>('td.label-column[rowspan]');
+    if (labelCol) {
+      this.style.setProperty('--label-col-width', `${labelCol.getBoundingClientRect().width}px`);
+    }
+    const current: ThresholdLegendGroup[] = [...this._triggeredGroups.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([, g]) => ({ label: g.label, rules: [...g.rules] }));
+    if (this._groupsChanged(current, this._lastDispatchedGroups)) {
+      this._lastDispatchedGroups = current;
+      this.dispatchEvent(new CustomEvent('thresholds-applied', {
+        bubbles: true,
+        composed: true,
+        detail: { groups: current },
+      }));
+    }
+  }
+
+  private _groupsChanged(a: ThresholdLegendGroup[], b: ThresholdLegendGroup[]): boolean {
+    if (a.length !== b.length) return true;
+    for (let i = 0; i < a.length; i++) {
+      const ga = a[i]!;
+      const gb = b[i]!;
+      if (ga.label !== gb.label || ga.rules.length !== gb.rules.length) return true;
+      for (let j = 0; j < ga.rules.length; j++) {
+        if (ga.rules[j] !== gb.rules[j]) return true;
+      }
+    }
+    return false;
+  }
+
+  private monthName(month: number): string {
+    return new Intl.DateTimeFormat(this.lang, { month: 'short' }).format(
+      new Date(this.year, month - 1, 1),
+    );
+  }
+
+  private hasCumulative(): boolean {
+    return this.entityConfigs.some((cfg) => {
+      const meta = this.entityMetadata.get(rowKey(cfg));
+      return meta && meta.stateClass !== 'measurement';
+    });
+  }
+
+  private hasMeasurement(): boolean {
+    return this.entityConfigs.some((cfg) => {
+      const meta = this.entityMetadata.get(rowKey(cfg));
+      return meta?.stateClass === 'measurement';
+    });
+  }
+
+  private _visible(month: number): boolean {
+    return this.visibleMonths.includes(month);
+  }
+
+  private _summaryFor(rowIndex: number, key: string, month: number): MonthlySummary | undefined {
+    return this.monthlySummaries.get(rowSummaryKey(rowIndex, key, this.year, month));
+  }
+
+  private renderEntityRows(cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean) {
+    const key = rowKey(cfg);
+    const precision = resolvePrecision(cfg);
+    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
+    const meta = this.entityMetadata.get(key);
+    const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
+    const unitStr = ('unit' in cfg && cfg.unit) ? cfg.unit : meta?.unitOfMeasurement;
+    const unit = unitStr ? ` [${unitStr}]` : '';
+    const groupLabel = `${label}${unit}`;
+    const f = ('factor' in cfg && cfg.factor != null) ? cfg.factor : 1;
+    const hasStats = meta?.hasStatistics ?? true;
+    const hasError = this.entityErrors.has(key);
+    const isMeasurement = meta?.stateClass === 'measurement';
+
+    const staticStyle = buildCellStyle(
+      cfg.text_color,
+      cfg.background_color,
+      undefined,
+      this.autoTextFor(cfg.background_color),
+    );
+
+    if (isMeasurement && !hasError) {
+      const erc = 'entity' in cfg ? cfg : null;
+      const visibleRows: Array<'min' | 'avg' | 'max'> = [];
+      if (erc?.show_min !== false) visibleRows.push('min');
+      if (erc?.show_avg !== false) visibleRows.push('avg');
+      if (erc?.show_max !== false) visibleRows.push('max');
+
+      if (visibleRows.length === 0) {
+        return html`
+          <tr>
+            <td class="label-column" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>
+          </tr>
+        `;
+      }
+
+      const cellsFor = (row: 'min' | 'avg' | 'max') => ALL_MONTHS.map((m) => {
+        if (!this._visible(m)) {
+          return html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`;
+        }
+        const summary = this._summaryFor(rowIndex, key, m);
+        const raw = row === 'min' ? summary?.min : row === 'avg' ? summary?.mean : summary?.max;
+        if (raw == null) {
+          return html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`;
+        }
+        const v = raw * f;
+        const rule = resolveThreshold(v, cfg.thresholds ?? [], row);
+        if (rule) this._addTriggered(rowIndex, groupLabel, rule);
+        const style = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+        return html`<td class="data-cell has-data" style=${ifDefined(style)}>${nf.format(v)}</td>`;
+      });
+
+      // Yearly Summary roll-up (FR-005): extremes of monthly extremes, day-weighted avg.
+      const rollup = computeMeasurementYearRollup(
+        rowIndex, key, this.year, this.visibleMonths, this.monthlySummaries, this.dailyValues,
+      );
+      const rollupVals: Record<'min' | 'avg' | 'max', number | null> = {
+        min: rollup.min != null ? rollup.min * f : null,
+        avg: rollup.mean != null ? rollup.mean * f : null,
+        max: rollup.max != null ? rollup.max * f : null,
+      };
+      const summaryStyles: Record<'min' | 'avg' | 'max', string | undefined> = {
+        min: staticStyle, avg: staticStyle, max: staticStyle,
+      };
+      for (const row of visibleRows) {
+        const v = rollupVals[row];
+        if (v != null) {
+          const role = row === 'min' ? 'summary-min' : row === 'avg' ? 'summary-avg' : 'summary-max';
+          const rule = resolveThreshold(v, cfg.thresholds ?? [], role);
+          if (rule) this._addTriggered(rowIndex, groupLabel, rule);
+          summaryStyles[row] = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+        }
+      }
+
+      const hasCumulative = this.hasCumulative();
+      const rowspan = visibleRows.length;
+      return html`${visibleRows.map((row, idx) => html`
+        <tr class="${idx < visibleRows.length - 1 ? 'sub-row' : ''}">
+          ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>` : ''}
+          <td class="sub-label" style=${ifDefined(staticStyle)}>${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
+          ${cellsFor(row)}
+          <td class="summary-column" style=${ifDefined(summaryStyles[row])}>${rollupVals[row] != null ? nf.format(rollupVals[row]!) : ''}</td>
+          ${hasCumulative ? html`<td class="summary-column" style=${ifDefined(staticStyle)}></td>` : ''}
+        </tr>
+      `)}`;
+    }
+
+    // Cumulative / expression entity — single row of monthly totals
+    const excludeZero = cfg.show_zero === false;
+    const rollup = computeCumulativeYearRollup(
+      rowIndex, key, this.year, this.visibleMonths, this.monthlySummaries, excludeZero,
+    );
+    const monthCells = ALL_MONTHS.map((m) => {
+      if (!this._visible(m)) {
+        return html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`;
+      }
+      const summary = this._summaryFor(rowIndex, key, m);
+      let cellContent = '';
+      let numericValue: number | undefined;
+      if (hasError) {
+        cellContent = '—';
+      } else if (!hasStats) {
+        // no content
+      } else if (summary?.total != null) {
+        const v = summary.total * f;
+        numericValue = v;
+        if (v !== 0 || cfg.show_zero !== false) {
+          cellContent = nf.format(v);
+        }
+      }
+      let cellStyle = staticStyle;
+      if (numericValue !== undefined && cellContent) {
+        const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar');
+        if (rule) this._addTriggered(rowIndex, groupLabel, rule);
+        cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+      }
+      return html`<td class="data-cell ${cellContent ? 'has-data' : ''}" style=${ifDefined(cellStyle)}>${cellContent}</td>`;
+    });
+
+    // Yearly Summary (FR-018) and Total (FR-006) columns.
+    const cumulErc = 'entity' in cfg ? cfg : null;
+    const showMin = cumulErc?.show_min !== false;
+    const showAvg = cumulErc?.show_avg !== false;
+    const showMax = cumulErc?.show_max !== false;
+    const summaryContent = ((rollup.mean != null || rollup.min != null || rollup.max != null) && (showMin || showAvg || showMax))
+      ? html`<div class="cumul-summary">
+          ${showAvg ? html`<div>${rollup.mean != null ? nf.format(rollup.mean * f) : ''}</div>` : ''}
+          ${(showMin || showMax) ? html`<div class="cumul-minmax">
+            ${showMin ? html`<span>${rollup.min != null ? `↓${nf.format(rollup.min * f)}` : ''}</span>` : ''}
+            ${showMax ? html`<span>${rollup.max != null ? `↑${nf.format(rollup.max * f)}` : ''}</span>` : ''}
+          </div>` : ''}
+        </div>`
+      : '';
+    const totalContent = rollup.total != null ? nf.format(rollup.total * f) : '';
+
+    let cumulSummaryStyle = staticStyle;
+    // Total column never gets threshold coloring — static color only (mirrors the monthly view).
+    const cumulTotalStyle = staticStyle;
+    if (rollup.mean != null && (showMin || showAvg || showMax)) {
+      const rule = resolveThreshold(rollup.mean * f, cfg.thresholds ?? [], 'summary-scalar');
+      if (rule) this._addTriggered(rowIndex, groupLabel, rule);
+      cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+    }
+
+    return html`
+      <tr>
+        <td class="label-column" colspan="${hasMeasurement ? 2 : 1}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>
+        ${monthCells}
+        <td class="summary-column" style=${ifDefined(cumulSummaryStyle)}>${summaryContent}</td>
+        <td class="summary-column" style=${ifDefined(cumulTotalStyle)}>${totalContent}</td>
+      </tr>
+    `;
+  }
+
+  render() {
+    this._triggeredGroups.clear();
+    const hasMeasurement = this.hasMeasurement();
+    const hasCumulative = this.hasCumulative();
+
+    return html`
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr class="year-header-row">
+              <th class="label-column year-name" colspan="${hasMeasurement ? 2 : 1}">${this.year}</th>
+              ${ALL_MONTHS.map((m) => html`<th class="month-col ${this._visible(m) ? '' : 'pad-month'}">${this.monthName(m)}</th>`)}
+              <th class="summary-column">${localize('table.year_summary', this.lang)}</th>
+              ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
+            </tr>
+          </thead>
+          <tbody>
+            ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, hasMeasurement))}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'calendar-stats-year-summary-table': YearSummaryTable;
+  }
+}

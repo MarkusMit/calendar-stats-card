@@ -3,15 +3,17 @@ import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { CardConfig, ThresholdRule, ThresholdLegendGroup } from './types/card-config';
 import type { HomeAssistant } from './types/ha-types';
-import type { ViewState, YearStatistics, DateRange, RangePreset, MonthAnchor } from './types/statistics';
+import type { ViewState, YearStatistics, DateRange, RangePreset, MonthAnchor, ViewMode } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
 import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues, rowSummaryKey } from './services/data-transform';
 import { resolvePredecessorData } from './services/predecessor-resolver';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
-import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd } from './services/date-range';
+import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor } from './services/date-range';
 import { localize } from './localize/localize';
 import './components/loading-overlay';
 import './components/year-table';
+import './components/year-summary-table';
+import './components/view-mode-toggle';
 import './components/range-navigator';
 import './components/calendar-stats-card-editor';
 
@@ -24,6 +26,7 @@ export class CalendarStatsCard extends LitElement {
   @state() private _inEditor = false;
   @state() private _viewState: ViewState = {
     range: presetToRange('this_year', { year: new Date().getFullYear(), month: new Date().getMonth() + 1 }),
+    viewMode: 'monthly',
     earliestDataYear: null,
     earliestDataMonth: null,
     isLoading: false,
@@ -33,6 +36,8 @@ export class CalendarStatsCard extends LitElement {
 
   private _service = new StatisticsService();
   private _fetchAbortFlag = 0;
+  /** True once the earliest-data probe ran (whether or not it found data). */
+  private _earliestProbed = false;
   private _warnedPredecessors = new Set<string>();
   private readonly _emptyDailyValues = new Map();
   private readonly _emptyMonthlySummaries = new Map();
@@ -145,6 +150,36 @@ export class CalendarStatsCard extends LitElement {
     return this._viewState.range;
   }
 
+  get viewMode(): ViewMode {
+    return this._viewState.viewMode;
+  }
+
+  set viewMode(mode: ViewMode) {
+    if (mode === this._viewState.viewMode) return;
+    // Entering the yearly view expands the span to whole calendar years (FR-016);
+    // switching back retains the year-spanning range.
+    const range = mode === 'yearly' ? snapRangeToYears(this._viewState.range) : this._viewState.range;
+    this._viewState = { ...this._viewState, viewMode: mode, range };
+    this.requestUpdate();
+    if (mode === 'yearly') void this._fetchRange(range);
+  }
+
+  private _onViewModeSelect(e: CustomEvent<{ mode: ViewMode }>): void {
+    this.viewMode = e.detail.mode;
+  }
+
+  /** Navigation granularity for the active view. */
+  private _granularity(): 'month' | 'year' {
+    return this._viewState.viewMode === 'yearly' ? 'year' : 'month';
+  }
+
+  /** Earliest-data floor anchor for the active granularity (FR-015). */
+  private _floorAnchor(): MonthAnchor | null {
+    const earliest = this._earliestAnchor();
+    if (earliest === null) return null;
+    return this._granularity() === 'year' ? { year: earliest.year, month: 1 } : earliest;
+  }
+
   connectedCallback(): void {
     super.connectedCallback();
     // Walk the composed DOM tree (crossing shadow root boundaries) to detect editor context.
@@ -253,15 +288,19 @@ export class CalendarStatsCard extends LitElement {
     const endTime = `${year + 1}-01-01T00:00:00Z`;
 
     try {
-      // Resolve earliest data year on first fetch
-      if (this._viewState.earliestDataYear === null) {
-        const meta = await this._service.getStatisticsMetadata(this._hass, entityIds);
+      // Resolve the first recorded data point once, from the earliest monthly
+      // statistics bucket (HA metadata carries no earliest-data timestamp).
+      if (!this._earliestProbed) {
+        const meta = await this._service.findEarliestDataPoint(this._hass, entityIds);
         if (token !== this._fetchAbortFlag) return false;
-        this._viewState = {
-          ...this._viewState,
-          earliestDataYear: meta.earliestYear,
-          earliestDataMonth: meta.earliestMonth,
-        };
+        this._earliestProbed = true;
+        if (meta) {
+          this._viewState = {
+            ...this._viewState,
+            earliestDataYear: meta.earliestYear,
+            earliestDataMonth: meta.earliestMonth,
+          };
+        }
       }
 
       const [dailyRaw, monthlyRaw] = await Promise.all([
@@ -425,28 +464,45 @@ export class CalendarStatsCard extends LitElement {
   }
 
   private _onPrevRange = (): void => {
-    if (atRangeStart(this._viewState.range, this._earliestAnchor())) return;
-    this._applyRange(stepRange(this._viewState.range, -1, this._currentYearMonth()));
+    const gran = this._granularity();
+    if (atRangeStart(this._viewState.range, this._floorAnchor())) return;
+    const stepped = gran === 'year'
+      ? stepRangeByYears(this._viewState.range, -1)
+      : stepRange(this._viewState.range, -1, this._currentYearMonth());
+    // FR-015: a step can never cross the earliest-data floor.
+    this._applyRange(clampRangeToFloor(stepped, this._earliestAnchor(), gran));
   };
 
   private _onNextRange = (): void => {
     if (atRangeEnd(this._viewState.range, this._currentYearMonth())) return;
-    this._applyRange(stepRange(this._viewState.range, 1, this._currentYearMonth()));
+    const stepped = this._granularity() === 'year'
+      ? stepRangeByYears(this._viewState.range, 1)
+      : stepRange(this._viewState.range, 1, this._currentYearMonth());
+    this._applyRange(stepped);
   };
 
   private _onRangeSelected(e: CustomEvent): void {
     const d = e.detail as { preset?: RangePreset; start?: MonthAnchor; end?: MonthAnchor };
+    const gran = this._granularity();
     let range: DateRange;
-    if (d.preset) range = presetToRange(d.preset, this._currentYearMonth());
-    else if (d.start && d.end) range = { start: d.start, end: d.end, preset: 'custom' };
-    else return;
-    this._applyRange(range);
+    if (d.preset) {
+      range = gran === 'year'
+        ? yearPresetToRange(d.preset, this._currentYearMonth().year, this._viewState.earliestDataYear)
+        : presetToRange(d.preset, this._currentYearMonth());
+    } else if (d.start && d.end) {
+      range = { start: d.start, end: d.end, preset: 'custom' };
+    } else return;
+    this._applyRange(clampRangeToFloor(range, this._earliestAnchor(), gran));
   }
 
   getCardSize(): number {
     const range = this._viewState.range;
     const now = this._currentYearMonth();
     const earliest = this._earliestAnchor();
+    if (this._viewState.viewMode === 'yearly') {
+      // One compact block per year in range.
+      return Math.max(rangeYears(range).length * 2, 1);
+    }
     const total = rangeYears(range).reduce(
       (sum, y) => sum + visibleMonthsForYear(range, y, now, earliest).length,
       0,
@@ -557,29 +613,46 @@ export class CalendarStatsCard extends LitElement {
           ${!isLoading && config && config.entities.length > 0
             ? yearSegments.map((seg) => {
                 const yearStats = this._viewState.statisticsByYear.get(seg.year);
-                return html`<calendar-stats-year-table
-                  .year=${seg.year}
-                  .showYear=${showYear}
-                  .visibleMonths=${seg.months}
-                  .entityConfigs=${config.entities}
-                  .dailyValues=${yearStats?.dailyValues ?? this._emptyDailyValues}
-                  .monthlySummaries=${yearStats?.monthlySummaries ?? this._emptyMonthlySummaries}
-                  .entityMetadata=${yearStats?.entityMetadata ?? this._emptyEntityMetadata}
-                  .entityErrors=${this._viewState.entityErrors}
-                  .lang=${lang}
-                  @thresholds-applied=${this._onThresholdsApplied}
-                ></calendar-stats-year-table>`;
+                return this._viewState.viewMode === 'yearly'
+                  ? html`<calendar-stats-year-summary-table
+                      .year=${seg.year}
+                      .visibleMonths=${seg.months}
+                      .entityConfigs=${config.entities}
+                      .monthlySummaries=${yearStats?.monthlySummaries ?? this._emptyMonthlySummaries}
+                      .dailyValues=${yearStats?.dailyValues ?? this._emptyDailyValues}
+                      .entityMetadata=${yearStats?.entityMetadata ?? this._emptyEntityMetadata}
+                      .entityErrors=${this._viewState.entityErrors}
+                      .lang=${lang}
+                      @thresholds-applied=${this._onThresholdsApplied}
+                    ></calendar-stats-year-summary-table>`
+                  : html`<calendar-stats-year-table
+                      .year=${seg.year}
+                      .showYear=${showYear}
+                      .visibleMonths=${seg.months}
+                      .entityConfigs=${config.entities}
+                      .dailyValues=${yearStats?.dailyValues ?? this._emptyDailyValues}
+                      .monthlySummaries=${yearStats?.monthlySummaries ?? this._emptyMonthlySummaries}
+                      .entityMetadata=${yearStats?.entityMetadata ?? this._emptyEntityMetadata}
+                      .entityErrors=${this._viewState.entityErrors}
+                      .lang=${lang}
+                      @thresholds-applied=${this._onThresholdsApplied}
+                    ></calendar-stats-year-table>`;
               })
             : ''}
         </div>
         ${!this._inEditor ? html`<div class="bottom-bar">
-          ${this._renderLegend(lang)}
           ${config
-            ? html`<calendar-stats-range-navigator
+            ? html`<calendar-stats-view-mode-toggle
+                .mode=${this._viewState.viewMode}
+                .lang=${lang}
+                @calendar-stats-view-mode-select=${this._onViewModeSelect}
+              ></calendar-stats-view-mode-toggle>
+              <calendar-stats-range-navigator
                 .range=${range}
                 .now=${now}
                 .earliest=${earliest}
-                .atStart=${atRangeStart(range, earliest)}
+                .granularity=${this._granularity()}
+                .atStart=${atRangeStart(range, this._floorAnchor())}
                 .atEnd=${atRangeEnd(range, now)}
                 .lang=${lang}
                 @calendar-stats-prev-range=${this._onPrevRange}
@@ -587,6 +660,7 @@ export class CalendarStatsCard extends LitElement {
                 @calendar-stats-range-select=${this._onRangeSelected}
               ></calendar-stats-range-navigator>`
             : ''}
+          ${this._renderLegend(lang)}
         </div>` : ''}
       </ha-card>
     `;
