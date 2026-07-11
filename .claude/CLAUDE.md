@@ -30,12 +30,10 @@ Displays HA entity statistics in dense monthly tables. Entities are user-configu
 
 Supported from day one: `en`, `de`.
 
-### Out of Scope (do not implement)
+### For Later Implementation
 
-- Color coding for threshold violations
 - Separate min/max rows
 - Manual weather/snowfall input
-- Yearly summary tab
 - Cross-year month comparison
 
 ## Dev Environment
