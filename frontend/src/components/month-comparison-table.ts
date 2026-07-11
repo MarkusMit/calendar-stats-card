@@ -245,7 +245,7 @@ export class MonthComparisonTable extends LitElement {
     const diffCell = (val: number | null, pctVal: number | null, symbol: string, cls: string, titleKey: string) =>
       html`<td class="diff-cell ${cls}" style=${ifDefined(staticStyle)}
         title=${ifDefined(val != null ? localize(titleKey, this.lang) : undefined)}>${val != null
-          ? `${symbol}${sf.format(val * factor)}${pctVal != null ? ` (${pf.format(pctVal)})` : ''}`
+          ? html`${symbol}${sf.format(val * factor)}${pctVal != null ? html`<br>(${pf.format(pctVal)})` : ''}`
           : ''}</td>`;
 
     if (entry.value == null) {

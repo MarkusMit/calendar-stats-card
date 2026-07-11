@@ -185,6 +185,28 @@ describe('MonthComparisonTable — percentages (FR-006a)', () => {
     expect(prevDiff.textContent).toContain('%');
   });
 
+  it('absolute and relative diff are separated by a line break', async () => {
+    const el = await renderTable();
+    const prevDiff = cells(el, 'td.diff-cell')[2]!;
+    expect(prevDiff.querySelector('br')).toBeTruthy();
+    // percentage sits after the break
+    const parts = prevDiff.innerHTML.split(/<br\s*\/?>/);
+    expect(parts.length).toBe(2);
+    expect(parts[0]).toContain('4.0');
+    expect(parts[1]).toContain('%');
+  });
+
+  it('diff cells without a percentage contain no line break', async () => {
+    const segments = makeSegments([
+      { year: 2024, summaries: [{ rowIndex: 0, entityId: 'sensor.temp', values: { mean: 10 } }] },
+      { year: 2025, summaries: [{ rowIndex: 0, entityId: 'sensor.temp', values: { mean: 14 } }] },
+    ]);
+    const el = await renderTable({ segments, entityConfigs: [{ entity: 'sensor.temp', show_min: false, show_max: false }] });
+    for (const cell of cells(el, 'td.diff-cell')) {
+      expect(cell.querySelector('br')).toBeNull();
+    }
+  });
+
   it('measurement rows show no percentages', async () => {
     const segments = makeSegments([
       { year: 2024, summaries: [{ rowIndex: 0, entityId: 'sensor.temp', values: { mean: 10 } }] },
