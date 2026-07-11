@@ -388,11 +388,11 @@ describe('YearTable — cumulative summary visibility', () => {
     return el;
   }
 
-  it('default → mean + ↓min + ↑max all present (regression guard)', async () => {
+  it('default → Ømean + ↓min + ↑max all present (regression guard)', async () => {
     const el = await renderCumulVisibility({ entity: RAIN_ID });
     const summaryEl = el.shadowRoot!.querySelector('.cumul-summary');
     expect(summaryEl).toBeTruthy();
-    expect(summaryEl!.textContent).toContain('18');
+    expect(summaryEl!.textContent).toContain('Ø18');
     expect(summaryEl!.textContent).toContain('↓5');
     expect(summaryEl!.textContent).toContain('↑30');
     expect(el.shadowRoot!.querySelector('.cumul-minmax')).toBeTruthy();
@@ -402,7 +402,7 @@ describe('YearTable — cumulative summary visibility', () => {
     const el = await renderCumulVisibility({ entity: RAIN_ID, show_min: false });
     const summaryEl = el.shadowRoot!.querySelector('.cumul-summary');
     expect(summaryEl!.textContent).not.toContain('↓');
-    expect(summaryEl!.textContent).toContain('18');
+    expect(summaryEl!.textContent).toContain('Ø18');
     expect(summaryEl!.textContent).toContain('↑30');
     const cols = el.shadowRoot!.querySelectorAll('td.summary-column');
     expect(cols[cols.length - 1]?.textContent?.trim()).toBe('100.0');
@@ -422,7 +422,7 @@ describe('YearTable — cumulative summary visibility', () => {
     const el = await renderCumulVisibility({ entity: RAIN_ID, show_max: false });
     const summaryEl = el.shadowRoot!.querySelector('.cumul-summary');
     expect(summaryEl!.textContent).not.toContain('↑');
-    expect(summaryEl!.textContent).toContain('18');
+    expect(summaryEl!.textContent).toContain('Ø18');
     expect(summaryEl!.textContent).toContain('↓5');
   });
 

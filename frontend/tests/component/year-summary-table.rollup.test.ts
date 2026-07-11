@@ -108,9 +108,9 @@ describe('YearSummaryTable — yearly Summary/Total columns (T012)', () => {
     const summaryCells = rainRow.querySelectorAll('td.summary-column');
     expect(summaryCells.length).toBe(2); // Summary + Total
     const summaryText = summaryCells[0]!.textContent!;
-    expect(summaryText).toContain('30.0');  // mean of 40, 20
-    expect(summaryText).toContain('20.0');  // ↓min
-    expect(summaryText).toContain('40.0');  // ↑max
+    expect(summaryText).toContain('Ø30.0');  // mean of 40, 20
+    expect(summaryText).toContain('↓20.0');  // ↓min
+    expect(summaryText).toContain('↑40.0');  // ↑max
     expect(summaryCells[1]!.textContent).toContain('60.0'); // total
   });
 });

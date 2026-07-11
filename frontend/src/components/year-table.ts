@@ -429,7 +429,7 @@ export class YearTable extends LitElement {
     const showMax = cumulErc?.show_max !== false;
     const summaryContent = (summary && (showMin || showAvg || showMax))
       ? html`<div class="cumul-summary">
-          ${showAvg ? html`<div>${summary.mean != null ? nf.format(summary.mean * f) : ''}</div>` : ''}
+          ${showAvg ? html`<div>${summary.mean != null ? `Ø${nf.format(summary.mean * f)}` : ''}</div>` : ''}
           ${(showMin || showMax) ? html`<div class="cumul-minmax">
             ${showMin ? html`<span>${summary.min != null ? `↓${nf.format(summary.min * f)}` : ''}</span>` : ''}
             ${showMax ? html`<span>${summary.max != null ? `↑${nf.format(summary.max * f)}` : ''}</span>` : ''}
