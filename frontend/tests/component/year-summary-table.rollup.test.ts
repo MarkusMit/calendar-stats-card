@@ -78,6 +78,15 @@ describe('YearSummaryTable — yearly Summary/Total columns (T012)', () => {
     expect(headers).toContain('Total');
   });
 
+  it('de: roll-up column is labeled "Jahr", not the monthly view\'s "Monat"', async () => {
+    const el = await renderMixed();
+    el.lang = 'de';
+    await el.updateComplete;
+    const headers = [...el.shadowRoot!.querySelectorAll('thead th')].map((h) => h.textContent!.trim());
+    expect(headers).toContain('Jahr');
+    expect(headers).not.toContain('Monat');
+  });
+
   it('measurement sub-rows show yearly min / day-weighted avg / max', async () => {
     const el = await renderMixed();
     const rows = [...el.shadowRoot!.querySelectorAll('tbody tr')];

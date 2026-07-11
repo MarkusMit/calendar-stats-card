@@ -6,6 +6,7 @@
   },
   "table": {
     "summary": "Monat",
+    "year_summary": "Jahr",
     "total": "Gesamt"
   },
   "nav": {

@@ -400,7 +400,7 @@ export class YearSummaryTable extends LitElement {
             <tr class="year-header-row">
               <th class="label-column year-name" colspan="${hasMeasurement ? 2 : 1}">${this.year}</th>
               ${ALL_MONTHS.map((m) => html`<th class="month-col ${this._visible(m) ? '' : 'pad-month'}">${this.monthName(m)}</th>`)}
-              <th class="summary-column">${localize('table.summary', this.lang)}</th>
+              <th class="summary-column">${localize('table.year_summary', this.lang)}</th>
               ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
             </tr>
           </thead>

@@ -32,7 +32,8 @@ export class ViewModeToggle extends LitElement {
       line-height: 1;
     }
     .mode-toggle {
-      font-size: 0.9em;
+      /* Match the legend toggle's inherited font size (1em) in the bottom bar. */
+      font-size: 1em;
       padding: 4px 10px;
       border-radius: 16px;
       display: inline-flex;
