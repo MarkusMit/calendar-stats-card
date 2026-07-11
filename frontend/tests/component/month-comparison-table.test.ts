@@ -249,7 +249,7 @@ describe('MonthComparisonTable — thresholds (FR-011, scope-gated per 015)', ()
     const el = await renderTable({
       entityConfigs: [{
         entity: 'sensor.rain',
-        thresholds: [{ operator: 'above', value: 12, scope: 'month', name: 'wet', background_color: '#ff0000' }],
+        thresholds: [{ operator: 'above', value_month: 12, name: 'wet', background_color: '#ff0000' }],
       }],
     });
     await el.updateComplete;
@@ -270,7 +270,7 @@ describe('MonthComparisonTable — thresholds (FR-011, scope-gated per 015)', ()
     const el = await renderTable({
       entityConfigs: [{
         entity: 'sensor.rain',
-        thresholds: [{ operator: 'above', value: 11, scope: 'month', background_color: '#ff0000' }],
+        thresholds: [{ operator: 'above', value_month: 11, background_color: '#ff0000' }],
       }],
     });
     // cross-year avg = 12 > 11 → colored
@@ -287,7 +287,7 @@ describe('MonthComparisonTable — thresholds (FR-011, scope-gated per 015)', ()
       segments,
       entityConfigs: [{
         entity: 'sensor.temp', show_min: false, show_max: false,
-        thresholds: [{ operator: 'above', value: 12, scope: 'month', background_color: '#ff0000' }],
+        thresholds: [{ operator: 'above', value_month: 12, background_color: '#ff0000' }],
       }],
     });
     const colored = cells(el, 'td.data-cell').filter((c) => (c.getAttribute('style') ?? '').includes('background-color'));

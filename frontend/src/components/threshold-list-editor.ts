@@ -1,11 +1,16 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { ThresholdRule, ThresholdOperator, ThresholdScope } from '../types/card-config';
+import type { ThresholdRule, ThresholdOperator } from '../types/card-config';
 import { localize } from '../localize/localize';
 
 const OPERATORS: ThresholdOperator[] = ['above', 'equals-above', 'equals-below', 'below', 'not-below', 'not-above'];
 
-const SCOPES: ThresholdScope[] = ['day', 'month', 'year'];
+/** Per-period value fields: config key → editor label key suffix. */
+const PERIOD_FIELDS = [
+  { field: 'value', labelKey: 'threshold_value_day' },
+  { field: 'value_month', labelKey: 'threshold_value_month' },
+  { field: 'value_year', labelKey: 'threshold_value_year' },
+] as const;
 
 const OPERATOR_SYMBOL: Record<ThresholdOperator, string> = {
   'above': '>',
@@ -117,9 +122,15 @@ export class ThresholdListEditor extends LitElement {
   }
 
   _handleRuleChange(index: number, field: string, value: unknown): void {
-    const updated = this.thresholds.map((r, i) =>
-      i === index ? { ...r, [field]: value } : r,
-    );
+    const updated = this.thresholds.map((r, i) => {
+      if (i !== index) return r;
+      if (value === undefined) {
+        const rest = { ...(r as Record<string, unknown>) };
+        delete rest[field];
+        return rest as unknown as ThresholdRule;
+      }
+      return { ...r, [field]: value };
+    });
     this._dispatchChange(updated);
   }
 
@@ -130,7 +141,10 @@ export class ThresholdListEditor extends LitElement {
 
   private _panelHeader(rule: ThresholdRule): string {
     const symbol = OPERATOR_SYMBOL[rule.operator] ?? rule.operator;
-    const base = `${symbol} ${rule.value}`;
+    const vals = [rule.value, rule.value_month, rule.value_year]
+      .filter((v): v is number => v != null)
+      .join('/');
+    const base = `${symbol} ${vals || '—'}`;
     return rule.name ? `${rule.name} (${base})` : base;
   }
 
@@ -156,30 +170,21 @@ export class ThresholdListEditor extends LitElement {
                 `)}
               </select>
             </div>
-            <div class="field">
-              <label>${localize('editor.threshold_value', lang)}</label>
-              <input
-                data-field="value"
-                type="number"
-                step="any"
-                .value=${String(rule.value)}
-                @change=${(e: Event) => {
-                  const v = parseFloat((e.target as HTMLInputElement).value);
-                  this._handleRuleChange(i, 'value', isNaN(v) ? 0 : v);
-                }}
-              />
-            </div>
-            <div class="field">
-              <label>${localize('editor.threshold_scope', lang)}</label>
-              <select
-                data-field="scope"
-                @change=${(e: Event) => this._handleRuleChange(i, 'scope', (e.target as HTMLSelectElement).value)}
-              >
-                ${SCOPES.map((s) => html`
-                  <option value=${s} ?selected=${(rule.scope ?? 'day') === s}>${localize(`threshold.scopes.${s}`, lang)}</option>
-                `)}
-              </select>
-            </div>
+            ${PERIOD_FIELDS.map(({ field, labelKey }) => html`
+              <div class="field">
+                <label>${localize(`editor.${labelKey}`, lang)}</label>
+                <input
+                  data-field=${field}
+                  type="number"
+                  step="any"
+                  .value=${rule[field] != null ? String(rule[field]) : ''}
+                  @change=${(e: Event) => {
+                    const v = parseFloat((e.target as HTMLInputElement).value);
+                    this._handleRuleChange(i, field, isNaN(v) ? undefined : v);
+                  }}
+                />
+              </div>
+            `)}
             <div class="field">
               <label>${localize('editor.threshold_name', lang)}</label>
               <input

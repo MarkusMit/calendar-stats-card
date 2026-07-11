@@ -3,8 +3,16 @@ import type { ThresholdRule, CellRole, ThresholdScope } from '../types/card-conf
 const NOT_BELOW_EXCLUDED: ReadonlySet<CellRole> = new Set(['avg', 'max', 'summary-avg', 'summary-max']);
 const NOT_ABOVE_EXCLUDED: ReadonlySet<CellRole> = new Set(['min', 'avg', 'summary-min', 'summary-avg']);
 
-function matchesOperator(cellValue: number, rule: ThresholdRule, cellRole: CellRole): boolean {
-  const { operator, value } = rule;
+/** The rule's threshold for the given period; undefined ⇒ rule is inert there. */
+function thresholdFor(rule: ThresholdRule, cellScope: ThresholdScope): number | undefined {
+  switch (cellScope) {
+    case 'day': return rule.value;
+    case 'month': return rule.value_month;
+    case 'year': return rule.value_year;
+  }
+}
+
+function matchesOperator(cellValue: number, operator: ThresholdRule['operator'], value: number, cellRole: CellRole): boolean {
   switch (operator) {
     case 'not-below': return !NOT_BELOW_EXCLUDED.has(cellRole) && cellValue >= value;
     case 'not-above': return !NOT_ABOVE_EXCLUDED.has(cellRole) && cellValue <= value;
@@ -15,35 +23,32 @@ function matchesOperator(cellValue: number, rule: ThresholdRule, cellRole: CellR
   }
 }
 
-/** Unknown/absent scope values degrade to the default 'day'. */
-function normalizeScope(scope: ThresholdRule['scope']): ThresholdScope {
-  return scope === 'month' || scope === 'year' ? scope : 'day';
-}
-
 export function resolveThreshold(
   cellValue: number,
   thresholds: ThresholdRule[],
   cellRole: CellRole,
   cellScope: ThresholdScope = 'day',
 ): ThresholdRule | undefined {
-  const matching = thresholds.filter(
-    (t) => normalizeScope(t.scope) === cellScope
-      && (t.text_color || t.background_color)
-      && matchesOperator(cellValue, t, cellRole),
-  );
+  const withValue = thresholds
+    .map((t) => ({ rule: t, value: thresholdFor(t, cellScope) }))
+    .filter((e): e is { rule: ThresholdRule; value: number } =>
+      e.value != null
+      && Boolean(e.rule.text_color || e.rule.background_color)
+      && matchesOperator(cellValue, e.rule.operator, e.value, cellRole),
+    );
 
-  if (matching.length === 0) return undefined;
+  if (withValue.length === 0) return undefined;
 
-  const minDist = Math.min(...matching.map((t) => Math.abs(cellValue - t.value)));
-  const candidates = matching.filter((t) => Math.abs(cellValue - t.value) === minDist);
+  const minDist = Math.min(...withValue.map((e) => Math.abs(cellValue - e.value)));
+  const candidates = withValue.filter((e) => Math.abs(cellValue - e.value) === minDist);
 
-  if (candidates.length === 1) return candidates[0];
+  if (candidates.length === 1) return candidates[0]!.rule;
 
-  const maxVal = Math.max(...candidates.map((t) => t.value));
-  const top = candidates.filter((t) => t.value === maxVal);
+  const maxVal = Math.max(...candidates.map((e) => e.value));
+  const top = candidates.filter((e) => e.value === maxVal);
 
   // Secondary tie-break: first-defined (filter preserves original order)
-  return top[0];
+  return top[0]!.rule;
 }
 
 export function buildCellStyle(

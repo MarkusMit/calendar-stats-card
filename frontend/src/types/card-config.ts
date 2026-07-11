@@ -7,13 +7,15 @@ export type CellRole =
   | 'summary-min' | 'summary-avg' | 'summary-max' | 'summary-scalar';
 
 /** Aggregation period of the quantity a cell displays: sums define the
- *  period, statistics inherit the period of the values they summarize. */
+ *  period, statistics inherit the period of the values they summarize.
+ *  Classifies cells internally — not a config field. */
 export type ThresholdScope = 'day' | 'month' | 'year';
 
 export interface ThresholdRule {
   operator: ThresholdOperator;
-  value: number;
-  scope?: ThresholdScope; // absent or invalid → 'day'
+  value?: number;       // day threshold; rule is inert on day cells without it
+  value_month?: number; // month threshold (monthly sums and stats over them)
+  value_year?: number;  // year threshold (yearly sums)
   name?: string;
   text_color?: string;
   background_color?: string;

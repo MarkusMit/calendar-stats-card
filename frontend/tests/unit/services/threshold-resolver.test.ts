@@ -240,111 +240,121 @@ describe('resolveThreshold — not-above cell role filtering', () => {
   });
 });
 
-// --- scope filtering (feature 015) ---
+// --- per-period thresholds (feature 015) ---
 
-describe('resolveThreshold — scope filtering', () => {
-  const dayRule: ThresholdRule = { operator: 'above', value: 10, background_color: 'red' };
-  const dayExplicit: ThresholdRule = { operator: 'above', value: 10, scope: 'day', background_color: 'darkred' };
-  const monthRule: ThresholdRule = { operator: 'above', value: 150, scope: 'month', background_color: 'blue' };
-  const yearRule: ThresholdRule = { operator: 'above', value: 1200, scope: 'year', background_color: 'purple' };
+describe('resolveThreshold — per-period threshold values', () => {
+  const dayOnly: ThresholdRule = { operator: 'above', value: 10, background_color: 'red' };
+  const monthOnly: ThresholdRule = { operator: 'above', value_month: 150, background_color: 'blue' };
+  const yearOnly: ThresholdRule = { operator: 'above', value_year: 1200, background_color: 'purple' };
+  const allPeriods: ThresholdRule = {
+    operator: 'above', value: 10, value_month: 150, value_year: 1200, background_color: 'teal',
+  };
 
-  it('scope-less rule matches day cells (default cellScope)', () => {
-    expect(resolveThreshold(15, [dayRule], 'scalar')).toBe(dayRule);
+  it('day-only rule matches day cells (default cellScope)', () => {
+    expect(resolveThreshold(15, [dayOnly], 'scalar')).toBe(dayOnly);
   });
 
-  it('scope-less rule matches explicit day cells', () => {
-    expect(resolveThreshold(15, [dayRule], 'scalar', 'day')).toBe(dayRule);
+  it('day-only rule matches explicit day cells', () => {
+    expect(resolveThreshold(15, [dayOnly], 'scalar', 'day')).toBe(dayOnly);
   });
 
-  it('scope-less rule does NOT match month cells', () => {
-    expect(resolveThreshold(200, [dayRule], 'scalar', 'month')).toBeUndefined();
+  it('day-only rule does NOT match month cells', () => {
+    expect(resolveThreshold(200, [dayOnly], 'scalar', 'month')).toBeUndefined();
   });
 
-  it('scope-less rule does NOT match year cells', () => {
-    expect(resolveThreshold(2000, [dayRule], 'scalar', 'year')).toBeUndefined();
+  it('day-only rule does NOT match year cells', () => {
+    expect(resolveThreshold(2000, [dayOnly], 'scalar', 'year')).toBeUndefined();
   });
 
-  it('explicit day rule behaves like scope-less rule', () => {
-    expect(resolveThreshold(15, [dayExplicit], 'scalar', 'day')).toBe(dayExplicit);
-    expect(resolveThreshold(200, [dayExplicit], 'scalar', 'month')).toBeUndefined();
+  it('month-only rule matches month cells only', () => {
+    expect(resolveThreshold(200, [monthOnly], 'scalar', 'month')).toBe(monthOnly);
+    expect(resolveThreshold(200, [monthOnly], 'scalar', 'day')).toBeUndefined();
+    expect(resolveThreshold(2000, [monthOnly], 'scalar', 'year')).toBeUndefined();
   });
 
-  it('month rule matches month cells only', () => {
-    expect(resolveThreshold(200, [monthRule], 'scalar', 'month')).toBe(monthRule);
-    expect(resolveThreshold(200, [monthRule], 'scalar', 'day')).toBeUndefined();
-    expect(resolveThreshold(2000, [monthRule], 'scalar', 'year')).toBeUndefined();
+  it('year-only rule matches year cells only', () => {
+    expect(resolveThreshold(1300, [yearOnly], 'scalar', 'year')).toBe(yearOnly);
+    expect(resolveThreshold(1300, [yearOnly], 'scalar', 'day')).toBeUndefined();
+    expect(resolveThreshold(1300, [yearOnly], 'scalar', 'month')).toBeUndefined();
   });
 
-  it('year rule matches year cells only', () => {
-    expect(resolveThreshold(1300, [yearRule], 'scalar', 'year')).toBe(yearRule);
-    expect(resolveThreshold(1300, [yearRule], 'scalar', 'day')).toBeUndefined();
-    expect(resolveThreshold(1300, [yearRule], 'scalar', 'month')).toBeUndefined();
+  it('one rule with all three values gates each period with its own threshold', () => {
+    expect(resolveThreshold(15, [allPeriods], 'scalar', 'day')).toBe(allPeriods);      // 15 > 10
+    expect(resolveThreshold(15, [allPeriods], 'scalar', 'month')).toBeUndefined();     // 15 ≤ 150
+    expect(resolveThreshold(200, [allPeriods], 'scalar', 'month')).toBe(allPeriods);   // 200 > 150
+    expect(resolveThreshold(200, [allPeriods], 'scalar', 'year')).toBeUndefined();     // 200 ≤ 1200
+    expect(resolveThreshold(1300, [allPeriods], 'scalar', 'year')).toBe(allPeriods);   // 1300 > 1200
   });
 
-  it('invalid scope string behaves as day', () => {
-    const invalid = { operator: 'above', value: 10, scope: 'weekly', background_color: 'red' } as unknown as ThresholdRule;
-    expect(resolveThreshold(15, [invalid], 'scalar', 'day')).toBe(invalid);
-    expect(resolveThreshold(200, [invalid], 'scalar', 'month')).toBeUndefined();
+  it('rule without any period value is ignored', () => {
+    const empty = { operator: 'above', background_color: 'red' } as ThresholdRule;
+    expect(resolveThreshold(15, [empty], 'scalar', 'day')).toBeUndefined();
+    expect(resolveThreshold(15, [empty], 'scalar', 'month')).toBeUndefined();
+    expect(resolveThreshold(15, [empty], 'scalar', 'year')).toBeUndefined();
   });
 
-  it('summary roles obey scope too', () => {
-    expect(resolveThreshold(200, [dayRule], 'summary-scalar', 'month')).toBeUndefined();
-    expect(resolveThreshold(200, [monthRule], 'summary-scalar', 'month')).toBe(monthRule);
+  it('a period threshold of 0 is a valid threshold, not "absent"', () => {
+    const zero: ThresholdRule = { operator: 'equals-below', value_month: 0, background_color: 'cyan' };
+    expect(resolveThreshold(0, [zero], 'scalar', 'month')).toBe(zero);
+    expect(resolveThreshold(0, [zero], 'scalar', 'day')).toBeUndefined();
   });
 
-  it('not-below/not-above role exclusions still apply within a scope', () => {
-    const nb: ThresholdRule = { operator: 'not-below', value: 100, scope: 'month', background_color: 'lime' };
+  it('summary roles obey the period too', () => {
+    expect(resolveThreshold(200, [dayOnly], 'summary-scalar', 'month')).toBeUndefined();
+    expect(resolveThreshold(200, [monthOnly], 'summary-scalar', 'month')).toBe(monthOnly);
+  });
+
+  it('not-below/not-above role exclusions still apply per period', () => {
+    const nb: ThresholdRule = { operator: 'not-below', value_month: 100, background_color: 'lime' };
     expect(resolveThreshold(200, [nb], 'scalar', 'month')).toBe(nb);
     expect(resolveThreshold(200, [nb], 'avg', 'month')).toBeUndefined();
     expect(resolveThreshold(200, [nb], 'max', 'month')).toBeUndefined();
   });
 });
 
-describe('resolveThreshold — closest-wins within scope (mixed lists, 3+ bands per scope)', () => {
-  const d1: ThresholdRule = { operator: 'above', value: 5, background_color: 'd-yellow' };
-  const d2: ThresholdRule = { operator: 'above', value: 10, background_color: 'd-orange' };
-  const d3: ThresholdRule = { operator: 'above', value: 20, background_color: 'd-red' };
-  const m1: ThresholdRule = { operator: 'above', value: 100, scope: 'month', background_color: 'm-yellow' };
-  const m2: ThresholdRule = { operator: 'above', value: 150, scope: 'month', background_color: 'm-orange' };
-  const m3: ThresholdRule = { operator: 'above', value: 200, scope: 'month', background_color: 'm-red' };
-  const y1: ThresholdRule = { operator: 'above', value: 1000, scope: 'year', background_color: 'y-orange' };
-  const y2: ThresholdRule = { operator: 'above', value: 1500, scope: 'year', background_color: 'y-red' };
-  const mixed = [d1, d2, d3, m1, m2, m3, y1, y2];
+describe('resolveThreshold — closest-wins per period (mixed lists, 3+ bands per period)', () => {
+  // Three gradient rules, each spanning day AND month thresholds.
+  const r1: ThresholdRule = { operator: 'above', value: 5, value_month: 100, background_color: 'yellow' };
+  const r2: ThresholdRule = { operator: 'above', value: 10, value_month: 150, background_color: 'orange' };
+  const r3: ThresholdRule = { operator: 'above', value: 20, value_month: 200, background_color: 'red' };
+  const y1: ThresholdRule = { operator: 'above', value_year: 1000, background_color: 'y-orange' };
+  const y2: ThresholdRule = { operator: 'above', value_year: 1500, background_color: 'y-red' };
+  const mixed = [r1, r2, r3, y1, y2];
 
-  it('day cell: ranks among day rules only', () => {
+  it('day cell: ranks by day thresholds', () => {
     expect(resolveThreshold(4, mixed, 'scalar', 'day')).toBeUndefined();
-    expect(resolveThreshold(7, mixed, 'scalar', 'day')).toBe(d1);
-    expect(resolveThreshold(12, mixed, 'scalar', 'day')).toBe(d2);
-    expect(resolveThreshold(30, mixed, 'scalar', 'day')).toBe(d3);
+    expect(resolveThreshold(7, mixed, 'scalar', 'day')).toBe(r1);
+    expect(resolveThreshold(12, mixed, 'scalar', 'day')).toBe(r2);
+    expect(resolveThreshold(30, mixed, 'scalar', 'day')).toBe(r3);
   });
 
-  it('day cell: high value never picks a month/year rule', () => {
-    // 120 is above m1's 100, but m1 has month scope; d3 (20) is the closest day rule
-    expect(resolveThreshold(120, mixed, 'scalar', 'day')).toBe(d3);
+  it('day cell: month/year thresholds never leak into day ranking', () => {
+    // 120 exceeds r1's month threshold 100, but day ranking uses day values: r3 (20) closest
+    expect(resolveThreshold(120, mixed, 'scalar', 'day')).toBe(r3);
   });
 
-  it('month cell: ranks among month rules only', () => {
+  it('month cell: ranks by month thresholds of the same rules', () => {
     expect(resolveThreshold(90, mixed, 'scalar', 'month')).toBeUndefined();
-    expect(resolveThreshold(110, mixed, 'scalar', 'month')).toBe(m1);
-    expect(resolveThreshold(160, mixed, 'scalar', 'month')).toBe(m2);
-    expect(resolveThreshold(500, mixed, 'scalar', 'month')).toBe(m3);
+    expect(resolveThreshold(110, mixed, 'scalar', 'month')).toBe(r1);
+    expect(resolveThreshold(160, mixed, 'scalar', 'month')).toBe(r2);
+    expect(resolveThreshold(500, mixed, 'scalar', 'month')).toBe(r3);
   });
 
-  it('month cell: value above all day rules but below all month rules → undefined', () => {
+  it('month cell: value above all day thresholds but below all month thresholds → undefined', () => {
     expect(resolveThreshold(50, mixed, 'scalar', 'month')).toBeUndefined();
   });
 
-  it('year cell: ranks among year rules only', () => {
+  it('year cell: ranks among rules with year thresholds only', () => {
     expect(resolveThreshold(900, mixed, 'scalar', 'year')).toBeUndefined();
     expect(resolveThreshold(1100, mixed, 'scalar', 'year')).toBe(y1);
     expect(resolveThreshold(1600, mixed, 'scalar', 'year')).toBe(y2);
   });
 
-  it('tie-break still works within a scope', () => {
-    // month cell, value 175: above:150 (dist 25) and below:200 (dist 25) both match
-    // → equidistant → higher threshold value wins → the below:200 rule
-    const mBelow: ThresholdRule = { operator: 'below', value: 200, scope: 'month', background_color: 'm-blue' };
-    expect(resolveThreshold(175, [m1, m2, mBelow], 'scalar', 'month')).toBe(mBelow);
+  it('tie-break uses the period thresholds', () => {
+    // month cell, value 175: r2 above:150 (dist 25) and rBelow below:200 (dist 25) both match
+    // → equidistant → higher period threshold wins → rBelow
+    const rBelow: ThresholdRule = { operator: 'below', value_month: 200, background_color: 'm-blue' };
+    expect(resolveThreshold(175, [r1, r2, rBelow], 'scalar', 'month')).toBe(rBelow);
   });
 });
 

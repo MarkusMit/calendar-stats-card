@@ -129,12 +129,16 @@ Multiple rules can stack; the editor displays a legend for every named rule.
 
 | Option             | Type    | Default         | Description |
 |--------------------|---------|-----------------|-------------|
-| `operator`           | enum    | **required**    | One of `above`, `equals-above`, `equals-below`, `below`, `not-below`, `not-above`. |
-| `value`              | number  | **required**    | Threshold value to compare against. |
-| `scope`              | enum    | `day`           | Aggregation period the rule applies to: `day`, `month`, or `year` — see [Threshold scope](#threshold-scope). |
-| `name`               | string  | —               | Optional label shown in the legend at the bottom of the card. |
+| `operator`           | enum    | **required**    | One of `above`, `equals-above`, `equals-below`, `below`, `not-below`, `not-above`. Shared by all period values of the rule. |
+| `value`              | number  | —               | Day threshold — gates daily values and statistics over them; see [Threshold periods](#threshold-periods). |
+| `value_month`        | number  | —               | Month threshold — gates monthly sums and statistics over them. |
+| `value_year`         | number  | —               | Year threshold — gates yearly sums. |
+| `name`               | string  | —               | Optional label shown in the legend at the bottom of the card (once per rule). |
 | `text_color`         | string  | row default     | Text colour applied to matching cells. Accepted formats: see [Color values](#color-values). |
 | `background_color`   | string  | row default     | Background colour applied to matching cells. Accepted formats: see [Color values](#color-values). |
+
+At least one of `value`, `value_month`, `value_year` must be set; a rule with none is ignored.
+A rule is inert for periods it defines no threshold for.
 
 Operator semantics:
 
@@ -147,36 +151,32 @@ Operator semantics:
 | `not-below`        | `value ≥ threshold` |
 | `not-above`        | `value ≤ threshold` |
 
-### Threshold scope
+### Threshold periods
 
-A rule is evaluated only against cells whose displayed value has the rule's aggregation period.
+For each cell, a rule is evaluated only when it defines a threshold for the cell's aggregation period, using that period's value.
 Sums define the period; statistics inherit the period of the values they summarize.
 
-| Scope   | Cells the rule can colour |
-|---------|---------------------------|
-| `day` (default)   | Daily values and statistics over daily values: all measurement cells in every view (including monthly/yearly min/avg/max), cumulative daily values, and their monthly summary min/avg/max. |
-| `month`           | Monthly sums and statistics over them: cumulative month cells in the yearly view, the comparison view's values and cross-year average, the yearly view's per-row summary over monthly totals, and the monthly view's Total column. |
-| `year`            | Yearly sums: the yearly view's Total column. |
+| Period   | Threshold field | Cells it can colour |
+|----------|-----------------|---------------------|
+| Day    | `value`       | Daily values and statistics over daily values: all measurement cells in every view (including monthly/yearly min/avg/max), cumulative daily values, and their monthly summary min/avg/max. |
+| Month  | `value_month` | Monthly sums and statistics over them: cumulative month cells in the yearly view, the comparison view's values and cross-year average, the yearly view's per-row summary over monthly totals, and the monthly view's Total column. |
+| Year   | `value_year`  | Yearly sums: the yearly view's Total column. |
 
-This keeps daily-intent rules (e.g. "more than 10 mm rain in a day") from firing on monthly totals, while dedicated month/year rules can flag notable months or years:
+This keeps daily-intent thresholds (e.g. "more than 10 mm rain in a day") from firing on monthly totals, while one rule can carry all three magnitudes of the same phenomenon — one colour, one legend entry:
 
 ```yaml
 entities:
   - entity: sensor.precipitation
     thresholds:
       - operator: above
-        value: 10
-        name: Wet day
-        background_color: "#4fc3f7"     # scope omitted → day
-      - operator: above
-        value: 150
-        scope: month
-        name: Wet month
+        value: 10            # day: wet day
+        value_month: 150     # month: wet month
+        value_year: 1200     # year: wet year
+        name: Wet
         background_color: "#0277bd"
       - operator: above
-        value: 1200
-        scope: year
-        name: Wet year
+        value_month: 300     # month-only rule; inert on daily and yearly cells
+        name: Extreme month
         background_color: "#01579b"
 ```
 

@@ -79,9 +79,10 @@
     "add_threshold": "Schwellwert hinzufügen",
     "remove_threshold": "Schwellwert entfernen",
     "threshold_operator": "Operator",
-    "threshold_value": "Wert",
+    "threshold_value_day": "Wert (Tag)",
+    "threshold_value_month": "Wert (Monat)",
+    "threshold_value_year": "Wert (Jahr)",
     "threshold_name": "Bezeichnung (optional)",
-    "threshold_scope": "Bezugszeitraum",
     "predecessors": "Vorgänger",
     "add_predecessor": "Vorgänger hinzufügen",
     "remove_predecessor": "Vorgänger entfernen",
@@ -100,11 +101,6 @@
       "below": "Darunter (<)",
       "not_below": "Nicht darunter (≥)",
       "not_above": "Nicht darüber (≤)"
-    },
-    "scopes": {
-      "day": "Tag",
-      "month": "Monat",
-      "year": "Jahr"
     }
   }
 }

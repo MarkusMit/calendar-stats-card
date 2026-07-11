@@ -55,12 +55,12 @@ function totalCell(el: YearTable): HTMLElement {
 
 describe('YearTable — Total column threshold coloring by scope (015/US2)', () => {
   it('month-scope rule colors the Total column when the monthly total qualifies', async () => {
-    const el = await renderRain([{ operator: 'above', value: 150, scope: 'month', background_color: 'blue' }]);
+    const el = await renderRain([{ operator: 'above', value_month: 150, background_color: 'blue' }]);
     expect(totalCell(el).getAttribute('style') ?? '').toContain('background-color:blue');
   });
 
   it('month-scope rule leaves the Total column plain when the total does not qualify', async () => {
-    const el = await renderRain([{ operator: 'above', value: 200, scope: 'month', background_color: 'blue' }]);
+    const el = await renderRain([{ operator: 'above', value_month: 200, background_color: 'blue' }]);
     expect(totalCell(el).getAttribute('style') ?? '').not.toContain('background-color:blue');
   });
 
@@ -72,7 +72,7 @@ describe('YearTable — Total column threshold coloring by scope (015/US2)', () 
 
   it('month-scope rule NEVER colors daily cells', async () => {
     // daily value 12 exceeds the month rule's 5 — must still not color
-    const el = await renderRain([{ operator: 'above', value: 5, scope: 'month', background_color: 'blue' }]);
+    const el = await renderRain([{ operator: 'above', value_month: 5, background_color: 'blue' }]);
     const day1 = el.shadowRoot!.querySelectorAll('td.data-cell')[0];
     expect(day1?.getAttribute('style') ?? '').not.toContain('background-color:blue');
   });
@@ -86,7 +86,7 @@ describe('YearTable — Total column threshold coloring by scope (015/US2)', () 
   it('named month-scope rule firing on the Total column reports to the legend', async () => {
     const groups: unknown[] = [];
     document.body.addEventListener('thresholds-applied', (e) => groups.push(...(e as CustomEvent).detail.groups));
-    await renderRain([{ operator: 'above', value: 150, scope: 'month', name: 'Wet month', background_color: 'blue' }]);
+    await renderRain([{ operator: 'above', value_month: 150, name: 'Wet month', background_color: 'blue' }]);
     await vi.waitFor(() => {
       if (groups.length === 0) throw new Error('no thresholds-applied yet');
     }, { timeout: 3000 });

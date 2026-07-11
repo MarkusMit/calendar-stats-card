@@ -79,9 +79,10 @@
     "add_threshold": "Add threshold",
     "remove_threshold": "Remove threshold",
     "threshold_operator": "Operator",
-    "threshold_value": "Value",
+    "threshold_value_day": "Value (day)",
+    "threshold_value_month": "Value (month)",
+    "threshold_value_year": "Value (year)",
     "threshold_name": "Label (optional)",
-    "threshold_scope": "Scope",
     "predecessors": "Predecessors",
     "add_predecessor": "Add predecessor",
     "remove_predecessor": "Remove predecessor",
@@ -100,11 +101,6 @@
       "below": "Below (<)",
       "not_below": "Not below (≥)",
       "not_above": "Not above (≤)"
-    },
-    "scopes": {
-      "day": "Day",
-      "month": "Month",
-      "year": "Year"
     }
   }
 }

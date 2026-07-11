@@ -112,7 +112,7 @@ describe('YearSummaryTable — day-scope rules on month-scale cells (015/US1)', 
 });
 
 describe('YearSummaryTable — month-scope rules color monthly totals (015/US2)', () => {
-  const monthRule: ThresholdRule = { operator: 'above', value: 20, scope: 'month', background_color: 'blue', name: 'Wet month' };
+  const monthRule: ThresholdRule = { operator: 'above', value_month: 20, background_color: 'blue', name: 'Wet month' };
 
   it('month rule colors qualifying month cells only', async () => {
     const el = await renderRain([monthRule]);
@@ -172,7 +172,7 @@ describe('YearSummaryTable — month-scope rules color monthly totals (015/US2)'
 
 describe('YearSummaryTable — year-scope rules color the yearly Total (015/US3)', () => {
   // yearly total = 42 + 5 = 47
-  const yearRule: ThresholdRule = { operator: 'above', value: 45, scope: 'year', background_color: 'purple', name: 'Wet year' };
+  const yearRule: ThresholdRule = { operator: 'above', value_year: 45, background_color: 'purple', name: 'Wet year' };
 
   function yearlyTotalCell(el: YearSummaryTable): HTMLElement {
     const summaryCells = [...el.shadowRoot!.querySelectorAll<HTMLElement>('tbody td.summary-column')];
@@ -187,12 +187,12 @@ describe('YearSummaryTable — year-scope rules color the yearly Total (015/US3)
   });
 
   it('year rule leaves a non-qualifying yearly Total plain', async () => {
-    const el = await renderRain([{ ...yearRule, value: 50 }]);
+    const el = await renderRain([{ ...yearRule, value_year: 50 }]);
     expect(yearlyTotalCell(el).getAttribute('style') ?? '').not.toContain('background-color:purple');
   });
 
   it('year rule never colors month cells', async () => {
-    const el = await renderRain([{ ...yearRule, value: 40 }]);
+    const el = await renderRain([{ ...yearRule, value_year: 40 }]);
     const cells = [...el.shadowRoot!.querySelectorAll('tbody td.data-cell')];
     const jan = cells.find((c) => c.textContent!.includes('42'));
     expect((jan as HTMLElement).getAttribute('style') ?? '').not.toContain('background-color:purple');

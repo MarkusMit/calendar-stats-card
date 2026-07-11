@@ -108,12 +108,12 @@ Every test task MUST be written and confirmed failing before its implementation 
 
 **Purpose**: User clarified the intended model after first implementation: one rule carries up to three thresholds (`value` day, `value_month`, `value_year`) sharing operator/name/colors; the `scope` field is dropped (spec Clarifications, 2026-07-11).
 
-- [ ] T026 Rework resolver unit tests in `frontend/tests/unit/services/threshold-resolver.test.ts` to the per-period model (day-only rules gate day cells only; `value_month`/`value_year` gate their cells; closest-wins/tie-breaks use the period threshold; rule without any period value ignored); confirm failing
-- [ ] T027 Update `frontend/src/types/card-config.ts`: `value` optional, add `value_month?`/`value_year?`, remove `scope`; update `frontend/src/services/threshold-resolver.ts` to per-period threshold lookup
-- [ ] T028 Update component tests (`year-summary-table.thresholds.test.ts`, `month-comparison-table.test.ts`, `year-table.thresholds-scope.test.ts`) from `scope:` rules to per-period values; call sites in components stay unchanged
-- [ ] T029 Rework editor: tests in `threshold-list-editor.test.ts` (three value inputs, empty-clears-field, de labels), `threshold-list-editor.ts` (replace scope select with month/year value inputs), translations (`threshold_value_day|month|year`, drop `threshold_scope`/`threshold.scopes`)
-- [ ] T030 Update `docs/README.md` threshold section to per-period values
-- [ ] T031 Full `npm test`, `npm run lint`, `npm run build` green
+- [X] T026 Rework resolver unit tests in `frontend/tests/unit/services/threshold-resolver.test.ts` to the per-period model (day-only rules gate day cells only; `value_month`/`value_year` gate their cells; closest-wins/tie-breaks use the period threshold; rule without any period value ignored); confirm failing
+- [X] T027 Update `frontend/src/types/card-config.ts`: `value` optional, add `value_month?`/`value_year?`, remove `scope`; update `frontend/src/services/threshold-resolver.ts` to per-period threshold lookup
+- [X] T028 Update component tests (`year-summary-table.thresholds.test.ts`, `month-comparison-table.test.ts`, `year-table.thresholds-scope.test.ts`) from `scope:` rules to per-period values; call sites in components stay unchanged
+- [X] T029 Rework editor: tests in `threshold-list-editor.test.ts` (three value inputs, empty-clears-field, de labels), `threshold-list-editor.ts` (replace scope select with month/year value inputs), translations (`threshold_value_day|month|year`, drop `threshold_scope`/`threshold.scopes`)
+- [X] T030 Update `docs/README.md` threshold section to per-period values
+- [X] T031 Full `npm test`, `npm run lint`, `npm run build` green
 
 ---
 

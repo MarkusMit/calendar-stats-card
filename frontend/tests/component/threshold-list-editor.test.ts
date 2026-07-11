@@ -119,45 +119,75 @@ describe('ThresholdListEditor — (T020)', () => {
   });
 });
 
-describe('ThresholdListEditor — scope selector (015/US4)', () => {
-  it('renders a scope select with Day/Month/Year options for each rule', async () => {
+describe('ThresholdListEditor — per-period value inputs (015/US4)', () => {
+  it('renders day, month, and year value inputs for each rule', async () => {
     const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
-    const scopeField = el.shadowRoot!.querySelector<HTMLSelectElement>('select[data-field="scope"]');
-    expect(scopeField).toBeTruthy();
-    const labels = [...scopeField!.querySelectorAll('option')].map((o) => o.textContent!.trim());
-    expect(labels).toEqual(['Day', 'Month', 'Year']);
+    expect(el.shadowRoot!.querySelector('input[data-field="value"]')).toBeTruthy();
+    expect(el.shadowRoot!.querySelector('input[data-field="value_month"]')).toBeTruthy();
+    expect(el.shadowRoot!.querySelector('input[data-field="value_year"]')).toBeTruthy();
   });
 
-  it('displays Day for a rule without a scope', async () => {
-    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
-    const scopeField = el.shadowRoot!.querySelector<HTMLSelectElement>('select[data-field="scope"]')!;
-    const selected = scopeField.querySelector<HTMLOptionElement>('option[selected]') ?? scopeField.options[scopeField.selectedIndex];
-    expect(selected?.value).toBe('day');
+  it('shows stored values and leaves absent periods empty', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10, value_month: 150 }]);
+    const day = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value"]')!;
+    const month = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value_month"]')!;
+    const year = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value_year"]')!;
+    expect(day.value).toBe('10');
+    expect(month.value).toBe('150');
+    expect(year.value).toBe('');
   });
 
-  it('displays the stored scope for a month rule', async () => {
-    const el = await createThresholdListEditor([{ operator: 'above', value: 150, scope: 'month' }]);
-    const scopeField = el.shadowRoot!.querySelector<HTMLSelectElement>('select[data-field="scope"]')!;
-    const selected = scopeField.querySelector<HTMLOptionElement>('option[selected]');
-    expect(selected?.value).toBe('month');
-  });
-
-  it('changing the scope dispatches thresholds-changed with the updated rule', async () => {
+  it('entering a month value dispatches thresholds-changed with value_month', async () => {
     const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('thresholds-changed', (e) => dispatched.push(e as CustomEvent));
-    const scopeField = el.shadowRoot!.querySelector<HTMLSelectElement>('select[data-field="scope"]')!;
-    scopeField.value = 'month';
-    scopeField.dispatchEvent(new Event('change'));
+    const month = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value_month"]')!;
+    month.value = '150';
+    month.dispatchEvent(new Event('change'));
     expect(dispatched).toHaveLength(1);
     const result = dispatched[0]!.detail.thresholds as ThresholdRule[];
-    expect(result[0]!.scope).toBe('month');
+    expect(result[0]!.value_month).toBe(150);
+    expect(result[0]!.value).toBe(10);
   });
 
-  it('german labels: Tag/Monat/Jahr', async () => {
+  it('clearing a period input removes the field from the rule', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10, value_month: 150 }]);
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('thresholds-changed', (e) => dispatched.push(e as CustomEvent));
+    const month = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value_month"]')!;
+    month.value = '';
+    month.dispatchEvent(new Event('change'));
+    expect(dispatched).toHaveLength(1);
+    const result = dispatched[0]!.detail.thresholds as ThresholdRule[];
+    expect('value_month' in result[0]!).toBe(false);
+    expect(result[0]!.value).toBe(10);
+  });
+
+  it('clearing the day input removes value from the rule', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10, value_month: 150 }]);
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('thresholds-changed', (e) => dispatched.push(e as CustomEvent));
+    const day = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value"]')!;
+    day.value = '';
+    day.dispatchEvent(new Event('change'));
+    const result = dispatched[0]!.detail.thresholds as ThresholdRule[];
+    expect('value' in result[0]!).toBe(false);
+    expect(result[0]!.value_month).toBe(150);
+  });
+
+  it('english labels: Value (day)/(month)/(year)', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }], 'en');
+    const labels = [...el.shadowRoot!.querySelectorAll('.field label')].map((l) => l.textContent!.trim());
+    expect(labels).toContain('Value (day)');
+    expect(labels).toContain('Value (month)');
+    expect(labels).toContain('Value (year)');
+  });
+
+  it('german labels: Wert (Tag)/(Monat)/(Jahr)', async () => {
     const el = await createThresholdListEditor([{ operator: 'above', value: 10 }], 'de');
-    const scopeField = el.shadowRoot!.querySelector<HTMLSelectElement>('select[data-field="scope"]')!;
-    const labels = [...scopeField.querySelectorAll('option')].map((o) => o.textContent!.trim());
-    expect(labels).toEqual(['Tag', 'Monat', 'Jahr']);
+    const labels = [...el.shadowRoot!.querySelectorAll('.field label')].map((l) => l.textContent!.trim());
+    expect(labels).toContain('Wert (Tag)');
+    expect(labels).toContain('Wert (Monat)');
+    expect(labels).toContain('Wert (Jahr)');
   });
 });
