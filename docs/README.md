@@ -124,13 +124,14 @@ Expression rows do **not** support `factor` (fold it into the expression directl
 
 ### Threshold rule
 
-Each entry in a row's `thresholds:` list applies a colour override to day cells whose value satisfies the rule.
+Each entry in a row's `thresholds:` list applies a colour override to cells whose value satisfies the rule.
 Multiple rules can stack; the editor displays a legend for every named rule.
 
 | Option             | Type    | Default         | Description |
 |--------------------|---------|-----------------|-------------|
 | `operator`           | enum    | **required**    | One of `above`, `equals-above`, `equals-below`, `below`, `not-below`, `not-above`. |
 | `value`              | number  | **required**    | Threshold value to compare against. |
+| `scope`              | enum    | `day`           | Aggregation period the rule applies to: `day`, `month`, or `year` — see [Threshold scope](#threshold-scope). |
 | `name`               | string  | —               | Optional label shown in the legend at the bottom of the card. |
 | `text_color`         | string  | row default     | Text colour applied to matching cells. Accepted formats: see [Color values](#color-values). |
 | `background_color`   | string  | row default     | Background colour applied to matching cells. Accepted formats: see [Color values](#color-values). |
@@ -145,6 +146,39 @@ Operator semantics:
 | `below`            | `value < threshold` |
 | `not-below`        | `value ≥ threshold` |
 | `not-above`        | `value ≤ threshold` |
+
+### Threshold scope
+
+A rule is evaluated only against cells whose displayed value has the rule's aggregation period.
+Sums define the period; statistics inherit the period of the values they summarize.
+
+| Scope   | Cells the rule can colour |
+|---------|---------------------------|
+| `day` (default)   | Daily values and statistics over daily values: all measurement cells in every view (including monthly/yearly min/avg/max), cumulative daily values, and their monthly summary min/avg/max. |
+| `month`           | Monthly sums and statistics over them: cumulative month cells in the yearly view, the comparison view's values and cross-year average, the yearly view's per-row summary over monthly totals, and the monthly view's Total column. |
+| `year`            | Yearly sums: the yearly view's Total column. |
+
+This keeps daily-intent rules (e.g. "more than 10 mm rain in a day") from firing on monthly totals, while dedicated month/year rules can flag notable months or years:
+
+```yaml
+entities:
+  - entity: sensor.precipitation
+    thresholds:
+      - operator: above
+        value: 10
+        name: Wet day
+        background_color: "#4fc3f7"     # scope omitted → day
+      - operator: above
+        value: 150
+        scope: month
+        name: Wet month
+        background_color: "#0277bd"
+      - operator: above
+        value: 1200
+        scope: year
+        name: Wet year
+        background_color: "#01579b"
+```
 
 ### Predecessor entry
 

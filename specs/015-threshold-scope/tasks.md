@@ -98,9 +98,9 @@ Every test task MUST be written and confirmed failing before its implementation 
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T023 [P] Document the `scope` field in `README.md` threshold configuration section (YAML example per contracts/card-config.md)
-- [ ] T024 Run `npm run lint` and `npm run build` in `frontend/`; fix any findings
-- [ ] T025 Execute quickstart.md verification: full `npm test`, then manual HA dashboard check with a day+month+year rule set on a precipitation row
+- [X] T023 [P] Document the `scope` field in `README.md` threshold configuration section (YAML example per contracts/card-config.md)
+- [X] T024 Run `npm run lint` and `npm run build` in `frontend/`; fix any findings
+- [ ] T025 Execute quickstart.md verification: full `npm test` (done — 612/612 green, 2026-07-11), then manual HA dashboard check with a day+month+year rule set on a precipitation row (pending — needs a live HA instance)
 
 ---
 
