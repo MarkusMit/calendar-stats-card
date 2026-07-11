@@ -19,18 +19,55 @@ export function resolvePrecision(cfg: { precision?: number }): number {
   return cfg.precision ?? DEFAULT_PRECISION;
 }
 
+/**
+ * One month-of-a-year data slice. When `monthSegments` is set, the table hosts
+ * sections that may span different years (month comparison view, spec 014) —
+ * all inside ONE table so every section shares the same day-column widths.
+ */
+export interface MonthSegment {
+  year: number;
+  month: number;
+  dailyValues: Map<string, DailyValue>;
+  monthlySummaries: Map<string, MonthlySummary>;
+  entityMetadata: Map<string, EntityMetadata>;
+}
+
 @customElement('calendar-stats-year-table')
 export class YearTable extends LitElement {
   @property({ type: Number }) year = 2025;
   /** When true, the year is shown alongside each month name (for multi-year ranges). */
   @property({ type: Boolean }) showYear = false;
   @property({ attribute: false }) visibleMonths: number[] = [];
+  /** Cross-year section mode (spec 014): overrides year/visibleMonths/dailyValues/
+   *  monthlySummaries/entityMetadata; each section's header names month AND year. */
+  @property({ attribute: false }) monthSegments: MonthSegment[] | null = null;
   @property({ attribute: false }) entityConfigs: EntityConfig[] = [];
   @property({ attribute: false }) dailyValues: Map<string, DailyValue> = new Map();
   @property({ attribute: false }) monthlySummaries: Map<string, MonthlySummary> = new Map();
   @property({ attribute: false }) entityMetadata: Map<string, EntityMetadata> = new Map();
   @property({ attribute: false }) entityErrors: Set<string> = new Set();
   @property({ type: String }) lang = 'en';
+
+  /** Normalized section list — single-year (monthly view) or cross-year (comparison). */
+  private _sections(): MonthSegment[] {
+    if (this.monthSegments && this.monthSegments.length > 0) return this.monthSegments;
+    return this.visibleMonths.map((month) => ({
+      year: this.year,
+      month,
+      dailyValues: this.dailyValues,
+      monthlySummaries: this.monthlySummaries,
+      entityMetadata: this.entityMetadata,
+    }));
+  }
+
+  /** Metadata lookup across all sections (column structure must match everywhere). */
+  private _metaFor(key: string): EntityMetadata | undefined {
+    for (const sec of this._sections()) {
+      const meta = sec.entityMetadata.get(key);
+      if (meta) return meta;
+    }
+    return undefined;
+  }
 
   /** Triggered threshold rules grouped by entity row index (preserves config order). */
   private _triggeredGroups = new Map<number, { label: string; rules: Set<ThresholdRule> }>();
@@ -83,7 +120,22 @@ export class YearTable extends LitElement {
     }
     .table-container {
       overflow-x: auto;
+      /* The visible horizontal scrollbar is the viewport-sticky twin below —
+         hide the container's own to avoid doubling. */
+      scrollbar-width: none;
+    }
+    .table-container::-webkit-scrollbar {
+      display: none;
+    }
+    .sticky-scrollbar {
+      position: sticky;
+      bottom: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
       scrollbar-width: thin;
+    }
+    .sticky-scrollbar-spacer {
+      height: 1px;
     }
     table {
       border-collapse: collapse;
@@ -201,10 +253,34 @@ export class YearTable extends LitElement {
 
   private _lastDispatchedGroups: ThresholdLegendGroup[] = [];
 
+  /** Keep the sticky scrollbar and the (scrollbar-less) table container in lockstep. */
+  private _onContainerScroll = (): void => {
+    const container = this.shadowRoot?.querySelector<HTMLElement>('.table-container');
+    const sticky = this.shadowRoot?.querySelector<HTMLElement>('.sticky-scrollbar');
+    if (container && sticky && sticky.scrollLeft !== container.scrollLeft) {
+      sticky.scrollLeft = container.scrollLeft;
+    }
+  };
+
+  private _onStickyScroll = (): void => {
+    const container = this.shadowRoot?.querySelector<HTMLElement>('.table-container');
+    const sticky = this.shadowRoot?.querySelector<HTMLElement>('.sticky-scrollbar');
+    if (container && sticky && container.scrollLeft !== sticky.scrollLeft) {
+      container.scrollLeft = sticky.scrollLeft;
+    }
+  };
+
   override updated() {
     const labelCol = this.shadowRoot?.querySelector<HTMLElement>('td.label-column[rowspan]');
     if (labelCol) {
       this.style.setProperty('--label-col-width', `${labelCol.getBoundingClientRect().width}px`);
+    }
+    // Size the sticky scrollbar's spacer to the table's scroll width so both
+    // scroll areas share the same range (no overflow → scrollbar auto-hides).
+    const container = this.shadowRoot?.querySelector<HTMLElement>('.table-container');
+    const spacer = this.shadowRoot?.querySelector<HTMLElement>('.sticky-scrollbar-spacer');
+    if (container && spacer) {
+      spacer.style.width = `${container.scrollWidth}px`;
     }
     const current: ThresholdLegendGroup[] = [...this._triggeredGroups.entries()]
       .sort((a, b) => a[0] - b[0])
@@ -232,39 +308,40 @@ export class YearTable extends LitElement {
     return false;
   }
 
-  private daysInMonth(month: number): number {
-    return new Date(this.year, month, 0).getDate();
+  private daysInMonth(year: number, month: number): number {
+    return new Date(year, month, 0).getDate();
   }
 
-  private dateStr(month: number, day: number): string {
-    return `${this.year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  private dateStr(year: number, month: number, day: number): string {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
   private monthName(month: number): string {
     return new Intl.DateTimeFormat(this.lang, { month: 'long' }).format(
-      new Date(this.year, month - 1, 1),
+      new Date(2020, month - 1, 1),
     );
   }
 
   private hasCumulative(): boolean {
     return this.entityConfigs.some((cfg) => {
-      const meta = this.entityMetadata.get(rowKey(cfg));
+      const meta = this._metaFor(rowKey(cfg));
       return meta && meta.stateClass !== 'measurement';
     });
   }
 
   private hasMeasurement(): boolean {
     return this.entityConfigs.some((cfg) => {
-      const meta = this.entityMetadata.get(rowKey(cfg));
+      const meta = this._metaFor(rowKey(cfg));
       return meta?.stateClass === 'measurement';
     });
   }
 
-  private renderEntityRows(cfg: EntityConfig, rowIndex: number, month: number, days: number, hasMeasurement: boolean) {
+  private renderEntityRows(cfg: EntityConfig, rowIndex: number, sec: MonthSegment, days: number, hasMeasurement: boolean) {
+    const { year, month } = sec;
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
     const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
-    const meta = this.entityMetadata.get(key);
+    const meta = sec.entityMetadata.get(key);
     const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
     const unitStr = ('unit' in cfg && cfg.unit) ? cfg.unit : meta?.unitOfMeasurement;
     const unit = unitStr ? ` [${unitStr}]` : '';
@@ -273,8 +350,8 @@ export class YearTable extends LitElement {
     const hasStats = meta?.hasStatistics ?? true;
     const hasError = this.entityErrors.has(key);
     const isMeasurement = meta?.stateClass === 'measurement';
-    const summaryKey = rowSummaryKey(rowIndex, key, this.year, month);
-    const summary = this.monthlySummaries.get(summaryKey);
+    const summaryKey = rowSummaryKey(rowIndex, key, year, month);
+    const summary = sec.monthlySummaries.get(summaryKey);
 
     const staticStyle = buildCellStyle(
       cfg.text_color,
@@ -303,7 +380,7 @@ export class YearTable extends LitElement {
           maxCells.push(html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`);
           continue;
         }
-        const val = this.dailyValues.get(`${key}::${this.dateStr(month, d)}`);
+        const val = sec.dailyValues.get(`${key}::${this.dateStr(year, month, d)}`);
         if (val?.kind === 'measurement') {
           const pc = val.partialCoverage ? '*' : '';
           const showZero = cfg.show_zero !== false;
@@ -400,7 +477,7 @@ export class YearTable extends LitElement {
         dayCells.push(html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`);
         continue;
       }
-      const val = this.dailyValues.get(`${key}::${this.dateStr(month, d)}`);
+      const val = sec.dailyValues.get(`${key}::${this.dateStr(year, month, d)}`);
       let cellContent = '';
       let numericValue: number | undefined;
       if (hasError) {
@@ -461,36 +538,41 @@ export class YearTable extends LitElement {
     this._triggeredGroups.clear();
     const hasCumulative = this.hasCumulative();
     const hasMeasurement = this.hasMeasurement();
+    // Cross-year section mode always shows the year in the month header.
+    const withYear = this.showYear || (this.monthSegments?.length ?? 0) > 0;
 
     return html`
-      <div class="table-container">
+      <div class="table-container" @scroll=${this._onContainerScroll}>
         <table>
-          ${this.visibleMonths.map((month) => {
-            const days = this.daysInMonth(month);
+          ${this._sections().map((sec) => {
+            const days = this.daysInMonth(sec.year, sec.month);
             const dayHeaders = [];
             for (let d = 1; d <= TOTAL_DAYS; d++) {
               if (d > days) {
                 dayHeaders.push(html`<th class="pad-cell"></th>`);
               } else {
-                const isSunday = new Date(this.year, month - 1, d).getDay() === 0;
+                const isSunday = new Date(sec.year, sec.month - 1, d).getDay() === 0;
                 dayHeaders.push(html`<th class="${isSunday ? 'sunday' : ''}">${d}</th>`);
               }
             }
             return html`
               <thead>
                 <tr class="month-header-row">
-                  <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this.monthName(month)}${this.showYear ? ` ${this.year}` : ''}</th>
+                  <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this.monthName(sec.month)}${withYear ? ` ${sec.year}` : ''}</th>
                   ${dayHeaders}
                   <th class="summary-column">${localize('table.summary', this.lang)}</th>
                   ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
                 </tr>
               </thead>
               <tbody>
-                ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, month, days, hasMeasurement))}
+                ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, sec, days, hasMeasurement))}
               </tbody>
             `;
           })}
         </table>
+      </div>
+      <div class="sticky-scrollbar" @scroll=${this._onStickyScroll}>
+        <div class="sticky-scrollbar-spacer"></div>
       </div>
     `;
   }

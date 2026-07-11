@@ -143,6 +143,23 @@ export class YearSummaryTable extends LitElement {
     th.month-col.pad-month {
       opacity: 0.45;
     }
+    th.month-col button.month-select {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      text-decoration: underline dotted;
+      text-underline-offset: 2px;
+      border-radius: 3px;
+    }
+    th.month-col button.month-select:hover,
+    th.month-col button.month-select:focus-visible {
+      outline: none;
+      background: var(--divider-color, rgba(0, 0, 0, 0.12));
+    }
     .summary-column {
       color: var(--secondary-text-color);
       border: 1px solid var(--divider-color, #ccc);
@@ -245,6 +262,35 @@ export class YearSummaryTable extends LitElement {
 
   private _summaryFor(seg: YearSummarySegment, rowIndex: number, key: string, month: number): MonthlySummary | undefined {
     return seg.monthlySummaries.get(rowSummaryKey(rowIndex, key, seg.year, month));
+  }
+
+  /** True when the month has data for any row in any segment — only such month
+   *  headers open the comparison view (spec 014 FR-001/FR-016). */
+  private _monthHasData(month: number): boolean {
+    return this.segments.some((seg) =>
+      seg.visibleMonths.includes(month) &&
+      this.entityConfigs.some((cfg, i) =>
+        seg.monthlySummaries.has(rowSummaryKey(i, rowKey(cfg), seg.year, month))));
+  }
+
+  private _onMonthSelect(month: number): void {
+    this.dispatchEvent(new CustomEvent('calendar-stats-month-select', {
+      bubbles: true,
+      composed: true,
+      detail: { month },
+    }));
+  }
+
+  private _renderMonthHeader(seg: YearSummarySegment, month: number, clickable: boolean) {
+    const name = this.monthName(month);
+    const cls = `month-col ${seg.visibleMonths.includes(month) ? '' : 'pad-month'}`;
+    if (!clickable) {
+      return html`<th class=${cls}>${name}</th>`;
+    }
+    const ariaLabel = localize('comparison.compare_month', this.lang).replace('{month}', name);
+    return html`<th class=${cls}>
+      <button class="month-select" aria-label=${ariaLabel} @click=${() => this._onMonthSelect(month)}>${name}</button>
+    </th>`;
   }
 
   private renderEntityRows(seg: YearSummarySegment, cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean, hasCumulative: boolean) {
@@ -405,6 +451,9 @@ export class YearSummaryTable extends LitElement {
     this._triggeredGroups.clear();
     const hasMeasurement = this.hasMeasurement();
     const hasCumulative = this.hasCumulative();
+    // Data presence is a cross-segment property — a month with data in ANY
+    // compared year is clickable in EVERY year's header row (spec 014 FR-001).
+    const clickableMonths = ALL_MONTHS.map((m) => this._monthHasData(m));
 
     return html`
       <div class="table-container">
@@ -413,7 +462,7 @@ export class YearSummaryTable extends LitElement {
             <thead>
               <tr class="year-header-row">
                 <th class="label-column year-name" colspan="${hasMeasurement ? 2 : 1}">${seg.year}</th>
-                ${ALL_MONTHS.map((m) => html`<th class="month-col ${seg.visibleMonths.includes(m) ? '' : 'pad-month'}">${this.monthName(m)}</th>`)}
+                ${ALL_MONTHS.map((m) => this._renderMonthHeader(seg, m, clickableMonths[m - 1]!))}
                 <th class="summary-column">${localize('table.year_summary', this.lang)}</th>
                 ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
               </tr>

@@ -38,27 +38,33 @@ Renders the cross-year summary comparison: rows = configured entities/expression
 
 **Behavior**
 
-- Cell content per year: summary value(s) (threshold-colored via `resolveThreshold`/`buildCellStyle`/`autoContrastText`, roles as in the yearly view), then `Δ` prev-year diff and `Ø` average deviation, each signed; cumulative/expression totals append the percentage when defined (FR-006a).
+- Header row: first cell names the compared month; one colspan-3 header per compared year; a trailing average-column header.
+- Each year renders three aligned sub-columns per (sub-)row: value (threshold-colored via `resolveThreshold`/`buildCellStyle`/`autoContrastText`, roles as in the yearly view), `Δ` prev-year diff, `Ø` average deviation — each signed; cumulative/expression totals append the percentage when defined (FR-006a); diff cells never get threshold styling.
+- The trailing average cell shows the row's cross-year average, threshold-colored via the summary role (`summary-min`/`summary-avg`/`summary-max`/`summary-scalar`), styled like the monthly view's Summary column.
+- All visual styles (padding, header row, data-cell borders, summary borders, label/sub-label columns) mirror `year-table` so the comparison table looks identical to the monthly tables.
 - Values/diffs come from `buildComparisonSeries` (data-model) — the component computes nothing itself beyond formatting (precision/factor/unit per row, `Intl.NumberFormat`).
 - Incomplete current-month cell carries the localized incomplete marker (D6).
 - Empty value → empty cell; diffs omitted (FR-008).
 - Dense layout, HA tokens, sticky label column.
 
-## `calendar-stats-year-table` (REUSED, unchanged)
+## `calendar-stats-year-table` (ENHANCED — cross-year section mode)
 
-One instance per compared year renders the daily section, receiving that year's cached data with `visibleMonths = [month]` and a year label above it (FR-009/010).
-A compared year without data for the month gets a localized empty note instead of a table instance.
+**New property**: `monthSegments: Array<{ year, month, dailyValues, monthlySummaries, entityMetadata }> | null` (default `null`).
+When set, the component renders one thead/tbody section per segment inside its single `<table>` (aligned day columns across years), each section header naming the month AND its year; `year`/`visibleMonths`/`dailyValues`/`monthlySummaries`/`entityMetadata` are ignored.
+When `null`, behavior is exactly the pre-014 monthly view (single year, `visibleMonths`).
+**Sticky scrollbar**: the component renders a viewport-sticky horizontal scrollbar below (and synced with) its scrollbar-less table container, so wide tables stay scrollable without reaching the table's bottom edge.
+The comparison's daily section is ONE such instance fed a section per data-bearing compared year, chronological (FR-009/010); years without data get no section.
 
 ## Host: `calendar-stats-card` (ENHANCED)
 
 - Adds `comparisonMonth: number | null` to its view state (data-model).
 - Handles `calendar-stats-month-select`: sets `comparisonMonth` (yearly view only).
-- Render branch `viewMode === 'yearly' && comparisonMonth !== null`:
-  - Comparison header: back button (`comparison.back`), prev-month button, localized month name (`Intl`, no year), next-month button; prev/next apply `wrapMonth` (Dec↔Jan, never disabled — FR-017).
-  - `month-comparison-table` with the segments of every year in the yearly range.
-  - Daily section: per-year `year-table` (or empty note), chronological.
-  - All-empty month: localized empty state (`comparison.no_data`) instead of the tables; header controls stay usable.
-- Bottom bar while the comparison is open: range navigator and view-mode toggle hidden; legend stays (D3).
+- Render branch `viewMode === 'yearly' && comparisonMonth !== null` (no top bar):
+  - The month name lives in the summary table's first header cell (header-row styling) and in the bottom-bar nav.
+  - `month-comparison-table` with the segments of every year in the yearly range; diffs render beside the value.
+  - Daily section: ONE `year-table` in `monthSegments` mode, one section per data-bearing year, chronological.
+  - All-empty month: localized empty state (`comparison.no_data`) instead of the tables; controls stay usable.
+- Bottom bar while the comparison is open: range navigator and view-mode toggle hidden; in their place the back button plus the month prev/next controls with the localized month name (`wrapMonth`, Dec↔Jan, never disabled — FR-017); legend stays (D3).
 - Back sets `comparisonMonth = null`; any range or view-mode change also resets it (D3, FR-012).
 - No fetching from any comparison interaction (D10).
 

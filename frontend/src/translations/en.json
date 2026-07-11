@@ -39,6 +39,16 @@
     "avg": "avg",
     "max": "max"
   },
+  "comparison": {
+    "back": "Back",
+    "prev_month": "Previous month",
+    "next_month": "Next month",
+    "compare_month": "Compare {month} across years",
+    "diff_prev": "Difference to previous year",
+    "diff_avg": "Deviation from multi-year average",
+    "incomplete": "Current month — incomplete, excluded from the average",
+    "no_data": "No data for this month in any compared year"
+  },
   "legend": {
     "title": "Legend"
   },

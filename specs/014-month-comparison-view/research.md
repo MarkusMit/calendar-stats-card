@@ -57,20 +57,27 @@ The value itself comes from the existing current-month fallback already in the h
 
 **Rationale**: Calendar-position check is deterministic and matches how the monthly/yearly views treat the current month; the exclusion rule was fixed in clarification Q3 (all row types).
 
-## D7 — Daily section reuses `year-table` unchanged
+## D7 — Daily section: one `year-table` in cross-year section mode (revised)
 
-**Decision**: Below the summary table the host renders one existing `calendar-stats-year-table` per compared year in chronological order, fed the year's cached data with `visibleMonths = [comparisonMonth]`, each labeled with its year.
-A year with no data for the month renders a localized empty note instead of a table.
+**Decision** (revised on user feedback): `year-table` gains an optional `monthSegments` property — a list of `{year, month, dailyValues, monthlySummaries, entityMetadata}` sections rendered inside its single `<table>` (thead/tbody per section), so all compared years share aligned day columns.
+The host feeds one `year-table` with one section per data-bearing compared year, chronological; each section header names the month AND its year (e.g. "June 2025").
+Years without data get no section — their absence is already visible in the summary table above; no separate labels or empty notes.
+Without `monthSegments` the component behaves exactly as before (monthly view untouched).
 
-**Rationale**: `year-table` already renders one table per visible month with all per-row settings, threshold coloring, and the summary/total columns (FR-009/010 for free); SC-004 (daily values == monthly view) holds by construction.
+**Rationale**: `year-table` already hosts all its months in ONE table with fixed 31 day columns; separate per-year instances were the only source of misalignment.
+The section mode reuses every per-row setting, threshold rule, and summary/total column (FR-009/010 for free); SC-004 holds by construction.
 
-**Alternatives considered**: a new single "aligned days across years" table — explicitly out of scope (spec assumption: stacked per-year tables).
+**Alternatives considered (first iteration)**: one `year-table` instance per compared year with per-year labels and empty notes — implemented first, rejected by the user (misaligned columns, wasted vertical space).
 
-## D8 — Month navigation chrome in the host
+## D7a — Month header carries the year
 
-**Decision**: The comparison header (rendered by the host card) shows: back button, previous-month button, localized month name (via `Intl`, no year), next-month button.
-Prev/next compute `((month + 11) % 12) + 1` / `(month % 12) + 1` — pure wrap, never disabled, walking all twelve months; an all-empty month renders the empty-state comparison (clarification Q1).
-No new component: the host already renders bar buttons directly, and the controls are three buttons plus a label.
+**Decision**: In section mode the month header always appends the year (reusing the `showYear` suffix idiom: "June 2025"), replacing the separate per-year label elements.
+
+## D8 — Month navigation chrome in the host (revised)
+
+**Decision** (revised on user feedback): The month prev/next controls plus the localized month name sit in the floating bottom navigation bar, in the slot the range navigator and view-mode toggle vacate while the comparison is open; the back button (plus a month-name title) stays in a slim bar above the tables.
+Prev/next apply `wrapMonth` — pure wrap, never disabled, walking all twelve months; an all-empty month renders the empty-state comparison (clarification Q1).
+No new component: the host renders the bar buttons directly.
 
 **Rationale**: A dedicated navigator component would duplicate `range-navigator` plumbing for three buttons (YAGNI, Constitution V); wrap math is trivial and unit-tested via the card tests.
 

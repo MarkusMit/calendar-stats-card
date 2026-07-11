@@ -17,7 +17,7 @@
 
 **Purpose**: Confirm a green baseline before any new work (TDD prerequisite).
 
-- [ ] T001 Run `npm test` and `npm run lint` in `frontend/` and confirm both pass; stop and report if any pre-existing failure exists
+- [X] T001 Run `npm test` and `npm run lint` in `frontend/` and confirm both pass; stop and report if any pre-existing failure exists
 
 ---
 
@@ -27,8 +27,8 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 [P] Add `comparisonMonth: number | null` to `ViewState` and the `ComparisonEntry` / `ComparisonSeries` interfaces (per data-model.md) in `frontend/src/types/statistics.ts`
-- [ ] T003 [P] Add the `comparison.*` keys (back, prev_month, next_month, diff_prev, diff_avg, incomplete, no_data, compare_month) to `frontend/src/translations/en.json` and `frontend/src/translations/de.json`
+- [X] T002 [P] Add `comparisonMonth: number | null` to `ViewState` and the `ComparisonEntry` / `ComparisonSeries` interfaces (per data-model.md) in `frontend/src/types/statistics.ts`
+- [X] T003 [P] Add the `comparison.*` keys (back, prev_month, next_month, diff_prev, diff_avg, incomplete, no_data, compare_month) to `frontend/src/translations/en.json` and `frontend/src/translations/de.json`
 
 **Checkpoint**: Foundation ready — user story implementation can begin.
 
@@ -42,17 +42,17 @@
 
 ### Tests for User Story 1 (write first, confirm they FAIL)
 
-- [ ] T004 [P] [US1] Write failing unit tests for `buildComparisonSeries` (value sourcing per row type, `diffPrev` omission at range start / missing prev year, `crossYearAvg` exclusions for empty years and the incomplete current month, `diffAvg`, percentage only on cumulative/expression totals with zero/missing-baseline guard, single-year range → `diffAvg` 0, lone incomplete current month → `crossYearAvg` and `diffAvg` null) and `wrapMonth` (±1 steps, 1↔12 wrap) in `frontend/tests/unit/services/data-transform-comparison.test.ts`
-- [ ] T005 [P] [US1] Write failing component tests for `year-summary-table` month headers (data-bearing month renders as keyboard-focusable button and click emits `calendar-stats-month-select {month}`; data-less month stays inert per FR-016; localized aria-label) in `frontend/tests/component/year-summary-table-month-select.test.ts`
-- [ ] T006 [P] [US1] Write failing component tests for `month-comparison-table` (rows = entities with measurement sub-rows per show_min/avg/max; one column per segment year, chronological; values equal injected `MonthlySummary` components; diff rendering incl. omission rules; percentages per FR-006a; incomplete marker via injected `now`; threshold colors on values but not diffs; `thresholds-applied` emitted; de/en labels) in `frontend/tests/component/month-comparison-table.test.ts`
-- [ ] T007 [P] [US1] Write failing card wiring tests (month click in yearly view opens the comparison; header shows localized month name with prev/next controls; twelve `next` clicks cycle back to the start month with unchanged years per SC-008; all-empty month shows the `comparison.no_data` empty state; range navigator and view-mode toggle hidden while open; range or view-mode change closes the comparison; zero websocket calls from open/navigate) in `frontend/tests/component/card-month-comparison.test.ts`
+- [X] T004 [P] [US1] Write failing unit tests for `buildComparisonSeries` (value sourcing per row type, `diffPrev` omission at range start / missing prev year, `crossYearAvg` exclusions for empty years and the incomplete current month, `diffAvg`, percentage only on cumulative/expression totals with zero/missing-baseline guard, single-year range → `diffAvg` 0, lone incomplete current month → `crossYearAvg` and `diffAvg` null) and `wrapMonth` (±1 steps, 1↔12 wrap) in `frontend/tests/unit/services/data-transform-comparison.test.ts`
+- [X] T005 [P] [US1] Write failing component tests for `year-summary-table` month headers (data-bearing month renders as keyboard-focusable button and click emits `calendar-stats-month-select {month}`; data-less month stays inert per FR-016; localized aria-label) in `frontend/tests/component/year-summary-table-month-select.test.ts`
+- [X] T006 [P] [US1] Write failing component tests for `month-comparison-table` (rows = entities with measurement sub-rows per show_min/avg/max; one column per segment year, chronological; values equal injected `MonthlySummary` components; diff rendering incl. omission rules; percentages per FR-006a; incomplete marker via injected `now`; threshold colors on values but not diffs; `thresholds-applied` emitted; de/en labels) in `frontend/tests/component/month-comparison-table.test.ts`
+- [X] T007 [P] [US1] Write failing card wiring tests (month click in yearly view opens the comparison; header shows localized month name with prev/next controls; twelve `next` clicks cycle back to the start month with unchanged years per SC-008; all-empty month shows the `comparison.no_data` empty state; range navigator and view-mode toggle hidden while open; range or view-mode change closes the comparison; zero websocket calls from open/navigate) in `frontend/tests/component/card-month-comparison.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Implement `buildComparisonSeries` and `wrapMonth` (pure, per data-model.md derivation rules) in `frontend/src/services/data-transform.ts` until T004 passes
-- [ ] T009 [US1] Make month header cells interactive (button when the month has data in ≥1 segment, dispatch `calendar-stats-month-select`, inert otherwise) in `frontend/src/components/year-summary-table.ts` until T005 passes
-- [ ] T010 [US1] Create the `month-comparison-table` component (contracts/ui-contracts.md: props month/segments/entityConfigs/entityErrors/now/lang; formatting via precision/factor/unit + `Intl.NumberFormat`; threshold coloring via existing resolver; dense HA-token styling; sticky label column) in `frontend/src/components/month-comparison-table.ts` until T006 passes
-- [ ] T011 [US1] Wire the host: `comparisonMonth` state, `calendar-stats-month-select` handler, comparison render branch (header chrome with prev/next month controls + localized month name, `month-comparison-table` fed from `statisticsByYear`, empty state), hide range-navigator/view-mode-toggle while open, reset `comparisonMonth` on range/view-mode change, no new fetches, in `frontend/src/calendar-stats-card.ts` until T007 passes
+- [X] T008 [US1] Implement `buildComparisonSeries` and `wrapMonth` (pure, per data-model.md derivation rules) in `frontend/src/services/data-transform.ts` until T004 passes
+- [X] T009 [US1] Make month header cells interactive (button when the month has data in ≥1 segment, dispatch `calendar-stats-month-select`, inert otherwise) in `frontend/src/components/year-summary-table.ts` until T005 passes
+- [X] T010 [US1] Create the `month-comparison-table` component (contracts/ui-contracts.md: props month/segments/entityConfigs/entityErrors/now/lang; formatting via precision/factor/unit + `Intl.NumberFormat`; threshold coloring via existing resolver; dense HA-token styling; sticky label column) in `frontend/src/components/month-comparison-table.ts` until T006 passes
+- [X] T011 [US1] Wire the host: `comparisonMonth` state, `calendar-stats-month-select` handler, comparison render branch (header chrome with prev/next month controls + localized month name, `month-comparison-table` fed from `statisticsByYear`, empty state), hide range-navigator/view-mode-toggle while open, reset `comparisonMonth` on range/view-mode change, no new fetches, in `frontend/src/calendar-stats-card.ts` until T007 passes
 
 **Checkpoint**: User Story 1 fully functional — comparison opens, compares, navigates months; MVP deliverable.
 
@@ -66,11 +66,11 @@
 
 ### Tests for User Story 2 (write first, confirm they FAIL)
 
-- [ ] T012 [US2] Write failing card tests for the daily section (one `year-table` per compared year, chronological, each preceded by its year label; each instance receives `visibleMonths = [comparisonMonth]` and the year's cached data; a year without data for the month renders a localized empty note instead of a table) in `frontend/tests/component/card-month-comparison.test.ts`
+- [X] T012 [US2] Write failing card tests for the daily section (one `year-table` per compared year, chronological, each preceded by its year label; each instance receives `visibleMonths = [comparisonMonth]` and the year's cached data; a year without data for the month renders a localized empty note instead of a table) in `frontend/tests/component/card-month-comparison.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Render the daily section in the comparison branch (per-year `year-table` instances / empty notes, chronological, labeled) in `frontend/src/calendar-stats-card.ts` until T012 passes
+- [X] T013 [US2] Render the daily section in the comparison branch (per-year `year-table` instances / empty notes, chronological, labeled) in `frontend/src/calendar-stats-card.ts` until T012 passes
 
 **Checkpoint**: User Stories 1 and 2 work together — summary plus drill-down.
 
@@ -84,11 +84,11 @@
 
 ### Tests for User Story 3 (write first, confirm they FAIL)
 
-- [ ] T014 [US3] Write failing card tests for the back control (back button present with `comparison.back` label; click resets to the yearly view with unchanged range and entities per SC-007; a re-render/hass update while open keeps the comparison visible) in `frontend/tests/component/card-month-comparison.test.ts`
+- [X] T014 [US3] Write failing card tests for the back control (back button present with `comparison.back` label; click resets to the yearly view with unchanged range and entities per SC-007; a re-render/hass update while open keeps the comparison visible) in `frontend/tests/component/card-month-comparison.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] Add the back button to the comparison header and its handler (`comparisonMonth = null`) in `frontend/src/calendar-stats-card.ts` until T014 passes
+- [X] T015 [US3] Add the back button to the comparison header and its handler (`comparisonMonth = null`) in `frontend/src/calendar-stats-card.ts` until T014 passes
 
 **Checkpoint**: All three user stories independently functional.
 
@@ -96,7 +96,10 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T016 Run the full verification suite in `frontend/`: `npm test`, `npm run lint`, `npm run build`; confirm the bundle builds and no suite regressed
+- [X] T016 Run the full verification suite in `frontend/`: `npm test`, `npm run lint`, `npm run build`; confirm the bundle builds and no suite regressed
+- [X] T018 User-feedback revision: month prev/next controls into the bottom bar (back stays on top) in `frontend/src/calendar-stats-card.ts`; daily section as ONE `year-table` via new `monthSegments` section mode with month+year headers in `frontend/src/components/year-table.ts`; diffs beside the value in `frontend/src/components/month-comparison-table.ts`; tests updated in `frontend/tests/component/card-month-comparison.test.ts`
+- [X] T019 User-feedback revision 2: cross-year average column, per-year value/Δ/Ø sub-columns under colspan year headers, month name into the table's first header cell (top bar keeps back only) in `frontend/src/components/month-comparison-table.ts` + `frontend/src/calendar-stats-card.ts`; tests rewritten in `frontend/tests/component/month-comparison-table.test.ts`
+- [X] T020 User-feedback revision 3: back button into the bottom bar (top bar removed) in `frontend/src/calendar-stats-card.ts`; month header cell styled as header row + centered year headers in `frontend/src/components/month-comparison-table.ts`; viewport-sticky synced horizontal scrollbar in `frontend/src/components/year-table.ts`; tests in `frontend/tests/component/card-month-comparison.test.ts` + `frontend/tests/component/year-table.sticky-scrollbar.test.ts`
 - [ ] T017 Execute the manual walkthrough in `specs/014-month-comparison-view/quickstart.md` against a live HA instance and record any deviations
 
 ---
