@@ -516,8 +516,13 @@ export class YearTable extends LitElement {
     const totalContent = summary?.total != null ? nf.format(summary.total * f) : '';
 
     let cumulSummaryStyle = staticStyle;
-    // Total column never gets threshold coloring — static color only.
-    const cumulTotalStyle = staticStyle;
+    // Monthly total is a month-scale sum — colorable by month-scope rules (015).
+    let cumulTotalStyle = staticStyle;
+    if (summary?.total != null) {
+      const rule = resolveThreshold(summary.total * f, cfg.thresholds ?? [], 'scalar', 'month');
+      if (rule) this._addTriggered(rowIndex, groupLabel, rule);
+      cumulTotalStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+    }
     if (summary?.mean != null && (showMin || showAvg || showMax)) {
       const rule = resolveThreshold(summary.mean * f, cfg.thresholds ?? [], 'summary-scalar', 'day');
       if (rule) this._addTriggered(rowIndex, groupLabel, rule);

@@ -58,10 +58,10 @@ Every test task MUST be written and confirmed failing before its implementation 
 
 **Independent Test**: Cumulative row with `above: 150, scope: month`: yearly-view month cells >150 colored, ≤150 not; comparison values >150 colored; monthly-view Total column colored when the month qualifies; daily cells never colored by the month rule.
 
-- [ ] T012 [P] [US2] Write failing component tests in `frontend/tests/component/year-summary-table.thresholds.test.ts`: month rule colors exactly qualifying month cells (US2-AS1/AS2) and the cumulative rollup; named month rule appears in triggered legend groups; and in `frontend/tests/component/month-comparison-table.test.ts`: month rule colors qualifying comparison cells (US2-AS4)
-- [ ] T013 [P] [US2] Write failing component tests for the monthly view in `frontend/tests/component/` (extend the existing year-table test file or create `year-table.thresholds.test.ts`): Total column colored by month rule (US2-AS3), never by day rule; daily cells never colored by month rule (US2-AS5)
-- [ ] T014 [US2] Evaluate the Total column in `frontend/src/components/year-table.ts` (replace static-only `cumulTotalStyle` with `resolveThreshold(total, thresholds, 'scalar', 'month')` + `buildCellStyle` + `_addTriggered`, mirroring the neighboring summary cell)
-- [ ] T015 [US2] Run `npm test` — T012/T013 green (yearly/comparison month-scope behavior flows from the T009/T010 sites; verify, don't re-implement)
+- [X] T012 [P] [US2] Write failing component tests in `frontend/tests/component/year-summary-table.thresholds.test.ts`: month rule colors exactly qualifying month cells (US2-AS1/AS2) and the cumulative rollup; named month rule appears in triggered legend groups; and in `frontend/tests/component/month-comparison-table.test.ts`: month rule colors qualifying comparison cells (US2-AS4)
+- [X] T013 [P] [US2] Write failing component tests for the monthly view in `frontend/tests/component/` (extend the existing year-table test file or create `year-table.thresholds.test.ts`): Total column colored by month rule (US2-AS3), never by day rule; daily cells never colored by month rule (US2-AS5)
+- [X] T014 [US2] Evaluate the Total column in `frontend/src/components/year-table.ts` (replace static-only `cumulTotalStyle` with `resolveThreshold(total, thresholds, 'scalar', 'month')` + `buildCellStyle` + `_addTriggered`, mirroring the neighboring summary cell)
+- [X] T015 [US2] Run `npm test` — T012/T013 green (yearly/comparison month-scope behavior flows from the T009/T010 sites; verify, don't re-implement)
 
 **Checkpoint**: Month-scope rules fully functional across all three views.
 
