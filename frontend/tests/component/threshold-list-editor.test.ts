@@ -175,6 +175,13 @@ describe('ThresholdListEditor — per-period value inputs (015/US4)', () => {
     expect(result[0]!.value_month).toBe(150);
   });
 
+  it('the three period inputs share one row container', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
+    const row = el.shadowRoot!.querySelector('.field-row');
+    expect(row).toBeTruthy();
+    expect(row!.querySelectorAll('input[data-field="value"], input[data-field="value_month"], input[data-field="value_year"]').length).toBe(3);
+  });
+
   it('english labels: Value (day)/(month)/(year)', async () => {
     const el = await createThresholdListEditor([{ operator: 'above', value: 10 }], 'en');
     const labels = [...el.shadowRoot!.querySelectorAll('.field label')].map((l) => l.textContent!.trim());

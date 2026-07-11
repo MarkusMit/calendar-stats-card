@@ -49,6 +49,15 @@ export class ThresholdListEditor extends LitElement {
       flex-direction: column;
       gap: 2px;
     }
+    .field-row {
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+    }
+    .field-row .field {
+      flex: 1 1 0;
+      min-width: 0;
+    }
     .field label {
       font-size: 11px;
       color: var(--secondary-text-color, rgba(0,0,0,0.54));
@@ -170,21 +179,23 @@ export class ThresholdListEditor extends LitElement {
                 `)}
               </select>
             </div>
-            ${PERIOD_FIELDS.map(({ field, labelKey }) => html`
-              <div class="field">
-                <label>${localize(`editor.${labelKey}`, lang)}</label>
-                <input
-                  data-field=${field}
-                  type="number"
-                  step="any"
-                  .value=${rule[field] != null ? String(rule[field]) : ''}
-                  @change=${(e: Event) => {
-                    const v = parseFloat((e.target as HTMLInputElement).value);
-                    this._handleRuleChange(i, field, isNaN(v) ? undefined : v);
-                  }}
-                />
-              </div>
-            `)}
+            <div class="field-row">
+              ${PERIOD_FIELDS.map(({ field, labelKey }) => html`
+                <div class="field">
+                  <label>${localize(`editor.${labelKey}`, lang)}</label>
+                  <input
+                    data-field=${field}
+                    type="number"
+                    step="any"
+                    .value=${rule[field] != null ? String(rule[field]) : ''}
+                    @change=${(e: Event) => {
+                      const v = parseFloat((e.target as HTMLInputElement).value);
+                      this._handleRuleChange(i, field, isNaN(v) ? undefined : v);
+                    }}
+                  />
+                </div>
+              `)}
+            </div>
             <div class="field">
               <label>${localize('editor.threshold_name', lang)}</label>
               <input
