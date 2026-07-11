@@ -56,9 +56,73 @@ export function presetToRange(preset: RangePreset, now: MonthAnchor): DateRange 
       return { start: addMonths(now, -2), end: now, preset };
     case 'last_12_months':
       return { start: addMonths(now, -11), end: now, preset };
+    case 'last_year':
+    case 'last_3_years':
+    case 'last_5_years':
+      return yearPresetToRange(preset, now.year);
     case 'custom':
       return { start: now, end: now, preset };
   }
+}
+
+/** Build a whole-calendar-year range for a year-granular preset (FR-016). */
+export function yearPresetToRange(preset: RangePreset, nowYear: number): DateRange {
+  const fullYears = (fromYear: number, toYear: number): DateRange => ({
+    start: { year: fromYear, month: 1 },
+    end: { year: toYear, month: 12 },
+    preset,
+  });
+  switch (preset) {
+    case 'last_year':
+      return fullYears(nowYear - 1, nowYear - 1);
+    case 'last_3_years':
+      return fullYears(nowYear - 2, nowYear);
+    case 'last_5_years':
+      return fullYears(nowYear - 4, nowYear);
+    case 'this_year':
+    default:
+      return fullYears(nowYear, nowYear);
+  }
+}
+
+/** Expand a range to the enclosing full calendar years (FR-016 snap on view switch). */
+export function snapRangeToYears(range: DateRange): DateRange {
+  return {
+    start: { year: range.start.year, month: 1 },
+    end: { year: range.end.year, month: 12 },
+    preset: range.preset,
+  };
+}
+
+/** Step a whole-years range back/forward by its own span in years (yearly view). */
+export function stepRangeByYears(range: DateRange, dir: -1 | 1): DateRange {
+  const span = range.end.year - range.start.year + 1;
+  return {
+    start: { year: range.start.year + dir * span, month: 1 },
+    end: { year: range.end.year + dir * span, month: 12 },
+    preset: range.preset,
+  };
+}
+
+/**
+ * Clamp a range so its start never precedes the earliest-data floor (FR-015).
+ * In year granularity the floor is January of the earliest-data year (the
+ * within-year months are handled by the display clamp). If clamping pushes the
+ * start past the end, the end is lifted to keep a valid range.
+ */
+export function clampRangeToFloor(
+  range: DateRange,
+  earliest: MonthAnchor | null,
+  granularity: 'month' | 'year' = 'month',
+): DateRange {
+  if (earliest === null) return range;
+  const floor: MonthAnchor = granularity === 'year' ? { year: earliest.year, month: 1 } : earliest;
+  if (compareAnchors(range.start, floor) >= 0) return range;
+  const start = { ...floor };
+  const end = compareAnchors(range.end, start) < 0
+    ? (granularity === 'year' ? { year: start.year, month: 12 } : { ...start })
+    : range.end;
+  return { start, end, preset: range.preset };
 }
 
 /**

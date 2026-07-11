@@ -61,6 +61,9 @@ export type RangePreset =
   | 'this_year'
   | 'last_3_months'
   | 'last_12_months'
+  | 'last_year'
+  | 'last_3_years'
+  | 'last_5_years'
   | 'custom';
 
 /** Inclusive month-to-month range. `preset` drives the label and stepping unit. */
@@ -70,8 +73,25 @@ export interface DateRange {
   preset: RangePreset;
 }
 
+/** Which presentation is active: monthly (day-by-day) or yearly (month-by-month). */
+export type ViewMode = 'monthly' | 'yearly';
+
+/**
+ * Per-row yearly roll-up (derived at render time, never stored).
+ * Measurement rows: min/max are extremes of the monthly extremes, mean is the
+ * day-weighted yearly mean, total is null. Cumulative rows: stats over the
+ * monthly totals plus their sum as total.
+ */
+export interface YearlyRollup {
+  min: number | null;
+  mean: number | null;
+  max: number | null;
+  total: number | null;
+}
+
 export interface ViewState {
   range: DateRange;
+  viewMode: ViewMode;
   earliestDataYear: number | null;
   earliestDataMonth: number | null;
   isLoading: boolean;

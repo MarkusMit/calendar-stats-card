@@ -12,6 +12,14 @@ const PRESETS: RangePreset[] = [
   'last_12_months',
 ];
 
+/** Presets offered in year granularity (yearly view, FR-016). */
+const YEAR_PRESETS: RangePreset[] = [
+  'this_year',
+  'last_year',
+  'last_3_years',
+  'last_5_years',
+];
+
 @customElement('calendar-stats-range-navigator')
 export class RangeNavigator extends LitElement {
   @property({ attribute: false }) range: DateRange = {
@@ -21,6 +29,8 @@ export class RangeNavigator extends LitElement {
   };
   @property({ type: Boolean }) atStart = false;
   @property({ type: Boolean }) atEnd = false;
+  /** 'year' restricts presets/picker/stepping to whole calendar years (yearly view). */
+  @property({ type: String }) granularity: 'month' | 'year' = 'month';
   @property({ attribute: false }) now: MonthAnchor = { year: new Date().getFullYear(), month: 1 };
   @property({ attribute: false }) earliest: MonthAnchor | null = null;
   @property({ type: String }) lang = 'en';
@@ -167,6 +177,9 @@ export class RangeNavigator extends LitElement {
    *  `YYYY-MM`, and any other span as a compact numeric range. */
   private _rangeLabel(): string {
     const { start, end, preset } = this.range;
+    if (this.granularity === 'year') {
+      return start.year === end.year ? String(start.year) : `${start.year}–${end.year}`;
+    }
     switch (preset) {
       case 'this_year':
         return String(start.year);
@@ -235,15 +248,24 @@ export class RangeNavigator extends LitElement {
   }
 
   private _applyCustom(): void {
-    if (compareAnchors(this._from, this._to) > 0) return;
+    if (this._applyDisabled()) return;
+    // Year granularity emits whole-calendar-year anchors (FR-016).
+    const start = this.granularity === 'year' ? { year: this._from.year, month: 1 } : { ...this._from };
+    const end = this.granularity === 'year' ? { year: this._to.year, month: 12 } : { ...this._to };
     this._close();
     this.dispatchEvent(
       new CustomEvent('calendar-stats-range-select', {
-        detail: { start: { ...this._from }, end: { ...this._to } },
+        detail: { start, end },
         bubbles: true,
         composed: true,
       }),
     );
+  }
+
+  private _applyDisabled(): boolean {
+    return this.granularity === 'year'
+      ? this._from.year > this._to.year
+      : compareAnchors(this._from, this._to) > 0;
   }
 
   private _yearOptions(): number[] {
@@ -269,11 +291,12 @@ export class RangeNavigator extends LitElement {
     return html`
       <div class="custom-row">
         <label>${which === 'from' ? localize('range.from', this.lang) : localize('range.to', this.lang)}</label>
-        <select class="${which}-month" @change=${onMonth}>
-          ${Array.from({ length: 12 }, (_, i) => i + 1).map(
-            (m) => html`<option value=${m} ?selected=${m === val.month}>${this._monthName(m)}</option>`,
-          )}
-        </select>
+        ${this.granularity === 'month' ? html`
+          <select class="${which}-month" @change=${onMonth}>
+            ${Array.from({ length: 12 }, (_, i) => i + 1).map(
+              (m) => html`<option value=${m} ?selected=${m === val.month}>${this._monthName(m)}</option>`,
+            )}
+          </select>` : ''}
         <select class="${which}-year" @change=${onYear}>
           ${this._yearOptions().map(
             (y) => html`<option value=${y} ?selected=${y === val.year}>${y}</option>`,
@@ -284,7 +307,8 @@ export class RangeNavigator extends LitElement {
   }
 
   render() {
-    const applyDisabled = compareAnchors(this._from, this._to) > 0;
+    const applyDisabled = this._applyDisabled();
+    const presets = this.granularity === 'year' ? YEAR_PRESETS : PRESETS;
     return html`
       <button class="prev" ?disabled=${this.atStart} @click=${this._onPrev}
         aria-label=${localize('range.prev', this.lang)}>‹</button>
@@ -299,7 +323,7 @@ export class RangeNavigator extends LitElement {
       ${this._open
         ? html`<div class="popover">
             <div class="presets">
-              ${PRESETS.map(
+              ${presets.map(
                 (p) => html`<button
                   class="preset ${this.range.preset === p ? 'active' : ''}"
                   @click=${() => this._selectPreset(p)}

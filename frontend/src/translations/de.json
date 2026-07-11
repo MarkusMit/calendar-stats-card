@@ -12,12 +12,19 @@
     "previous_year": "Vorjahr",
     "next_year": "Nächstes Jahr"
   },
+  "view": {
+    "monthly": "Monatlich",
+    "yearly": "Jährlich"
+  },
   "range": {
     "this_month": "Dieser Monat",
     "this_quarter": "Dieses Quartal",
     "this_year": "Dieses Jahr",
     "last_3_months": "Letzte 3 Monate",
     "last_12_months": "Letzte 12 Monate",
+    "last_year": "Letztes Jahr",
+    "last_3_years": "Letzte 3 Jahre",
+    "last_5_years": "Letzte 5 Jahre",
     "custom": "Benutzerdefiniert",
     "from": "Von",
     "to": "Bis",

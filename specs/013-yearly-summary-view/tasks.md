@@ -26,7 +26,7 @@ description: "Task list for Yearly Summary View (013)"
 
 **Purpose**: Confirm a green baseline before any change (TDD gate).
 
-- [ ] T001 Run `npm test` in `frontend/` and confirm a fully green baseline (record pass count) before starting.
+- [X] T001 Run `npm test` in `frontend/` and confirm a fully green baseline (record pass count) before starting.
 
 ---
 
@@ -36,8 +36,8 @@ description: "Task list for Yearly Summary View (013)"
 
 **⚠️ CRITICAL**: Must complete before any user story.
 
-- [ ] T002 Add `ViewMode = 'monthly' | 'yearly'`, add `viewMode: ViewMode` (default `'monthly'`) to `ViewState`, and add the `YearlyRollup` interface in `frontend/src/types/statistics.ts`.
-- [ ] T003 Initialize `_viewState.viewMode = 'monthly'` in `frontend/src/calendar-stats-card.ts` so existing behavior is unchanged.
+- [X] T002 Add `ViewMode = 'monthly' | 'yearly'`, add `viewMode: ViewMode` (default `'monthly'`) to `ViewState`, and add the `YearlyRollup` interface in `frontend/src/types/statistics.ts`.
+- [X] T003 Initialize `_viewState.viewMode = 'monthly'` in `frontend/src/calendar-stats-card.ts` so existing behavior is unchanged.
 
 **Checkpoint**: Types in place; monthly view still behaves exactly as before.
 
@@ -51,15 +51,15 @@ description: "Task list for Yearly Summary View (013)"
 
 ### Tests for User Story 1 (write first, confirm RED) ⚠️
 
-- [ ] T004 [P] [US1] Component test: `year-summary-table` renders 12 month columns (Jan–Dec) and one row per entity; measurement entity → 3 sub-rows (min/avg/max) honoring show_min/avg/max; cumulative entity → month totals; a no-data month → empty cell (not zero); the label column shows the entity name + unit (FR-012); each cell value sourced from `monthlySummaries`. File `frontend/tests/component/year-summary-table.test.ts`.
-- [ ] T005 [P] [US1] Component test: threshold rules color each yearly cell (per cell's displayed value) and the table emits `thresholds-applied`. File `frontend/tests/component/year-summary-table.thresholds.test.ts`.
-- [ ] T006 [P] [US1] Component test: card renders one `calendar-stats-year-summary-table` per non-empty year segment when `viewMode='yearly'` (state set directly), fed from `statisticsByYear`; for the current year, months after the current month render no data (FR-007 / SC-005). File `frontend/tests/component/calendar-stats-card.yearly-render.test.ts`.
+- [X] T004 [P] [US1] Component test: `year-summary-table` renders 12 month columns (Jan–Dec) and one row per entity; measurement entity → 3 sub-rows (min/avg/max) honoring show_min/avg/max; cumulative entity → month totals; a no-data month → empty cell (not zero); the label column shows the entity name + unit (FR-012); each cell value sourced from `monthlySummaries`. File `frontend/tests/component/year-summary-table.test.ts`.
+- [X] T005 [P] [US1] Component test: threshold rules color each yearly cell (per cell's displayed value) and the table emits `thresholds-applied`. File `frontend/tests/component/year-summary-table.thresholds.test.ts`.
+- [X] T006 [P] [US1] Component test: card renders one `calendar-stats-year-summary-table` per non-empty year segment when `viewMode='yearly'` (state set directly), fed from `statisticsByYear`; for the current year, months after the current month render no data (FR-007 / SC-005). File `frontend/tests/component/calendar-stats-card.yearly-render.test.ts`.
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Create `calendar-stats-year-summary-table` in `frontend/src/components/year-summary-table.ts`: props per contract (`year`, `visibleMonths`, `entityConfigs`, `monthlySummaries`, `dailyValues`, `entityMetadata`, `entityErrors`, `lang`); render 12 month-name headers via `Intl`, measurement 3 sub-rows / cumulative single row, cells from `monthlySummaries` (`rowSummaryKey`), per-row precision/factor/unit, dense CSS with HA tokens. (Makes T004 pass.)
-- [ ] T008 [US1] In `year-summary-table.ts`, color cells via `resolveThreshold` + `buildCellStyle` + `autoContrastText` and dispatch `thresholds-applied` (reuse `year-table` pattern). (Makes T005 pass.)
-- [ ] T009 [US1] Wire host render in `frontend/src/calendar-stats-card.ts`: when `viewMode==='yearly'`, map `rangeYears(range)` (filtered by `visibleMonthsForYear`) to `calendar-stats-year-summary-table` blocks fed from `statisticsByYear.get(year)`; keep the `year-table` branch for `'monthly'`. Import the new component. (Makes T006 pass.)
+- [X] T007 [US1] Create `calendar-stats-year-summary-table` in `frontend/src/components/year-summary-table.ts`: props per contract (`year`, `visibleMonths`, `entityConfigs`, `monthlySummaries`, `dailyValues`, `entityMetadata`, `entityErrors`, `lang`); render 12 month-name headers via `Intl`, measurement 3 sub-rows / cumulative single row, cells from `monthlySummaries` (`rowSummaryKey`), per-row precision/factor/unit, dense CSS with HA tokens. (Makes T004 pass.)
+- [X] T008 [US1] In `year-summary-table.ts`, color cells via `resolveThreshold` + `buildCellStyle` + `autoContrastText` and dispatch `thresholds-applied` (reuse `year-table` pattern). (Makes T005 pass.)
+- [X] T009 [US1] Wire host render in `frontend/src/calendar-stats-card.ts`: when `viewMode==='yearly'`, map `rangeYears(range)` (filtered by `visibleMonthsForYear`) to `calendar-stats-year-summary-table` blocks fed from `statisticsByYear.get(year)`; keep the `year-table` branch for `'monthly'`. Import the new component. (Makes T006 pass.)
 
 **Checkpoint**: Yearly grid renders correctly (month cells) and is independently testable.
 
@@ -73,15 +73,15 @@ description: "Task list for Yearly Summary View (013)"
 
 ### Tests for User Story 2 (write first, confirm RED) ⚠️
 
-- [ ] T010 [P] [US2] Unit test `computeMeasurementYearRollup`: year min = min of monthly mins, year max = max of monthly maxes, year avg = day-weighted mean from daily values; empty months excluded. File `frontend/tests/unit/services/data-transform.year-rollup.test.ts`.
-- [ ] T011 [P] [US2] Unit test `computeCumulativeYearRollup` (FR-006, FR-018): total = Σ monthly totals; min/avg/max over the monthly totals (min = lowest, max = highest, avg = mean of monthly totals); zero-total months excluded when `show_zero=false`, included otherwise. File `frontend/tests/unit/services/data-transform.cumulative-rollup.test.ts`.
-- [ ] T012 [P] [US2] Component test: `year-summary-table` renders a yearly Summary column for every row and a yearly Total column when any cumulative row is present, with values matching the roll-up helpers. File `frontend/tests/component/year-summary-table.rollup.test.ts`.
+- [X] T010 [P] [US2] Unit test `computeMeasurementYearRollup`: year min = min of monthly mins, year max = max of monthly maxes, year avg = day-weighted mean from daily values; empty months excluded. File `frontend/tests/unit/services/data-transform.year-rollup.test.ts`.
+- [X] T011 [P] [US2] Unit test `computeCumulativeYearRollup` (FR-006, FR-018): total = Σ monthly totals; min/avg/max over the monthly totals (min = lowest, max = highest, avg = mean of monthly totals); zero-total months excluded when `show_zero=false`, included otherwise. File `frontend/tests/unit/services/data-transform.cumulative-rollup.test.ts`.
+- [X] T012 [P] [US2] Component test: `year-summary-table` renders a yearly Summary column for every row and a yearly Total column when any cumulative row is present, with values matching the roll-up helpers. File `frontend/tests/component/year-summary-table.rollup.test.ts`.
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Implement `computeMeasurementYearRollup(entityId, year, visibleMonths, monthlySummaries, dailyValues)` in `frontend/src/services/data-transform.ts` (reuse the measurement daily-summary code path over the 12-month span). (Makes T010 pass.)
-- [ ] T014 [US2] Implement `computeCumulativeYearRollup(rowIndex, entityId, year, visibleMonths, monthlySummaries, excludeZero)` in `frontend/src/services/data-transform.ts`. (Makes T011 pass; same file as T013 → sequential.)
-- [ ] T015 [US2] Add the yearly Summary column (all rows) and yearly Total column (cumulative rows) to `frontend/src/components/year-summary-table.ts` using the two helpers, colored by the same threshold path. (Makes T012 pass; depends on T007.)
+- [X] T013 [US2] Implement `computeMeasurementYearRollup(rowIndex, entityId, year, visibleMonths, monthlySummaries, dailyValues)` (rowIndex added vs. data-model draft: summaries are rowIndex-keyed) in `frontend/src/services/data-transform.ts` (reuse the measurement daily-summary code path over the 12-month span). (Makes T010 pass.)
+- [X] T014 [US2] Implement `computeCumulativeYearRollup(rowIndex, entityId, year, visibleMonths, monthlySummaries, excludeZero)` in `frontend/src/services/data-transform.ts`. (Makes T011 pass; same file as T013 → sequential.)
+- [X] T015 [US2] Add the yearly Summary column (all rows) and yearly Total column (cumulative rows) to `frontend/src/components/year-summary-table.ts` using the two helpers, colored by the same threshold path. (Makes T012 pass; depends on T007.)
 
 **Checkpoint**: Yearly grid now shows correct per-row roll-ups.
 
@@ -95,18 +95,18 @@ description: "Task list for Yearly Summary View (013)"
 
 ### Tests for User Story 3 (write first, confirm RED) ⚠️
 
-- [ ] T016 [P] [US3] Unit test date-range year helpers: `yearPresetToRange`, year-granular `stepRange`, `snapRangeToYears` (→ Jan..Dec), `clampRangeToFloor` (month- and year-aware, prevents start before earliest). File `frontend/tests/unit/services/date-range.year.test.ts`.
-- [ ] T017 [P] [US3] Component test `view-mode-toggle`: renders two labeled segments, marks the active one, emits `calendar-stats-view-mode-select` with the other mode on click; de/en labels. File `frontend/tests/component/view-mode-toggle.test.ts`.
-- [ ] T018 [P] [US3] Component test `range-navigator` year granularity: year presets + year-only From/To picker, `YYYY`/`YYYY–YYYY` label, whole-year prev/next; `atStart` reflects the earliest-data floor. File `frontend/tests/component/range-navigator.year.test.ts`.
-- [ ] T019 [P] [US3] Component test card view-switch: toggling emits → `viewMode` changes → correct table renders; switching to yearly snaps range to full years; prev is clamped/disabled at the earliest-data floor in BOTH monthly and yearly modes. File `frontend/tests/component/calendar-stats-card.view-switch.test.ts`.
+- [X] T016 [P] [US3] Unit test date-range year helpers: `yearPresetToRange`, year-granular `stepRange`, `snapRangeToYears` (→ Jan..Dec), `clampRangeToFloor` (month- and year-aware, prevents start before earliest). File `frontend/tests/unit/services/date-range.year.test.ts`.
+- [X] T017 [P] [US3] Component test `view-mode-toggle`: renders two labeled segments, marks the active one, emits `calendar-stats-view-mode-select` with the other mode on click; de/en labels. File `frontend/tests/component/view-mode-toggle.test.ts`.
+- [X] T018 [P] [US3] Component test `range-navigator` year granularity: year presets + year-only From/To picker, `YYYY`/`YYYY–YYYY` label, whole-year prev/next; `atStart` reflects the earliest-data floor. File `frontend/tests/component/range-navigator.year.test.ts`.
+- [X] T019 [P] [US3] Component test card view-switch: toggling emits → `viewMode` changes → correct table renders; switching to yearly snaps range to full years; prev is clamped/disabled at the earliest-data floor in BOTH monthly and yearly modes. File `frontend/tests/component/calendar-stats-card.view-switch.test.ts`.
 
 ### Implementation for User Story 3
 
-- [ ] T020 [P] [US3] Add `yearPresetToRange`, year-granular stepping (`granularity` param on `stepRange` or a `stepRangeByYear`), `snapRangeToYears`, and `clampRangeToFloor` in `frontend/src/services/date-range.ts`. (Makes T016 pass.)
-- [ ] T021 [P] [US3] Create `calendar-stats-view-mode-toggle` segmented control in `frontend/src/components/view-mode-toggle.ts` (props `mode`, `lang`; emits `calendar-stats-view-mode-select`; HA-token styling). (Makes T017 pass.)
-- [ ] T022 [P] [US3] Add i18n keys `view.monthly`, `view.yearly`, `range.last_year`, `range.last_3_years`, `range.last_5_years` to `frontend/src/translations/en.json` and `frontend/src/translations/de.json`.
-- [ ] T023 [US3] Enhance `frontend/src/components/range-navigator.ts`: add `granularity: 'month' | 'year'`; in year mode use year presets + year-only picker, `YYYY`/`YYYY–YYYY` label, and whole-year steps. (Makes T018 pass; depends on T020, T022.)
-- [ ] T024 [US3] Wire host in `frontend/src/calendar-stats-card.ts`: render `view-mode-toggle` in `.bottom-bar`; handle `view-mode-select` (set `viewMode`; on → yearly apply `snapRangeToYears` then `_fetchRange`); pass `granularity` to the navigator; apply `clampRangeToFloor` in the prev/next handlers; update `getCardSize()` for the active view. (Makes T019 pass; depends on T020–T023, T009.)
+- [X] T020 [P] [US3] Add `yearPresetToRange`, year-granular stepping (`granularity` param on `stepRange` or a `stepRangeByYear`), `snapRangeToYears`, and `clampRangeToFloor` in `frontend/src/services/date-range.ts`. (Makes T016 pass.)
+- [X] T021 [P] [US3] Create `calendar-stats-view-mode-toggle` segmented control in `frontend/src/components/view-mode-toggle.ts` (props `mode`, `lang`; emits `calendar-stats-view-mode-select`; HA-token styling). (Makes T017 pass.)
+- [X] T022 [P] [US3] Add i18n keys `view.monthly`, `view.yearly`, `range.last_year`, `range.last_3_years`, `range.last_5_years` to `frontend/src/translations/en.json` and `frontend/src/translations/de.json`.
+- [X] T023 [US3] Enhance `frontend/src/components/range-navigator.ts`: add `granularity: 'month' | 'year'`; in year mode use year presets + year-only picker, `YYYY`/`YYYY–YYYY` label, and whole-year steps. (Makes T018 pass; depends on T020, T022.)
+- [X] T024 [US3] Wire host in `frontend/src/calendar-stats-card.ts`: render `view-mode-toggle` in `.bottom-bar`; handle `view-mode-select` (set `viewMode`; on → yearly apply `snapRangeToYears` then `_fetchRange`); pass `granularity` to the navigator; apply `clampRangeToFloor` in the prev/next handlers; update `getCardSize()` for the active view. (Makes T019 pass; depends on T020–T023, T009.)
 
 **Checkpoint**: All three stories functional; navigation floor enforced everywhere.
 
@@ -114,10 +114,10 @@ description: "Task list for Yearly Summary View (013)"
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T025 [P] Update `README.md` (and any docs describing views) to document the yearly view and the Monthly | Yearly toggle.
-- [ ] T026 [P] Verify SC-002: all 12 month columns fit without horizontal scroll on desktop; adjust dense CSS in `frontend/src/components/year-summary-table.ts` if needed.
-- [ ] T027 Run `npm run lint`, `npm test`, and `npm run build` in `frontend/`; confirm all green and a clean bundle.
-- [ ] T028 Execute `specs/013-yearly-summary-view/quickstart.md` end-to-end against a live HA instance (both locales, threshold coloring, floor behavior).
+- [X] T025 [P] Update `README.md` (and any docs describing views) to document the yearly view and the Monthly | Yearly toggle.
+- [X] T026 [P] Verify SC-002: all 12 month columns fit without horizontal scroll on desktop; adjust dense CSS in `frontend/src/components/year-summary-table.ts` if needed.
+- [X] T027 Run `npm run lint`, `npm test`, and `npm run build` in `frontend/`; confirm all green and a clean bundle.
+- [ ] T028 Execute `specs/013-yearly-summary-view/quickstart.md` end-to-end against a live HA instance (both locales, threshold coloring, floor behavior). — NOT RUN: requires a live HA instance; all automated gates (lint, 512 tests, build) green.
 
 ---
 
