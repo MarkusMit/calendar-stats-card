@@ -1,6 +1,6 @@
 {
   "name": "calendar-stats-card",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Home Assistant Lovelace custom card for dense monthly statistics tables",
   "private": true,
   "type": "module",

@@ -5,6 +5,33 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-07-11
+
+### Added
+
+- Month comparison view.
+  Clicking a month label in a yearly-view header opens a cross-year comparison of that calendar month over the yearly view's range.
+  A summary table shows each year's monthly values with the signed difference to the previous year, the deviation from the cross-year average, and a trailing average column; cumulative totals additionally show percentages.
+  Below it, the daily values of every data-bearing year render as sections of one table with aligned day columns.
+  Prev/next controls in the bottom bar switch the compared month (wrapping December↔January); a back control returns to the yearly view.
+  An incomplete current month is marked and excluded from the cross-year average.
+- Per-period threshold values.
+  Each threshold rule can now define up to three thresholds — `value` (day), `value_month`, and `value_year` — sharing one operator, label, and colors.
+  A rule is evaluated only against cells whose aggregation period it defines a threshold for: day rules gate daily values and statistics over them, month rules gate monthly sums (yearly-view month cells, comparison values and averages, the monthly view's Total column), year rules gate the yearly Total column.
+  The visual editor gained day/month/year value inputs arranged in one row.
+
+### Fixed
+
+- Daily-intent thresholds no longer fire on monthly and yearly sum cells.
+  Previously a rule like "above 10 mm per day" colored essentially every monthly total in the yearly and comparison views.
+- The cumulative summary average is prefixed with the Ø symbol in the comparison summary table.
+- In comparison diff cells, the absolute and relative values are separated by a line break instead of sitting on one line.
+- Empty value cells now render with column borders and a non-breaking space, keeping the grid lines and row heights uniform.
+
+### Changed
+
+- The monthly and yearly Total columns, previously never threshold-colored, are now colorable via explicit month/year threshold values (supersedes the 0.2.0 note that the total column uses static colors only).
+
 ## [0.4.1] - 2026-07-11
 
 ### Fixed
@@ -76,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Threshold coloring is no longer applied to a cumulative row's total column; the total uses the static color only.
 - Table text can now be selected (for copying) in the macOS Home Assistant app by adding `-webkit-user-select` for WKWebView.
 
+[0.5.0]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.3.0...v0.3.1
