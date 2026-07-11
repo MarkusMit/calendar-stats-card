@@ -63,23 +63,28 @@ describe('StatisticsService.listStatisticIds', () => {
   });
 });
 
-describe('StatisticsService.getStatisticsMetadata', () => {
-  it('sends recorder/get_statistics_metadata and returns earliest start', async () => {
-    const now = Date.now();
-    const older = now - 1_000_000;
-    const send = vi.fn().mockResolvedValue([
-      { statistic_id: 'sensor.temp', statistics_unit: '°C', has_mean: true, start: now },
-      { statistic_id: 'sensor.rain', statistics_unit: 'mm', has_mean: false, start: older },
-    ]);
+describe('StatisticsService.findEarliestDataPoint', () => {
+  it('probes monthly statistics over a wide window and returns the earliest bucket', async () => {
+    const t1 = Date.UTC(2024, 3, 1); // Apr 2024
+    const t2 = Date.UTC(2021, 8, 1); // Sep 2021 — earliest
+    const send = vi.fn().mockResolvedValue({
+      'sensor.temp': [{ start: t1, end: t1 + 1, mean: 5 }],
+      'sensor.rain': [{ start: t2, end: t2 + 1, sum: 3 }, { start: t1, end: t1 + 1, sum: 9 }],
+    });
     const hass = makeHass('2026.5.0', send);
     const svc = new StatisticsService();
-    const result = await svc.getStatisticsMetadata(hass, ENTITY_IDS);
+    const result = await svc.findEarliestDataPoint(hass, ENTITY_IDS);
     expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'recorder/get_statistics_metadata', statistic_ids: ENTITY_IDS }),
+      expect.objectContaining({ type: 'recorder/statistics_during_period', period: 'month', statistic_ids: ENTITY_IDS }),
     );
-    const earliestDate = new Date(older);
-    expect(result.earliestYear).toBe(earliestDate.getFullYear());
-    expect(result.earliestMonth).toBe(earliestDate.getMonth() + 1);
+    expect(result).toEqual({ earliestYear: 2021, earliestMonth: 9 });
+  });
+
+  it('returns null when no entity has any statistics', async () => {
+    const send = vi.fn().mockResolvedValue({});
+    const hass = makeHass('2026.5.0', send);
+    const svc = new StatisticsService();
+    expect(await svc.findEarliestDataPoint(hass, ENTITY_IDS)).toBeNull();
   });
 });
 

@@ -5,6 +5,7 @@ import type {
   EmptyDailyValue,
   EntityMetadata,
   MonthlySummary,
+  YearlyRollup,
 } from '../types/statistics';
 import type { EntityConfig } from '../types/card-config';
 import type { RawStats } from './statistics-service';
@@ -285,6 +286,75 @@ export function transformMonthlyStats(
   });
 
   return result;
+}
+
+/**
+ * Yearly roll-up for a measurement row (FR-005): year min = lowest monthly min,
+ * year max = highest monthly max (from the cached monthly summaries), and
+ * year avg = day-weighted mean over the year — the mean of all recorded daily
+ * means in the visible months. `show_zero` never affects measurement summaries.
+ */
+export function computeMeasurementYearRollup(
+  rowIndex: number,
+  entityId: string,
+  year: number,
+  visibleMonths: number[],
+  monthlySummaries: Map<string, MonthlySummary>,
+  dailyValues: Map<string, DailyValue>,
+): YearlyRollup {
+  const mins: number[] = [];
+  const maxes: number[] = [];
+  const dayMeans: number[] = [];
+
+  for (const month of visibleMonths) {
+    const summary = monthlySummaries.get(rowSummaryKey(rowIndex, entityId, year, month));
+    if (summary?.min != null) mins.push(summary.min);
+    if (summary?.max != null) maxes.push(summary.max);
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayVal = dailyValues.get(`${entityId}::${dateStr}`);
+      if (dayVal?.kind === 'measurement') dayMeans.push(dayVal.mean);
+    }
+  }
+
+  return {
+    min: mins.length > 0 ? Math.min(...mins) : null,
+    mean: dayMeans.length > 0 ? dayMeans.reduce((a, b) => a + b, 0) / dayMeans.length : null,
+    max: maxes.length > 0 ? Math.max(...maxes) : null,
+    total: null,
+  };
+}
+
+/**
+ * Yearly roll-up for a cumulative/expression row (FR-006, FR-018): total is the
+ * sum of the monthly totals; min/avg/max are statistics over those monthly
+ * totals, with zero-total months excluded when `excludeZero` (row show_zero:
+ * false) — the total always includes every month (zeros contribute 0 anyway).
+ */
+export function computeCumulativeYearRollup(
+  rowIndex: number,
+  entityId: string,
+  year: number,
+  visibleMonths: number[],
+  monthlySummaries: Map<string, MonthlySummary>,
+  excludeZero: boolean,
+): YearlyRollup {
+  const totals: number[] = [];
+  for (const month of visibleMonths) {
+    const summary = monthlySummaries.get(rowSummaryKey(rowIndex, entityId, year, month));
+    if (summary?.total != null) totals.push(summary.total);
+  }
+  if (totals.length === 0) return { min: null, mean: null, max: null, total: null };
+
+  const filtered = excludeZero ? totals.filter((t) => t !== 0) : totals;
+  return {
+    min: filtered.length > 0 ? Math.min(...filtered) : null,
+    mean: filtered.length > 0 ? filtered.reduce((a, b) => a + b, 0) / filtered.length : null,
+    max: filtered.length > 0 ? Math.max(...filtered) : null,
+    total: totals.reduce((a, b) => a + b, 0),
+  };
 }
 
 export function collectDailySums(

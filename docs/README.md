@@ -14,7 +14,10 @@ Future months and today's still-running day are hidden.
 
 ## Features
 
-- **Year-at-a-glance** — every completed month of the current year on a single scrollable view, with arrow-button navigation back through previous years (down to the earliest year with recorded data).
+- **Flexible time ranges** — pick a preset (this month, this quarter, this year, last 3 months, last 12 months) or any custom month-to-month span from the range selector in the floating bottom bar; arrow buttons step the current range backwards and forwards (down to the earliest period with recorded data).
+- **Monthly and yearly views** — a Monthly | Yearly toggle in the bottom bar switches between the day-by-day monthly tables and a compact yearly grid.
+  The yearly view shows one table per calendar year with one column per month; each cell holds that month's summary (min/avg/max for measurement rows, the monthly total for cumulative rows), plus a per-row yearly Summary and Total.
+  In the yearly view the range selector operates on whole calendar years (this year, last year, last 3/5 years, or a custom year span).
 - **Per-entity-type rendering** — automatically picks the right display for each entity:
   - `measurement` entities (temperature, humidity, …) → combined min/avg/max in one row per day
   - `total_increasing` / `total` entities (rainfall, electricity meter, …) → daily delta plus monthly total
@@ -254,8 +257,8 @@ entities:
 
 - **Today and future days** are always rendered as empty cells, even when HA has partial data for today.
   "Today" is determined in the HA server's timezone (`hass.config.time_zone`).
-- **On January 1st** the card defaults to the previous year (no completed data exists yet for the new year).
-- **Backward navigation** stops at the earliest year any configured entity has recorded data.
+- **On load** the card shows the current calendar year (January through the current month); the selected range and view are session-only and reset on reload.
+- **Backward navigation** stops at the period containing the earliest recorded data of any configured entity; no fully-empty earlier period is reachable, in either view.
 - **Coverage indicator** — a superscript `*` appended to a cell value flags incomplete data: for `measurement` entities, a day with less than 24 h of statistics; for cumulative entities, a day with missing data at its start or end (mid-day gaps render silently).
 - **Monthly totals** for cumulative entities are sourced from HA's authoritative monthly statistics (`sum[month] − sum[prev_month]`) and may not exactly equal the arithmetic sum of visible daily cells — this is expected and HA wins.
 - **Performance** — tested up to 10 entities; no hard cap is enforced.
