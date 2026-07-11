@@ -6,6 +6,8 @@ import type {
   EntityMetadata,
   MonthlySummary,
   YearlyRollup,
+  ComparisonComponent,
+  ComparisonSeries,
 } from '../types/statistics';
 import type { EntityConfig } from '../types/card-config';
 import type { RawStats } from './statistics-service';
@@ -355,6 +357,68 @@ export function computeCumulativeYearRollup(
     max: filtered.length > 0 ? Math.max(...filtered) : null,
     total: totals.reduce((a, b) => a + b, 0),
   };
+}
+
+/** Cyclic month-of-year step for the comparison view's prev/next controls (spec 014 FR-017). */
+export function wrapMonth(month: number, step: number): number {
+  return ((((month - 1 + step) % 12) + 12) % 12) + 1;
+}
+
+/**
+ * Cross-year comparison series for one row and one monthly-summary component
+ * (spec 014). Values are read verbatim from the stored monthly summaries;
+ * diffPrev compares against the immediately preceding in-range year (FR-005),
+ * diffAvg against the mean over complete data-bearing years (FR-006/007/008).
+ * Percentages exist only on 'total' series and only for non-zero baselines
+ * (FR-006a). The incomplete current month keeps its diffs but never counts
+ * toward the average (FR-007).
+ */
+export function buildComparisonSeries(
+  rowIndex: number,
+  key: string,
+  component: ComparisonComponent,
+  month: number,
+  years: number[],
+  summariesByYear: Map<number, Map<string, MonthlySummary>>,
+  now: { year: number; month: number },
+): ComparisonSeries {
+  const points = years.map((year) => {
+    const summary = summariesByYear.get(year)?.get(rowSummaryKey(rowIndex, key, year, month));
+    return {
+      year,
+      value: summary ? (summary[component] ?? null) : null,
+      incomplete: year === now.year && month === now.month,
+    };
+  });
+
+  const completeValues = points
+    .filter((p) => p.value !== null && !p.incomplete)
+    .map((p) => p.value as number);
+  const crossYearAvg = completeValues.length > 0
+    ? completeValues.reduce((a, b) => a + b, 0) / completeValues.length
+    : null;
+
+  const pct = (diff: number | null, baseline: number | null): number | null =>
+    component === 'total' && diff !== null && baseline !== null && baseline !== 0
+      ? diff / baseline
+      : null;
+
+  const entries = points.map((p, idx) => {
+    const prev = idx > 0 && points[idx - 1]!.year === p.year - 1 ? points[idx - 1]! : undefined;
+    const diffPrev = p.value !== null && prev?.value != null ? p.value - prev.value : null;
+    const diffAvg = p.value !== null && crossYearAvg !== null ? p.value - crossYearAvg : null;
+    return {
+      year: p.year,
+      value: p.value,
+      diffPrev,
+      diffAvg,
+      pctPrev: pct(diffPrev, prev?.value ?? null),
+      pctAvg: pct(diffAvg, crossYearAvg),
+      incomplete: p.incomplete,
+    };
+  });
+
+  return { component, crossYearAvg, entries };
 }
 
 export function collectDailySums(

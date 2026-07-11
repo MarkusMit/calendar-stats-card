@@ -6,6 +6,7 @@ import { rowKey } from '../types/card-config';
 import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
+import { NBSP } from './year-table';
 import { autoContrastText } from '../services/readable-text';
 import { rowSummaryKey, computeMeasurementYearRollup, computeCumulativeYearRollup } from '../services/data-transform';
 import { resolvePrecision } from './year-table';
@@ -100,8 +101,6 @@ export class YearSummaryTable extends LitElement {
       color: var(--primary-text-color);
       text-align: right;
       min-width: 34px;
-    }
-    td.data-cell.has-data {
       border-left: 1px solid var(--divider-color, #ccc);
       border-right: 1px solid var(--divider-color, #ccc);
     }
@@ -142,6 +141,23 @@ export class YearSummaryTable extends LitElement {
     }
     th.month-col.pad-month {
       opacity: 0.45;
+    }
+    th.month-col button.month-select {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      text-decoration: underline dotted;
+      text-underline-offset: 2px;
+      border-radius: 3px;
+    }
+    th.month-col button.month-select:hover,
+    th.month-col button.month-select:focus-visible {
+      outline: none;
+      background: var(--divider-color, rgba(0, 0, 0, 0.12));
     }
     .summary-column {
       color: var(--secondary-text-color);
@@ -247,6 +263,35 @@ export class YearSummaryTable extends LitElement {
     return seg.monthlySummaries.get(rowSummaryKey(rowIndex, key, seg.year, month));
   }
 
+  /** True when the month has data for any row in any segment — only such month
+   *  headers open the comparison view (spec 014 FR-001/FR-016). */
+  private _monthHasData(month: number): boolean {
+    return this.segments.some((seg) =>
+      seg.visibleMonths.includes(month) &&
+      this.entityConfigs.some((cfg, i) =>
+        seg.monthlySummaries.has(rowSummaryKey(i, rowKey(cfg), seg.year, month))));
+  }
+
+  private _onMonthSelect(month: number): void {
+    this.dispatchEvent(new CustomEvent('calendar-stats-month-select', {
+      bubbles: true,
+      composed: true,
+      detail: { month },
+    }));
+  }
+
+  private _renderMonthHeader(seg: YearSummarySegment, month: number, clickable: boolean) {
+    const name = this.monthName(month);
+    const cls = `month-col ${seg.visibleMonths.includes(month) ? '' : 'pad-month'}`;
+    if (!clickable) {
+      return html`<th class=${cls}>${name}</th>`;
+    }
+    const ariaLabel = localize('comparison.compare_month', this.lang).replace('{month}', name);
+    return html`<th class=${cls}>
+      <button class="month-select" aria-label=${ariaLabel} @click=${() => this._onMonthSelect(month)}>${name}</button>
+    </th>`;
+  }
+
   private renderEntityRows(seg: YearSummarySegment, cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean, hasCumulative: boolean) {
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
@@ -291,10 +336,10 @@ export class YearSummaryTable extends LitElement {
         const summary = this._summaryFor(seg, rowIndex, key, m);
         const raw = row === 'min' ? summary?.min : row === 'avg' ? summary?.mean : summary?.max;
         if (raw == null) {
-          return html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`;
+          return html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`;
         }
         const v = raw * f;
-        const rule = resolveThreshold(v, cfg.thresholds ?? [], row);
+        const rule = resolveThreshold(v, cfg.thresholds ?? [], row, 'day');
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
         const style = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
         return html`<td class="data-cell has-data" style=${ifDefined(style)}>${nf.format(v)}</td>`;
@@ -316,7 +361,7 @@ export class YearSummaryTable extends LitElement {
         const v = rollupVals[row];
         if (v != null) {
           const role = row === 'min' ? 'summary-min' : row === 'avg' ? 'summary-avg' : 'summary-max';
-          const rule = resolveThreshold(v, cfg.thresholds ?? [], role);
+          const rule = resolveThreshold(v, cfg.thresholds ?? [], role, 'day');
           if (rule) this._addTriggered(rowIndex, groupLabel, rule);
           summaryStyles[row] = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
         }
@@ -328,8 +373,8 @@ export class YearSummaryTable extends LitElement {
           ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>` : ''}
           <td class="sub-label" style=${ifDefined(staticStyle)}>${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
           ${cellsFor(row)}
-          <td class="summary-column" style=${ifDefined(summaryStyles[row])}>${rollupVals[row] != null ? nf.format(rollupVals[row]!) : ''}</td>
-          ${hasCumulative ? html`<td class="summary-column" style=${ifDefined(staticStyle)}></td>` : ''}
+          <td class="summary-column" style=${ifDefined(summaryStyles[row])}>${rollupVals[row] != null ? nf.format(rollupVals[row]!) : NBSP}</td>
+          ${hasCumulative ? html`<td class="summary-column" style=${ifDefined(staticStyle)}>${NBSP}</td>` : ''}
         </tr>
       `)}`;
     }
@@ -359,11 +404,12 @@ export class YearSummaryTable extends LitElement {
       }
       let cellStyle = staticStyle;
       if (numericValue !== undefined && cellContent) {
-        const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar');
+        // Monthly totals are month-scale sums — gated by month-scope rules (015).
+        const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar', 'month');
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
         cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
       }
-      return html`<td class="data-cell ${cellContent ? 'has-data' : ''}" style=${ifDefined(cellStyle)}>${cellContent}</td>`;
+      return html`<td class="data-cell ${cellContent ? 'has-data' : ''}" style=${ifDefined(cellStyle)}>${cellContent || NBSP}</td>`;
     });
 
     // Yearly Summary (FR-018) and Total (FR-006) columns.
@@ -373,20 +419,26 @@ export class YearSummaryTable extends LitElement {
     const showMax = cumulErc?.show_max !== false;
     const summaryContent = ((rollup.mean != null || rollup.min != null || rollup.max != null) && (showMin || showAvg || showMax))
       ? html`<div class="cumul-summary">
-          ${showAvg ? html`<div>${rollup.mean != null ? nf.format(rollup.mean * f) : ''}</div>` : ''}
+          ${showAvg ? html`<div>${rollup.mean != null ? `Ø${nf.format(rollup.mean * f)}` : ''}</div>` : ''}
           ${(showMin || showMax) ? html`<div class="cumul-minmax">
             ${showMin ? html`<span>${rollup.min != null ? `↓${nf.format(rollup.min * f)}` : ''}</span>` : ''}
             ${showMax ? html`<span>${rollup.max != null ? `↑${nf.format(rollup.max * f)}` : ''}</span>` : ''}
           </div>` : ''}
         </div>`
-      : '';
-    const totalContent = rollup.total != null ? nf.format(rollup.total * f) : '';
+      : NBSP;
+    const totalContent = rollup.total != null ? nf.format(rollup.total * f) : NBSP;
 
     let cumulSummaryStyle = staticStyle;
-    // Total column never gets threshold coloring — static color only (mirrors the monthly view).
-    const cumulTotalStyle = staticStyle;
+    // Yearly total is a year-scale sum — colorable by year-scope rules (015).
+    let cumulTotalStyle = staticStyle;
+    if (rollup.total != null) {
+      const rule = resolveThreshold(rollup.total * f, cfg.thresholds ?? [], 'scalar', 'year');
+      if (rule) this._addTriggered(rowIndex, groupLabel, rule);
+      cumulTotalStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+    }
     if (rollup.mean != null && (showMin || showAvg || showMax)) {
-      const rule = resolveThreshold(rollup.mean * f, cfg.thresholds ?? [], 'summary-scalar');
+      // Rollup over monthly totals inherits their month scale (015).
+      const rule = resolveThreshold(rollup.mean * f, cfg.thresholds ?? [], 'summary-scalar', 'month');
       if (rule) this._addTriggered(rowIndex, groupLabel, rule);
       cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
     }
@@ -405,6 +457,9 @@ export class YearSummaryTable extends LitElement {
     this._triggeredGroups.clear();
     const hasMeasurement = this.hasMeasurement();
     const hasCumulative = this.hasCumulative();
+    // Data presence is a cross-segment property — a month with data in ANY
+    // compared year is clickable in EVERY year's header row (spec 014 FR-001).
+    const clickableMonths = ALL_MONTHS.map((m) => this._monthHasData(m));
 
     return html`
       <div class="table-container">
@@ -413,7 +468,7 @@ export class YearSummaryTable extends LitElement {
             <thead>
               <tr class="year-header-row">
                 <th class="label-column year-name" colspan="${hasMeasurement ? 2 : 1}">${seg.year}</th>
-                ${ALL_MONTHS.map((m) => html`<th class="month-col ${seg.visibleMonths.includes(m) ? '' : 'pad-month'}">${this.monthName(m)}</th>`)}
+                ${ALL_MONTHS.map((m) => this._renderMonthHeader(seg, m, clickableMonths[m - 1]!))}
                 <th class="summary-column">${localize('table.year_summary', this.lang)}</th>
                 ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
               </tr>

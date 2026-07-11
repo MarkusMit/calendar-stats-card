@@ -39,6 +39,16 @@
     "avg": "avg",
     "max": "max"
   },
+  "comparison": {
+    "back": "Back",
+    "prev_month": "Previous month",
+    "next_month": "Next month",
+    "compare_month": "Compare {month} across years",
+    "diff_prev": "Difference to previous year",
+    "diff_avg": "Deviation from multi-year average",
+    "incomplete": "Current month — incomplete, excluded from the average",
+    "no_data": "No data for this month in any compared year"
+  },
   "legend": {
     "title": "Legend"
   },
@@ -69,7 +79,9 @@
     "add_threshold": "Add threshold",
     "remove_threshold": "Remove threshold",
     "threshold_operator": "Operator",
-    "threshold_value": "Value",
+    "threshold_value_day": "Value (day)",
+    "threshold_value_month": "Value (month)",
+    "threshold_value_year": "Value (year)",
     "threshold_name": "Label (optional)",
     "predecessors": "Predecessors",
     "add_predecessor": "Add predecessor",

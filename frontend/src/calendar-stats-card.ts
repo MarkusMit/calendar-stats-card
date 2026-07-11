@@ -5,7 +5,8 @@ import type { CardConfig, ThresholdRule, ThresholdLegendGroup } from './types/ca
 import type { HomeAssistant } from './types/ha-types';
 import type { ViewState, YearStatistics, DateRange, RangePreset, MonthAnchor, ViewMode } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
-import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues, rowSummaryKey } from './services/data-transform';
+import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues, rowSummaryKey, wrapMonth } from './services/data-transform';
+import { rowKey } from './types/card-config';
 import { resolvePredecessorData } from './services/predecessor-resolver';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
 import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor } from './services/date-range';
@@ -13,6 +14,7 @@ import { localize } from './localize/localize';
 import './components/loading-overlay';
 import './components/year-table';
 import './components/year-summary-table';
+import './components/month-comparison-table';
 import './components/view-mode-toggle';
 import './components/range-navigator';
 import './components/calendar-stats-card-editor';
@@ -27,6 +29,7 @@ export class CalendarStatsCard extends LitElement {
   @state() private _viewState: ViewState = {
     range: presetToRange('this_year', { year: new Date().getFullYear(), month: new Date().getMonth() + 1 }),
     viewMode: 'monthly',
+    comparisonMonth: null,
     earliestDataYear: null,
     earliestDataMonth: null,
     isLoading: false,
@@ -73,6 +76,40 @@ export class CalendarStatsCard extends LitElement {
     .no-entities {
       color: var(--secondary-text-color);
       padding: 8px;
+    }
+    .comparison-month {
+      font-weight: bold;
+      color: var(--primary-text-color);
+      min-width: 5.5em;
+      text-align: center;
+    }
+    .bottom-bar button.comparison-back,
+    .bottom-bar button.comparison-prev,
+    .bottom-bar button.comparison-next {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--primary-text-color);
+      padding: 4px 10px;
+      line-height: 1;
+      border-radius: 16px;
+      white-space: nowrap;
+    }
+    .bottom-bar button.comparison-back:hover,
+    .bottom-bar button.comparison-prev:hover,
+    .bottom-bar button.comparison-next:hover,
+    .bottom-bar button.comparison-back:focus-visible,
+    .bottom-bar button.comparison-prev:focus-visible,
+    .bottom-bar button.comparison-next:focus-visible {
+      outline: none;
+      background-color: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+    }
+    .comparison-empty {
+      color: var(--secondary-text-color);
+      padding: 8px 0;
+    }
+    .comparison-daily {
+      margin-top: 8px;
     }
     .legend-toggle {
       background: none;
@@ -159,7 +196,8 @@ export class CalendarStatsCard extends LitElement {
     // Entering the yearly view expands the span to whole calendar years (FR-016);
     // switching back retains the year-spanning range.
     const range = mode === 'yearly' ? snapRangeToYears(this._viewState.range) : this._viewState.range;
-    this._viewState = { ...this._viewState, viewMode: mode, range };
+    // A view-mode change closes an open month comparison (spec 014, research D3).
+    this._viewState = { ...this._viewState, viewMode: mode, range, comparisonMonth: null };
     this.requestUpdate();
     if (mode === 'yearly') void this._fetchRange(range);
   }
@@ -458,9 +496,28 @@ export class CalendarStatsCard extends LitElement {
   }
 
   private _applyRange(range: DateRange): void {
-    this._viewState = { ...this._viewState, range };
+    // A range change would silently swap the compared year set — close instead (spec 014, research D3).
+    this._viewState = { ...this._viewState, range, comparisonMonth: null };
     this.requestUpdate();
     void this._fetchRange(range);
+  }
+
+  private _onMonthSelect(e: CustomEvent<{ month: number }>): void {
+    if (this._viewState.viewMode !== 'yearly') return;
+    this._viewState = { ...this._viewState, comparisonMonth: e.detail.month };
+    this.requestUpdate();
+  }
+
+  private _stepComparisonMonth(step: number): void {
+    const current = this._viewState.comparisonMonth;
+    if (current === null) return;
+    this._viewState = { ...this._viewState, comparisonMonth: wrapMonth(current, step) };
+    this.requestUpdate();
+  }
+
+  private _closeComparison(): void {
+    this._viewState = { ...this._viewState, comparisonMonth: null };
+    this.requestUpdate();
   }
 
   private _onPrevRange = (): void => {
@@ -589,6 +646,88 @@ export class CalendarStatsCard extends LitElement {
     `;
   }
 
+  /** Per-year data slices for the yearly view and the month comparison. */
+  private _buildSegments(yearSegments: Array<{ year: number; months: number[] }>) {
+    return yearSegments.map((seg) => {
+      const yearStats = this._viewState.statisticsByYear.get(seg.year);
+      return {
+        year: seg.year,
+        visibleMonths: seg.months,
+        monthlySummaries: yearStats?.monthlySummaries ?? this._emptyMonthlySummaries,
+        dailyValues: yearStats?.dailyValues ?? this._emptyDailyValues,
+        entityMetadata: yearStats?.entityMetadata ?? this._emptyEntityMetadata,
+      };
+    });
+  }
+
+  /** True when any configured row has a summary for the month in this segment. */
+  private _segmentHasMonthData(seg: ReturnType<CalendarStatsCard['_buildSegments']>[number], month: number): boolean {
+    if (!this._config) return false;
+    return this._config.entities.some((cfg, i) =>
+      seg.monthlySummaries.has(rowSummaryKey(i, rowKey(cfg), seg.year, month)));
+  }
+
+  /** Month comparison view (spec 014): chrome + cross-year summary table. */
+  private _renderComparison(
+    segments: ReturnType<CalendarStatsCard['_buildSegments']>,
+    lang: string,
+    now: { year: number; month: number },
+  ) {
+    const config = this._config!;
+    const month = this._viewState.comparisonMonth!;
+    const hasAnyData = segments.some((seg) => this._segmentHasMonthData(seg, month));
+
+    // Daily section: one section per data-bearing year inside ONE year-table so
+    // every section shares the same day-column widths; a year without data gets
+    // no section (its absence is visible in the summary table above).
+    const dailySegments = segments
+      .filter((seg) => this._segmentHasMonthData(seg, month))
+      .map((seg) => ({
+        year: seg.year,
+        month,
+        dailyValues: seg.dailyValues,
+        monthlySummaries: seg.monthlySummaries,
+        entityMetadata: seg.entityMetadata,
+      }));
+
+    return html`
+      ${hasAnyData
+        ? html`<calendar-stats-month-comparison-table
+            .month=${month}
+            .segments=${segments}
+            .entityConfigs=${config.entities}
+            .entityErrors=${this._viewState.entityErrors}
+            .now=${now}
+            .lang=${lang}
+            @thresholds-applied=${this._onThresholdsApplied}
+          ></calendar-stats-month-comparison-table>
+          <div class="comparison-daily">
+            <calendar-stats-year-table
+              .monthSegments=${dailySegments}
+              .entityConfigs=${config.entities}
+              .entityErrors=${this._viewState.entityErrors}
+              .lang=${lang}
+              @thresholds-applied=${this._onThresholdsApplied}
+            ></calendar-stats-year-table>
+          </div>`
+        : html`<p class="comparison-empty">${localize('comparison.no_data', lang)}</p>`}
+    `;
+  }
+
+  /** Back + month prev/next controls shown in the bottom bar while the comparison is open. */
+  private _renderComparisonNav(lang: string) {
+    const month = this._viewState.comparisonMonth!;
+    const monthName = new Intl.DateTimeFormat(lang, { month: 'long' }).format(new Date(2020, month - 1, 1));
+    return html`
+      <button class="comparison-back" @click=${this._closeComparison}>← ${localize('comparison.back', lang)}</button>
+      <button class="comparison-prev" aria-label=${localize('comparison.prev_month', lang)}
+        @click=${() => this._stepComparisonMonth(-1)}>‹</button>
+      <span class="comparison-month">${monthName}</span>
+      <button class="comparison-next" aria-label=${localize('comparison.next_month', lang)}
+        @click=${() => this._stepComparisonMonth(1)}>›</button>
+    `;
+  }
+
   render() {
     const { isLoading, range } = this._viewState;
     const config = this._config;
@@ -602,6 +741,7 @@ export class CalendarStatsCard extends LitElement {
       .map((year) => ({ year, months: visibleMonthsForYear(range, year, now, earliest) }))
       .filter((seg) => seg.months.length > 0);
     const showYear = yearSegments.length > 1;
+    const comparisonOpen = this._viewState.viewMode === 'yearly' && this._viewState.comparisonMonth !== null;
 
     return html`
       <ha-card>
@@ -611,24 +751,18 @@ export class CalendarStatsCard extends LitElement {
             ? html`<p class="no-entities">${localize('card.no_entities', lang)}</p>`
             : ''}
           ${!isLoading && config && config.entities.length > 0
-            ? (this._viewState.viewMode === 'yearly'
+            ? (comparisonOpen
+              ? this._renderComparison(this._buildSegments(yearSegments), lang, now)
+              : this._viewState.viewMode === 'yearly'
                 // All year segments in ONE table component so every year
                 // section shares the same column widths.
                 ? html`<calendar-stats-year-summary-table
-                    .segments=${yearSegments.map((seg) => {
-                      const yearStats = this._viewState.statisticsByYear.get(seg.year);
-                      return {
-                        year: seg.year,
-                        visibleMonths: seg.months,
-                        monthlySummaries: yearStats?.monthlySummaries ?? this._emptyMonthlySummaries,
-                        dailyValues: yearStats?.dailyValues ?? this._emptyDailyValues,
-                        entityMetadata: yearStats?.entityMetadata ?? this._emptyEntityMetadata,
-                      };
-                    })}
+                    .segments=${this._buildSegments(yearSegments)}
                     .entityConfigs=${config.entities}
                     .entityErrors=${this._viewState.entityErrors}
                     .lang=${lang}
                     @thresholds-applied=${this._onThresholdsApplied}
+                    @calendar-stats-month-select=${this._onMonthSelect}
                   ></calendar-stats-year-summary-table>`
                 : yearSegments.map((seg) => {
                     const yearStats = this._viewState.statisticsByYear.get(seg.year);
@@ -648,7 +782,8 @@ export class CalendarStatsCard extends LitElement {
             : ''}
         </div>
         ${!this._inEditor ? html`<div class="bottom-bar">
-          ${config
+          ${config && comparisonOpen ? this._renderComparisonNav(lang) : ''}
+          ${config && !comparisonOpen
             ? html`<calendar-stats-view-mode-toggle
                 .mode=${this._viewState.viewMode}
                 .lang=${lang}

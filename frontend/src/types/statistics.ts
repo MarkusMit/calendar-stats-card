@@ -93,9 +93,42 @@ export interface YearlyRollup {
 export interface ViewState {
   range: DateRange;
   viewMode: ViewMode;
+  /** Calendar month (1-12) compared across years while the comparison view is
+   *  open (yearly view only); null when no comparison is active. Session-only,
+   *  never persisted to the card config (spec 014 FR-013). */
+  comparisonMonth: number | null;
   earliestDataYear: number | null;
   earliestDataMonth: number | null;
   isLoading: boolean;
   statisticsByYear: Map<number, YearStatistics>;
   entityErrors: Set<string>;
+}
+
+/** Which monthly-summary component a comparison series describes. */
+export type ComparisonComponent = 'min' | 'mean' | 'max' | 'total';
+
+/**
+ * One compared year's value in a month-comparison series (spec 014, derived at
+ * render time, never stored). Percentages exist only on 'total' series and only
+ * when the respective baseline is non-zero and present (FR-006a).
+ */
+export interface ComparisonEntry {
+  year: number;
+  value: number | null;
+  /** value − previous in-range year's value; null at range start or when either value is missing (FR-005). */
+  diffPrev: number | null;
+  /** value − crossYearAvg; null when either operand is missing (FR-006). */
+  diffAvg: number | null;
+  pctPrev: number | null;
+  pctAvg: number | null;
+  /** True iff this is the incomplete current month (excluded from the average, FR-007). */
+  incomplete: boolean;
+}
+
+export interface ComparisonSeries {
+  component: ComparisonComponent;
+  /** Mean over complete entries with a value; null when none qualify. */
+  crossYearAvg: number | null;
+  /** One entry per compared year, chronological. */
+  entries: ComparisonEntry[];
 }
