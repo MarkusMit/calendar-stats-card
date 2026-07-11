@@ -5,6 +5,26 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-11
+
+### Added
+
+- Yearly summary view.
+  A Monthly | Yearly selector in the bottom bar switches between the day-by-day monthly tables and a compact yearly grid.
+  The yearly view shows one table per calendar year with one column per month; each cell is that month's summary (min/avg/max for measurement rows, the monthly total for cumulative rows), plus a per-row yearly Summary and Total.
+- Year-granular range selection in the yearly view.
+  Presets This year, Last year, Last 3 years, Last 5 years, and All (from the first recorded data through the current year), plus a custom whole-year span.
+
+### Fixed
+
+- Navigation no longer scrolls before the first recorded data point.
+  The earliest data point is now derived from the earliest monthly statistics bucket instead of the recorder metadata (which carries no earliest timestamp and always fell back to a fixed ten-years-ago anchor), so the backward-navigation floor and the yearly year filtering now clamp correctly in both views.
+- The yearly roll-up column is labeled by year ("Jahr" in German) rather than reusing the monthly view's per-month label.
+
+### Changed
+
+- The bottom bar was reworked to fit portrait phone screens: the view selector is a compact dropdown and the legend button moved to the right end of the bar.
+
 ## [0.3.1] - 2026-07-11
 
 ### Security
@@ -49,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Threshold coloring is no longer applied to a cumulative row's total column; the total uses the static color only.
 - Table text can now be selected (for copying) in the macOS Home Assistant app by adding `-webkit-user-select` for WKWebView.
 
+[0.4.0]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/MarkusMit/ha-tabularizer/compare/v0.2.0...v0.2.1
