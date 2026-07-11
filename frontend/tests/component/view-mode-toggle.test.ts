@@ -17,42 +17,64 @@ async function renderToggle(mode: 'monthly' | 'yearly', lang = 'en'): Promise<Vi
   return el;
 }
 
-describe('ViewModeToggle (T017, FR-011)', () => {
-  it('renders two labeled segments (en)', async () => {
+async function open(el: ViewModeToggle): Promise<void> {
+  (el.shadowRoot!.querySelector('button.mode-toggle') as HTMLButtonElement).click();
+  await el.updateComplete;
+}
+
+describe('ViewModeToggle — dropdown (T017, FR-011)', () => {
+  it('trigger button shows the active mode label (en)', async () => {
     const el = await renderToggle('monthly');
-    const segs = el.shadowRoot!.querySelectorAll('button.segment');
-    expect(segs.length).toBe(2);
-    expect(segs[0]!.textContent).toContain('Monthly');
-    expect(segs[1]!.textContent).toContain('Yearly');
+    const trigger = el.shadowRoot!.querySelector('button.mode-toggle');
+    expect(trigger?.textContent).toContain('Monthly');
   });
 
-  it('marks the active segment with aria-pressed', async () => {
+  it('click opens a dropdown with both mode options, active one marked', async () => {
     const el = await renderToggle('yearly');
-    const segs = el.shadowRoot!.querySelectorAll('button.segment');
-    expect(segs[0]!.getAttribute('aria-pressed')).toBe('false');
-    expect(segs[1]!.getAttribute('aria-pressed')).toBe('true');
+    await open(el);
+    const options = el.shadowRoot!.querySelectorAll('button.mode-option');
+    expect(options.length).toBe(2);
+    expect(options[0]!.textContent).toContain('Monthly');
+    expect(options[1]!.textContent).toContain('Yearly');
+    expect(options[1]!.classList.contains('active')).toBe(true);
   });
 
-  it('clicking the inactive segment emits view-mode-select with the other mode', async () => {
+  it('selecting the other mode emits view-mode-select and closes', async () => {
     const el = await renderToggle('monthly');
+    await open(el);
     const spy = vi.fn();
     el.addEventListener('calendar-stats-view-mode-select', (e) => spy((e as CustomEvent).detail));
-    (el.shadowRoot!.querySelectorAll('button.segment')[1] as HTMLButtonElement).click();
+    (el.shadowRoot!.querySelectorAll('button.mode-option')[1] as HTMLButtonElement).click();
+    await el.updateComplete;
     expect(spy).toHaveBeenCalledWith({ mode: 'yearly' });
+    expect(el.shadowRoot!.querySelector('.mode-popover')).toBeNull();
   });
 
-  it('clicking the active segment emits nothing', async () => {
+  it('selecting the active mode closes without emitting', async () => {
     const el = await renderToggle('monthly');
+    await open(el);
     const spy = vi.fn();
     el.addEventListener('calendar-stats-view-mode-select', spy);
-    (el.shadowRoot!.querySelectorAll('button.segment')[0] as HTMLButtonElement).click();
+    (el.shadowRoot!.querySelectorAll('button.mode-option')[0] as HTMLButtonElement).click();
+    await el.updateComplete;
     expect(spy).not.toHaveBeenCalled();
+    expect(el.shadowRoot!.querySelector('.mode-popover')).toBeNull();
+  });
+
+  it('click outside closes the dropdown', async () => {
+    const el = await renderToggle('monthly');
+    await open(el);
+    expect(el.shadowRoot!.querySelector('.mode-popover')).toBeTruthy();
+    document.body.click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.mode-popover')).toBeNull();
   });
 
   it('de labels localized', async () => {
     const el = await renderToggle('monthly', 'de');
-    const segs = el.shadowRoot!.querySelectorAll('button.segment');
-    expect(segs[0]!.textContent).toContain('Monatlich');
-    expect(segs[1]!.textContent).toContain('Jährlich');
+    expect(el.shadowRoot!.querySelector('button.mode-toggle')?.textContent).toContain('Monatlich');
+    await open(el);
+    const options = el.shadowRoot!.querySelectorAll('button.mode-option');
+    expect(options[1]!.textContent).toContain('Jährlich');
   });
 });

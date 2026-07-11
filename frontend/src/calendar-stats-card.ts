@@ -635,7 +635,6 @@ export class CalendarStatsCard extends LitElement {
             : ''}
         </div>
         ${!this._inEditor ? html`<div class="bottom-bar">
-          ${this._renderLegend(lang)}
           ${config
             ? html`<calendar-stats-view-mode-toggle
                 .mode=${this._viewState.viewMode}
@@ -655,6 +654,7 @@ export class CalendarStatsCard extends LitElement {
                 @calendar-stats-range-select=${this._onRangeSelected}
               ></calendar-stats-range-navigator>`
             : ''}
+          ${this._renderLegend(lang)}
         </div>` : ''}
       </ha-card>
     `;

@@ -14,6 +14,7 @@
 - Q: How far into the past can the user navigate (earliest-data floor)? → A: Clamp to the period containing the first recorded data point; "previous" is disabled there, and no fully-empty period before the first data is reachable (applies to both the monthly and yearly views' shared navigation).
 - Q: Does each year block render all 12 month columns, or only the months in range? → A: The yearly view restricts the selectable range to whole calendar years, so each year block always spans all 12 months (January–December); only the current year (future months) and the earliest-data year (pre-data months) render blank cells.
 - Q: Do per-row threshold colorings apply to the yearly-view cells? → A: Yes — apply the same per-row threshold rules to each yearly-view cell (evaluated against that cell's displayed value), with the legend, exactly as in the monthly view.
+- Q (revision): The segmented control overflows the bottom bar on portrait mobile — what instead? → A: A compact dropdown (trigger button + popover) with the two mode options; the legend button moves to the right end of the bar.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -92,7 +93,7 @@ A user wants to move between the detailed monthly (day-by-day) view and the new 
 - **FR-008**: A month with no recorded data for a row MUST render as empty, distinct from a recorded value of zero.
 - **FR-009**: The inclusion or exclusion of zero-value months in a row's yearly Summary MUST follow that row's existing zero-handling configuration.
 - **FR-010**: When the selected time range spans multiple years, the yearly view MUST render one table block per year, in chronological order, each labeled with its year.
-- **FR-011**: Users MUST be able to switch between the monthly view and the yearly view via a segmented control with two labeled options (Monthly | Yearly) in the bottom navigation bar, and switching MUST preserve the configured entities and the selected time span (in the yearly view the span is expanded to whole years per FR-016).
+- **FR-011**: Users MUST be able to switch between the monthly view and the yearly view via a compact view-mode dropdown (trigger button opening a two-option menu: Monthly, Yearly) in the bottom navigation bar, and switching MUST preserve the configured entities and the selected time span (in the yearly view the span is expanded to whole years per FR-016). The bar MUST fit a portrait phone screen; the legend control sits at the right end of the bar.
 - **FR-012**: The yearly view MUST display the entity label column, including unit of measurement, consistently with the monthly view.
 - **FR-013**: The yearly view MUST keep a dense layout with no excessive whitespace, consistent with the monthly view.
 - **FR-014**: The yearly view MUST present its column and roll-up labels in the user's Home Assistant language for the supported languages (English, German).

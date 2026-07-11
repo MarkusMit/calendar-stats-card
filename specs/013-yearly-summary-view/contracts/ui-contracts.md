@@ -4,7 +4,7 @@ The card exposes no external API; its "contracts" are the LitElement component b
 
 ## `calendar-stats-view-mode-toggle` (NEW)
 
-Segmented Monthly | Yearly control in the bottom bar.
+Compact view-mode dropdown in the bottom bar (trigger button + two-option popover; revised from a segmented control for portrait-mobile width).
 
 **Properties (in)**
 
