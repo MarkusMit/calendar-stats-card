@@ -50,12 +50,14 @@ async function renderTable(overrides: Partial<{
   lang: string;
 }> = {}): Promise<YearSummaryTable> {
   const el = new YearSummaryTable();
-  el.year = YEAR;
-  el.visibleMonths = overrides.visibleMonths ?? Array.from({ length: 12 }, (_, i) => i + 1);
+  el.segments = [{
+    year: YEAR,
+    visibleMonths: overrides.visibleMonths ?? Array.from({ length: 12 }, (_, i) => i + 1),
+    monthlySummaries: overrides.monthlySummaries ?? new Map(),
+    dailyValues: overrides.dailyValues ?? new Map(),
+    entityMetadata: overrides.entityMetadata ?? new Map([['sensor.temp', tempMeta]]),
+  }];
   el.entityConfigs = overrides.entityConfigs ?? [{ entity: 'sensor.temp' }];
-  el.monthlySummaries = overrides.monthlySummaries ?? new Map();
-  el.dailyValues = overrides.dailyValues ?? new Map();
-  el.entityMetadata = overrides.entityMetadata ?? new Map([['sensor.temp', tempMeta]]);
   el.entityErrors = new Set();
   el.lang = overrides.lang ?? 'en';
   document.body.appendChild(el);
@@ -145,5 +147,27 @@ describe('YearSummaryTable — grid structure (T004)', () => {
     expect(padHeaders.length).toBe(5); // Aug–Dec
     const padCells = el.shadowRoot!.querySelectorAll('tbody td.pad-cell');
     expect(padCells.length).toBe(5);
+  });
+
+  it('multiple year segments render inside ONE table (shared column widths)', async () => {
+    const el = new YearSummaryTable();
+    const meta = new Map([['sensor.rain', rainMeta]]);
+    el.segments = [
+      { year: YEAR - 1, visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1), monthlySummaries: new Map(), dailyValues: new Map(), entityMetadata: meta },
+      { year: YEAR, visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1), monthlySummaries: new Map(), dailyValues: new Map(), entityMetadata: meta },
+    ];
+    el.entityConfigs = [{ entity: 'sensor.rain' }];
+    el.entityErrors = new Set();
+    el.lang = 'en';
+    document.body.appendChild(el);
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      if (!el.shadowRoot) throw new Error('shadow root not ready');
+    }, { timeout: 3000 });
+    expect(el.shadowRoot!.querySelectorAll('table').length).toBe(1);
+    expect(el.shadowRoot!.querySelectorAll('thead').length).toBe(2);
+    expect(el.shadowRoot!.querySelectorAll('tbody').length).toBe(2);
+    const yearNames = [...el.shadowRoot!.querySelectorAll('th.year-name')].map((h) => h.textContent!.trim());
+    expect(yearNames).toEqual([String(YEAR - 1), String(YEAR)]);
   });
 });

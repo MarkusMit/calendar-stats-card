@@ -37,8 +37,6 @@ function dailyTemp(month: number, day: number, mean: number): [string, Measureme
 
 async function renderMixed(): Promise<YearSummaryTable> {
   const el = new YearSummaryTable();
-  el.year = YEAR;
-  el.visibleMonths = Array.from({ length: 12 }, (_, i) => i + 1);
   el.entityConfigs = [{ entity: 'sensor.temp' }, { entity: 'sensor.rain' }];
   const summaries = new Map<string, MonthlySummary>();
   summaries.set(rowSummaryKey(0, 'sensor.temp', YEAR, 1), {
@@ -53,13 +51,17 @@ async function renderMixed(): Promise<YearSummaryTable> {
   summaries.set(rowSummaryKey(1, 'sensor.rain', YEAR, 2), {
     entityId: 'sensor.rain', year: YEAR, month: 2, min: null, mean: null, max: null, total: 20,
   });
-  el.monthlySummaries = summaries;
-  // temp: 3 days at 10 in Jan, 1 day at 30 in Jul → day-weighted avg = 15
-  el.dailyValues = new Map<string, DailyValue>([
-    dailyTemp(1, 1, 10), dailyTemp(1, 2, 10), dailyTemp(1, 3, 10),
-    dailyTemp(7, 1, 30),
-  ]);
-  el.entityMetadata = new Map([['sensor.temp', tempMeta], ['sensor.rain', rainMeta]]);
+  el.segments = [{
+    year: YEAR,
+    visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1),
+    monthlySummaries: summaries,
+    // temp: 3 days at 10 in Jan, 1 day at 30 in Jul → day-weighted avg = 15
+    dailyValues: new Map<string, DailyValue>([
+      dailyTemp(1, 1, 10), dailyTemp(1, 2, 10), dailyTemp(1, 3, 10),
+      dailyTemp(7, 1, 30),
+    ]),
+    entityMetadata: new Map([['sensor.temp', tempMeta], ['sensor.rain', rainMeta]]),
+  }];
   el.entityErrors = new Set();
   el.lang = 'en';
   document.body.appendChild(el);

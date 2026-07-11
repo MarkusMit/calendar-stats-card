@@ -138,8 +138,9 @@ describe('CalendarStatsCard — view switching (T019, FR-011/FR-016)', () => {
     await vi.waitFor(async () => {
       await el.updateComplete;
       expect(el.range.start.year).toBe(currentYear - 1);
-      const blocks = el.shadowRoot!.querySelectorAll('calendar-stats-year-summary-table');
-      expect(blocks.length).toBe(2); // earliest year + current year only
+      const table = el.shadowRoot!.querySelector('calendar-stats-year-summary-table') as (HTMLElement & { segments: unknown[] }) | null;
+      expect(table).toBeTruthy();
+      expect(table!.segments.length).toBe(2); // earliest year + current year only
     }, { timeout: 3000 });
   });
 

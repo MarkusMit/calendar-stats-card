@@ -12,19 +12,26 @@ import { resolvePrecision } from './year-table';
 
 const ALL_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
+/** One calendar year's data slice for the yearly grid. */
+export interface YearSummarySegment {
+  year: number;
+  visibleMonths: number[];
+  monthlySummaries: Map<string, MonthlySummary>;
+  dailyValues: Map<string, DailyValue>;
+  entityMetadata: Map<string, EntityMetadata>;
+}
+
 /**
- * Yearly view: one table per calendar year — columns are the twelve months,
- * rows are the configured entities/expressions, each cell is that month's
- * summary (measurement min/avg/max sub-rows; cumulative monthly total).
+ * Yearly view: all year segments render inside ONE table (a thead/tbody
+ * section per year) so every year shares the same column widths — columns
+ * are the twelve months, rows are the configured entities/expressions, each
+ * cell is that month's summary (measurement min/avg/max sub-rows; cumulative
+ * monthly total).
  */
 @customElement('calendar-stats-year-summary-table')
 export class YearSummaryTable extends LitElement {
-  @property({ type: Number }) year = 2025;
-  @property({ attribute: false }) visibleMonths: number[] = [];
+  @property({ attribute: false }) segments: YearSummarySegment[] = [];
   @property({ attribute: false }) entityConfigs: EntityConfig[] = [];
-  @property({ attribute: false }) monthlySummaries: Map<string, MonthlySummary> = new Map();
-  @property({ attribute: false }) dailyValues: Map<string, DailyValue> = new Map();
-  @property({ attribute: false }) entityMetadata: Map<string, EntityMetadata> = new Map();
   @property({ attribute: false }) entityErrors: Set<string> = new Set();
   @property({ type: String }) lang = 'en';
 
@@ -208,37 +215,44 @@ export class YearSummaryTable extends LitElement {
 
   private monthName(month: number): string {
     return new Intl.DateTimeFormat(this.lang, { month: 'short' }).format(
-      new Date(this.year, month - 1, 1),
+      new Date(2020, month - 1, 1),
     );
+  }
+
+  /** Row-type flags from the union of all segments' metadata — the column
+   *  structure must be identical across every year section of the table. */
+  private _metaFor(key: string): EntityMetadata | undefined {
+    for (const seg of this.segments) {
+      const meta = seg.entityMetadata.get(key);
+      if (meta) return meta;
+    }
+    return undefined;
   }
 
   private hasCumulative(): boolean {
     return this.entityConfigs.some((cfg) => {
-      const meta = this.entityMetadata.get(rowKey(cfg));
+      const meta = this._metaFor(rowKey(cfg));
       return meta && meta.stateClass !== 'measurement';
     });
   }
 
   private hasMeasurement(): boolean {
     return this.entityConfigs.some((cfg) => {
-      const meta = this.entityMetadata.get(rowKey(cfg));
+      const meta = this._metaFor(rowKey(cfg));
       return meta?.stateClass === 'measurement';
     });
   }
 
-  private _visible(month: number): boolean {
-    return this.visibleMonths.includes(month);
+  private _summaryFor(seg: YearSummarySegment, rowIndex: number, key: string, month: number): MonthlySummary | undefined {
+    return seg.monthlySummaries.get(rowSummaryKey(rowIndex, key, seg.year, month));
   }
 
-  private _summaryFor(rowIndex: number, key: string, month: number): MonthlySummary | undefined {
-    return this.monthlySummaries.get(rowSummaryKey(rowIndex, key, this.year, month));
-  }
-
-  private renderEntityRows(cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean) {
+  private renderEntityRows(seg: YearSummarySegment, cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean, hasCumulative: boolean) {
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
     const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
-    const meta = this.entityMetadata.get(key);
+    const meta = seg.entityMetadata.get(key) ?? this._metaFor(key);
+    const visible = (m: number) => seg.visibleMonths.includes(m);
     const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
     const unitStr = ('unit' in cfg && cfg.unit) ? cfg.unit : meta?.unitOfMeasurement;
     const unit = unitStr ? ` [${unitStr}]` : '';
@@ -271,10 +285,10 @@ export class YearSummaryTable extends LitElement {
       }
 
       const cellsFor = (row: 'min' | 'avg' | 'max') => ALL_MONTHS.map((m) => {
-        if (!this._visible(m)) {
+        if (!visible(m)) {
           return html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`;
         }
-        const summary = this._summaryFor(rowIndex, key, m);
+        const summary = this._summaryFor(seg, rowIndex, key, m);
         const raw = row === 'min' ? summary?.min : row === 'avg' ? summary?.mean : summary?.max;
         if (raw == null) {
           return html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`;
@@ -288,7 +302,7 @@ export class YearSummaryTable extends LitElement {
 
       // Yearly Summary roll-up (FR-005): extremes of monthly extremes, day-weighted avg.
       const rollup = computeMeasurementYearRollup(
-        rowIndex, key, this.year, this.visibleMonths, this.monthlySummaries, this.dailyValues,
+        rowIndex, key, seg.year, seg.visibleMonths, seg.monthlySummaries, seg.dailyValues,
       );
       const rollupVals: Record<'min' | 'avg' | 'max', number | null> = {
         min: rollup.min != null ? rollup.min * f : null,
@@ -308,7 +322,6 @@ export class YearSummaryTable extends LitElement {
         }
       }
 
-      const hasCumulative = this.hasCumulative();
       const rowspan = visibleRows.length;
       return html`${visibleRows.map((row, idx) => html`
         <tr class="${idx < visibleRows.length - 1 ? 'sub-row' : ''}">
@@ -324,13 +337,13 @@ export class YearSummaryTable extends LitElement {
     // Cumulative / expression entity — single row of monthly totals
     const excludeZero = cfg.show_zero === false;
     const rollup = computeCumulativeYearRollup(
-      rowIndex, key, this.year, this.visibleMonths, this.monthlySummaries, excludeZero,
+      rowIndex, key, seg.year, seg.visibleMonths, seg.monthlySummaries, excludeZero,
     );
     const monthCells = ALL_MONTHS.map((m) => {
-      if (!this._visible(m)) {
+      if (!visible(m)) {
         return html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`;
       }
-      const summary = this._summaryFor(rowIndex, key, m);
+      const summary = this._summaryFor(seg, rowIndex, key, m);
       let cellContent = '';
       let numericValue: number | undefined;
       if (hasError) {
@@ -396,17 +409,19 @@ export class YearSummaryTable extends LitElement {
     return html`
       <div class="table-container">
         <table>
-          <thead>
-            <tr class="year-header-row">
-              <th class="label-column year-name" colspan="${hasMeasurement ? 2 : 1}">${this.year}</th>
-              ${ALL_MONTHS.map((m) => html`<th class="month-col ${this._visible(m) ? '' : 'pad-month'}">${this.monthName(m)}</th>`)}
-              <th class="summary-column">${localize('table.year_summary', this.lang)}</th>
-              ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
-            </tr>
-          </thead>
-          <tbody>
-            ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, hasMeasurement))}
-          </tbody>
+          ${this.segments.map((seg) => html`
+            <thead>
+              <tr class="year-header-row">
+                <th class="label-column year-name" colspan="${hasMeasurement ? 2 : 1}">${seg.year}</th>
+                ${ALL_MONTHS.map((m) => html`<th class="month-col ${seg.visibleMonths.includes(m) ? '' : 'pad-month'}">${this.monthName(m)}</th>`)}
+                <th class="summary-column">${localize('table.year_summary', this.lang)}</th>
+                ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
+              </tr>
+            </thead>
+            <tbody>
+              ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(seg, cfg, i, hasMeasurement, hasCumulative))}
+            </tbody>
+          `)}
         </table>
       </div>
     `;

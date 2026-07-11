@@ -20,8 +20,6 @@ const rainMeta: EntityMetadata = {
 
 async function renderWithThreshold(): Promise<YearSummaryTable> {
   const el = new YearSummaryTable();
-  el.year = YEAR;
-  el.visibleMonths = Array.from({ length: 12 }, (_, i) => i + 1);
   el.entityConfigs = [{
     entity: 'sensor.rain',
     thresholds: [{ operator: 'above', value: 20, background_color: 'red', name: 'Heavy rain' }],
@@ -33,9 +31,13 @@ async function renderWithThreshold(): Promise<YearSummaryTable> {
   summaries.set(rowSummaryKey(0, 'sensor.rain', YEAR, 2), {
     entityId: 'sensor.rain', year: YEAR, month: 2, min: null, mean: null, max: null, total: 5,
   });
-  el.monthlySummaries = summaries;
-  el.dailyValues = new Map();
-  el.entityMetadata = new Map([['sensor.rain', rainMeta]]);
+  el.segments = [{
+    year: YEAR,
+    visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1),
+    monthlySummaries: summaries,
+    dailyValues: new Map(),
+    entityMetadata: new Map([['sensor.rain', rainMeta]]),
+  }];
   el.entityErrors = new Set();
   el.lang = 'en';
   document.body.appendChild(el);
@@ -63,8 +65,6 @@ describe('YearSummaryTable — threshold coloring (T005)', () => {
     const el = new YearSummaryTable();
     el.addEventListener('thresholds-applied', (e) => groups.push(...(e as CustomEvent).detail.groups));
     // configure before attach so the first render dispatches
-    el.year = YEAR;
-    el.visibleMonths = [1];
     el.entityConfigs = [{
       entity: 'sensor.rain',
       thresholds: [{ operator: 'above', value: 20, background_color: 'red', name: 'Heavy rain' }],
@@ -73,9 +73,13 @@ describe('YearSummaryTable — threshold coloring (T005)', () => {
     summaries.set(rowSummaryKey(0, 'sensor.rain', YEAR, 1), {
       entityId: 'sensor.rain', year: YEAR, month: 1, min: null, mean: null, max: null, total: 42,
     });
-    el.monthlySummaries = summaries;
-    el.dailyValues = new Map();
-    el.entityMetadata = new Map([['sensor.rain', rainMeta]]);
+    el.segments = [{
+      year: YEAR,
+      visibleMonths: [1],
+      monthlySummaries: summaries,
+      dailyValues: new Map(),
+      entityMetadata: new Map([['sensor.rain', rainMeta]]),
+    }];
     el.entityErrors = new Set();
     el.lang = 'en';
     document.body.appendChild(el);

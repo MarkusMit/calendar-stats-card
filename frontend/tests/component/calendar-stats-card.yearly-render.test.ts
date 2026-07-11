@@ -74,10 +74,10 @@ describe('CalendarStatsCard — yearly view rendering (T006)', () => {
     el.viewMode = 'yearly';
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const tables = [...el.shadowRoot!.querySelectorAll('calendar-stats-year-summary-table')] as (HTMLElement & { year: number })[];
-      expect(tables.length).toBe(2);
-      expect(tables[0]!.year).toBe(currentYear - 1);
-      expect(tables[1]!.year).toBe(currentYear);
+      // one table hosts all year segments so columns share widths
+      const tables = [...el.shadowRoot!.querySelectorAll('calendar-stats-year-summary-table')] as (HTMLElement & { segments: { year: number }[] })[];
+      expect(tables.length).toBe(1);
+      expect(tables[0]!.segments.map((s) => s.year)).toEqual([currentYear - 1, currentYear]);
     }, { timeout: 3000 });
   });
 
@@ -86,14 +86,14 @@ describe('CalendarStatsCard — yearly view rendering (T006)', () => {
     el.viewMode = 'yearly';
     await vi.waitFor(async () => {
       await el.updateComplete;
-      const table = el.shadowRoot!.querySelector('calendar-stats-year-summary-table') as (HTMLElement & { visibleMonths: number[]; updateComplete: Promise<boolean> }) | null;
+      const table = el.shadowRoot!.querySelector('calendar-stats-year-summary-table') as (HTMLElement & { segments: { visibleMonths: number[] }[]; updateComplete: Promise<boolean> }) | null;
       if (!table?.shadowRoot) throw new Error('table not ready');
       await table.updateComplete;
       const currentMonth = new Date().getMonth() + 1;
       // future months are outside visibleMonths → pad-month headers
       const padHeaders = table.shadowRoot.querySelectorAll('th.month-col.pad-month');
       expect(padHeaders.length).toBe(12 - currentMonth);
-      expect(table.visibleMonths.every((m: number) => m <= currentMonth)).toBe(true);
+      expect(table.segments[0]!.visibleMonths.every((m: number) => m <= currentMonth)).toBe(true);
     }, { timeout: 3000 });
   });
 });

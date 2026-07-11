@@ -611,21 +611,28 @@ export class CalendarStatsCard extends LitElement {
             ? html`<p class="no-entities">${localize('card.no_entities', lang)}</p>`
             : ''}
           ${!isLoading && config && config.entities.length > 0
-            ? yearSegments.map((seg) => {
-                const yearStats = this._viewState.statisticsByYear.get(seg.year);
-                return this._viewState.viewMode === 'yearly'
-                  ? html`<calendar-stats-year-summary-table
-                      .year=${seg.year}
-                      .visibleMonths=${seg.months}
-                      .entityConfigs=${config.entities}
-                      .monthlySummaries=${yearStats?.monthlySummaries ?? this._emptyMonthlySummaries}
-                      .dailyValues=${yearStats?.dailyValues ?? this._emptyDailyValues}
-                      .entityMetadata=${yearStats?.entityMetadata ?? this._emptyEntityMetadata}
-                      .entityErrors=${this._viewState.entityErrors}
-                      .lang=${lang}
-                      @thresholds-applied=${this._onThresholdsApplied}
-                    ></calendar-stats-year-summary-table>`
-                  : html`<calendar-stats-year-table
+            ? (this._viewState.viewMode === 'yearly'
+                // All year segments in ONE table component so every year
+                // section shares the same column widths.
+                ? html`<calendar-stats-year-summary-table
+                    .segments=${yearSegments.map((seg) => {
+                      const yearStats = this._viewState.statisticsByYear.get(seg.year);
+                      return {
+                        year: seg.year,
+                        visibleMonths: seg.months,
+                        monthlySummaries: yearStats?.monthlySummaries ?? this._emptyMonthlySummaries,
+                        dailyValues: yearStats?.dailyValues ?? this._emptyDailyValues,
+                        entityMetadata: yearStats?.entityMetadata ?? this._emptyEntityMetadata,
+                      };
+                    })}
+                    .entityConfigs=${config.entities}
+                    .entityErrors=${this._viewState.entityErrors}
+                    .lang=${lang}
+                    @thresholds-applied=${this._onThresholdsApplied}
+                  ></calendar-stats-year-summary-table>`
+                : yearSegments.map((seg) => {
+                    const yearStats = this._viewState.statisticsByYear.get(seg.year);
+                    return html`<calendar-stats-year-table
                       .year=${seg.year}
                       .showYear=${showYear}
                       .visibleMonths=${seg.months}
@@ -637,7 +644,7 @@ export class CalendarStatsCard extends LitElement {
                       .lang=${lang}
                       @thresholds-applied=${this._onThresholdsApplied}
                     ></calendar-stats-year-table>`;
-              })
+                  }))
             : ''}
         </div>
         ${!this._inEditor ? html`<div class="bottom-bar">
