@@ -6,6 +6,7 @@ import { rowKey } from '../types/card-config';
 import type { EntityMetadata, ComparisonSeries, ComparisonEntry, MonthlySummary } from '../types/statistics';
 import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
+import { NBSP } from './year-table';
 import { autoContrastText } from '../services/readable-text';
 import { buildComparisonSeries } from '../services/data-transform';
 import { resolvePrecision } from './year-table';
@@ -97,8 +98,6 @@ export class MonthComparisonTable extends LitElement {
       text-align: right;
       min-width: 20px;
       white-space: nowrap;
-    }
-    td.data-cell.has-data {
       border-left: 1px solid var(--divider-color, #ccc);
       border-right: 1px solid var(--divider-color, #ccc);
     }
@@ -246,10 +245,10 @@ export class MonthComparisonTable extends LitElement {
       html`<td class="diff-cell ${cls}" style=${ifDefined(staticStyle)}
         title=${ifDefined(val != null ? localize(titleKey, this.lang) : undefined)}>${val != null
           ? html`${symbol}${sf.format(val * factor)}${pctVal != null ? html`<br>(${pf.format(pctVal)})` : ''}`
-          : ''}</td>`;
+          : NBSP}</td>`;
 
     if (entry.value == null) {
-      return html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>
+      return html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>
         ${diffCell(null, null, 'Δ', 'diff-prev', 'comparison.diff_prev')}
         ${diffCell(null, null, 'Ø', 'diff-avg', 'comparison.diff_avg')}`;
     }
@@ -280,7 +279,7 @@ export class MonthComparisonTable extends LitElement {
     staticStyle: string | undefined,
   ) {
     if (series.crossYearAvg == null) {
-      return html`<td class="avg-cell" style=${ifDefined(staticStyle)}></td>`;
+      return html`<td class="avg-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`;
     }
     const v = series.crossYearAvg * factor;
     const rule = resolveThreshold(v, cfg.thresholds ?? [], summaryRole, scope);

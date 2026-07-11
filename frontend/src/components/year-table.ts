@@ -11,6 +11,9 @@ import { rowSummaryKey } from '../services/data-transform';
 
 const TOTAL_DAYS = 31;
 
+/** Empty cells hold a non-breaking space so they keep height and borders. */
+export const NBSP = ' ';
+
 /** Default decimal places used when a row config does not set `precision`. */
 export const DEFAULT_PRECISION = 1;
 
@@ -157,8 +160,6 @@ export class YearTable extends LitElement {
       color: var(--primary-text-color);
       text-align: right;
       min-width: 20px;
-    }
-    td.data-cell.has-data {
       border-left: 1px solid var(--divider-color, #ccc);
       border-right: 1px solid var(--divider-color, #ccc);
     }
@@ -389,7 +390,7 @@ export class YearTable extends LitElement {
           const maxV = val.max * f;
 
           if (minV === 0 && !showZero) {
-            minCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`);
+            minCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
           } else {
             const minRule = resolveThreshold(minV, cfg.thresholds ?? [], 'min', 'day');
             if (minRule) this._addTriggered(rowIndex, groupLabel, minRule);
@@ -398,7 +399,7 @@ export class YearTable extends LitElement {
           }
 
           if (meanV === 0 && !showZero) {
-            meanCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`);
+            meanCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
           } else {
             const avgRule = resolveThreshold(meanV, cfg.thresholds ?? [], 'avg', 'day');
             if (avgRule) this._addTriggered(rowIndex, groupLabel, avgRule);
@@ -407,7 +408,7 @@ export class YearTable extends LitElement {
           }
 
           if (maxV === 0 && !showZero) {
-            maxCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`);
+            maxCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
           } else {
             const maxRule = resolveThreshold(maxV, cfg.thresholds ?? [], 'max', 'day');
             if (maxRule) this._addTriggered(rowIndex, groupLabel, maxRule);
@@ -415,9 +416,9 @@ export class YearTable extends LitElement {
             maxCells.push(html`<td class="data-cell has-data" style=${ifDefined(maxStyle)}>${nf.format(maxV)}${pc}</td>`);
           }
         } else {
-          minCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`);
-          meanCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`);
-          maxCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`);
+          minCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
+          meanCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
+          maxCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
         }
       }
 
@@ -432,9 +433,9 @@ export class YearTable extends LitElement {
       const rowspan = visibleRows.length;
       const cells = { min: minCells, avg: meanCells, max: maxCells } as const;
       const summaryVals = {
-        min: summary?.min != null ? nf.format(summary.min * f) : '',
-        avg: summary?.mean != null ? nf.format(summary.mean * f) : '',
-        max: summary?.max != null ? nf.format(summary.max * f) : '',
+        min: summary?.min != null ? nf.format(summary.min * f) : NBSP,
+        avg: summary?.mean != null ? nf.format(summary.mean * f) : NBSP,
+        max: summary?.max != null ? nf.format(summary.max * f) : NBSP,
       };
       const summaryStyles: Record<'min' | 'avg' | 'max', string | undefined> = {
         min: staticStyle,
@@ -465,7 +466,7 @@ export class YearTable extends LitElement {
           <td class="sub-label" style=${ifDefined(staticStyle)}>${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
           ${cells[row]}
           <td class="summary-column" style=${ifDefined(summaryStyles[row])}>${summaryVals[row]}</td>
-          ${hasCumulative ? html`<td class="summary-column" style=${ifDefined(staticStyle)}></td>` : ''}
+          ${hasCumulative ? html`<td class="summary-column" style=${ifDefined(staticStyle)}>${NBSP}</td>` : ''}
         </tr>
       `)}`;
     }
@@ -497,7 +498,7 @@ export class YearTable extends LitElement {
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
         cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
       }
-      dayCells.push(html`<td class="data-cell ${cellContent ? 'has-data' : ''}" style=${ifDefined(cellStyle)}>${cellContent}</td>`);
+      dayCells.push(html`<td class="data-cell ${cellContent ? 'has-data' : ''}" style=${ifDefined(cellStyle)}>${cellContent || NBSP}</td>`);
     }
 
     const cumulErc = 'entity' in cfg ? cfg : null;
@@ -512,8 +513,8 @@ export class YearTable extends LitElement {
             ${showMax ? html`<span>${summary.max != null ? `↑${nf.format(summary.max * f)}` : ''}</span>` : ''}
           </div>` : ''}
         </div>`
-      : '';
-    const totalContent = summary?.total != null ? nf.format(summary.total * f) : '';
+      : NBSP;
+    const totalContent = summary?.total != null ? nf.format(summary.total * f) : NBSP;
 
     let cumulSummaryStyle = staticStyle;
     // Monthly total is a month-scale sum — colorable by month-scope rules (015).

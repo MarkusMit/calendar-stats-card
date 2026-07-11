@@ -6,6 +6,7 @@ import { rowKey } from '../types/card-config';
 import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
+import { NBSP } from './year-table';
 import { autoContrastText } from '../services/readable-text';
 import { rowSummaryKey, computeMeasurementYearRollup, computeCumulativeYearRollup } from '../services/data-transform';
 import { resolvePrecision } from './year-table';
@@ -100,8 +101,6 @@ export class YearSummaryTable extends LitElement {
       color: var(--primary-text-color);
       text-align: right;
       min-width: 34px;
-    }
-    td.data-cell.has-data {
       border-left: 1px solid var(--divider-color, #ccc);
       border-right: 1px solid var(--divider-color, #ccc);
     }
@@ -337,7 +336,7 @@ export class YearSummaryTable extends LitElement {
         const summary = this._summaryFor(seg, rowIndex, key, m);
         const raw = row === 'min' ? summary?.min : row === 'avg' ? summary?.mean : summary?.max;
         if (raw == null) {
-          return html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`;
+          return html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`;
         }
         const v = raw * f;
         const rule = resolveThreshold(v, cfg.thresholds ?? [], row, 'day');
@@ -374,8 +373,8 @@ export class YearSummaryTable extends LitElement {
           ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>` : ''}
           <td class="sub-label" style=${ifDefined(staticStyle)}>${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
           ${cellsFor(row)}
-          <td class="summary-column" style=${ifDefined(summaryStyles[row])}>${rollupVals[row] != null ? nf.format(rollupVals[row]!) : ''}</td>
-          ${hasCumulative ? html`<td class="summary-column" style=${ifDefined(staticStyle)}></td>` : ''}
+          <td class="summary-column" style=${ifDefined(summaryStyles[row])}>${rollupVals[row] != null ? nf.format(rollupVals[row]!) : NBSP}</td>
+          ${hasCumulative ? html`<td class="summary-column" style=${ifDefined(staticStyle)}>${NBSP}</td>` : ''}
         </tr>
       `)}`;
     }
@@ -410,7 +409,7 @@ export class YearSummaryTable extends LitElement {
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
         cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
       }
-      return html`<td class="data-cell ${cellContent ? 'has-data' : ''}" style=${ifDefined(cellStyle)}>${cellContent}</td>`;
+      return html`<td class="data-cell ${cellContent ? 'has-data' : ''}" style=${ifDefined(cellStyle)}>${cellContent || NBSP}</td>`;
     });
 
     // Yearly Summary (FR-018) and Total (FR-006) columns.
@@ -426,8 +425,8 @@ export class YearSummaryTable extends LitElement {
             ${showMax ? html`<span>${rollup.max != null ? `↑${nf.format(rollup.max * f)}` : ''}</span>` : ''}
           </div>` : ''}
         </div>`
-      : '';
-    const totalContent = rollup.total != null ? nf.format(rollup.total * f) : '';
+      : NBSP;
+    const totalContent = rollup.total != null ? nf.format(rollup.total * f) : NBSP;
 
     let cumulSummaryStyle = staticStyle;
     // Yearly total is a year-scale sum — colorable by year-scope rules (015).
