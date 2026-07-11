@@ -240,6 +240,114 @@ describe('resolveThreshold — not-above cell role filtering', () => {
   });
 });
 
+// --- scope filtering (feature 015) ---
+
+describe('resolveThreshold — scope filtering', () => {
+  const dayRule: ThresholdRule = { operator: 'above', value: 10, background_color: 'red' };
+  const dayExplicit: ThresholdRule = { operator: 'above', value: 10, scope: 'day', background_color: 'darkred' };
+  const monthRule: ThresholdRule = { operator: 'above', value: 150, scope: 'month', background_color: 'blue' };
+  const yearRule: ThresholdRule = { operator: 'above', value: 1200, scope: 'year', background_color: 'purple' };
+
+  it('scope-less rule matches day cells (default cellScope)', () => {
+    expect(resolveThreshold(15, [dayRule], 'scalar')).toBe(dayRule);
+  });
+
+  it('scope-less rule matches explicit day cells', () => {
+    expect(resolveThreshold(15, [dayRule], 'scalar', 'day')).toBe(dayRule);
+  });
+
+  it('scope-less rule does NOT match month cells', () => {
+    expect(resolveThreshold(200, [dayRule], 'scalar', 'month')).toBeUndefined();
+  });
+
+  it('scope-less rule does NOT match year cells', () => {
+    expect(resolveThreshold(2000, [dayRule], 'scalar', 'year')).toBeUndefined();
+  });
+
+  it('explicit day rule behaves like scope-less rule', () => {
+    expect(resolveThreshold(15, [dayExplicit], 'scalar', 'day')).toBe(dayExplicit);
+    expect(resolveThreshold(200, [dayExplicit], 'scalar', 'month')).toBeUndefined();
+  });
+
+  it('month rule matches month cells only', () => {
+    expect(resolveThreshold(200, [monthRule], 'scalar', 'month')).toBe(monthRule);
+    expect(resolveThreshold(200, [monthRule], 'scalar', 'day')).toBeUndefined();
+    expect(resolveThreshold(2000, [monthRule], 'scalar', 'year')).toBeUndefined();
+  });
+
+  it('year rule matches year cells only', () => {
+    expect(resolveThreshold(1300, [yearRule], 'scalar', 'year')).toBe(yearRule);
+    expect(resolveThreshold(1300, [yearRule], 'scalar', 'day')).toBeUndefined();
+    expect(resolveThreshold(1300, [yearRule], 'scalar', 'month')).toBeUndefined();
+  });
+
+  it('invalid scope string behaves as day', () => {
+    const invalid = { operator: 'above', value: 10, scope: 'weekly', background_color: 'red' } as unknown as ThresholdRule;
+    expect(resolveThreshold(15, [invalid], 'scalar', 'day')).toBe(invalid);
+    expect(resolveThreshold(200, [invalid], 'scalar', 'month')).toBeUndefined();
+  });
+
+  it('summary roles obey scope too', () => {
+    expect(resolveThreshold(200, [dayRule], 'summary-scalar', 'month')).toBeUndefined();
+    expect(resolveThreshold(200, [monthRule], 'summary-scalar', 'month')).toBe(monthRule);
+  });
+
+  it('not-below/not-above role exclusions still apply within a scope', () => {
+    const nb: ThresholdRule = { operator: 'not-below', value: 100, scope: 'month', background_color: 'lime' };
+    expect(resolveThreshold(200, [nb], 'scalar', 'month')).toBe(nb);
+    expect(resolveThreshold(200, [nb], 'avg', 'month')).toBeUndefined();
+    expect(resolveThreshold(200, [nb], 'max', 'month')).toBeUndefined();
+  });
+});
+
+describe('resolveThreshold — closest-wins within scope (mixed lists, 3+ bands per scope)', () => {
+  const d1: ThresholdRule = { operator: 'above', value: 5, background_color: 'd-yellow' };
+  const d2: ThresholdRule = { operator: 'above', value: 10, background_color: 'd-orange' };
+  const d3: ThresholdRule = { operator: 'above', value: 20, background_color: 'd-red' };
+  const m1: ThresholdRule = { operator: 'above', value: 100, scope: 'month', background_color: 'm-yellow' };
+  const m2: ThresholdRule = { operator: 'above', value: 150, scope: 'month', background_color: 'm-orange' };
+  const m3: ThresholdRule = { operator: 'above', value: 200, scope: 'month', background_color: 'm-red' };
+  const y1: ThresholdRule = { operator: 'above', value: 1000, scope: 'year', background_color: 'y-orange' };
+  const y2: ThresholdRule = { operator: 'above', value: 1500, scope: 'year', background_color: 'y-red' };
+  const mixed = [d1, d2, d3, m1, m2, m3, y1, y2];
+
+  it('day cell: ranks among day rules only', () => {
+    expect(resolveThreshold(4, mixed, 'scalar', 'day')).toBeUndefined();
+    expect(resolveThreshold(7, mixed, 'scalar', 'day')).toBe(d1);
+    expect(resolveThreshold(12, mixed, 'scalar', 'day')).toBe(d2);
+    expect(resolveThreshold(30, mixed, 'scalar', 'day')).toBe(d3);
+  });
+
+  it('day cell: high value never picks a month/year rule', () => {
+    // 120 is above m1's 100, but m1 has month scope; d3 (20) is the closest day rule
+    expect(resolveThreshold(120, mixed, 'scalar', 'day')).toBe(d3);
+  });
+
+  it('month cell: ranks among month rules only', () => {
+    expect(resolveThreshold(90, mixed, 'scalar', 'month')).toBeUndefined();
+    expect(resolveThreshold(110, mixed, 'scalar', 'month')).toBe(m1);
+    expect(resolveThreshold(160, mixed, 'scalar', 'month')).toBe(m2);
+    expect(resolveThreshold(500, mixed, 'scalar', 'month')).toBe(m3);
+  });
+
+  it('month cell: value above all day rules but below all month rules → undefined', () => {
+    expect(resolveThreshold(50, mixed, 'scalar', 'month')).toBeUndefined();
+  });
+
+  it('year cell: ranks among year rules only', () => {
+    expect(resolveThreshold(900, mixed, 'scalar', 'year')).toBeUndefined();
+    expect(resolveThreshold(1100, mixed, 'scalar', 'year')).toBe(y1);
+    expect(resolveThreshold(1600, mixed, 'scalar', 'year')).toBe(y2);
+  });
+
+  it('tie-break still works within a scope', () => {
+    // month cell, value 175: above:150 (dist 25) and below:200 (dist 25) both match
+    // → equidistant → higher threshold value wins → the below:200 rule
+    const mBelow: ThresholdRule = { operator: 'below', value: 200, scope: 'month', background_color: 'm-blue' };
+    expect(resolveThreshold(175, [m1, m2, mBelow], 'scalar', 'month')).toBe(mBelow);
+  });
+});
+
 // --- buildCellStyle ---
 
 describe('buildCellStyle', () => {

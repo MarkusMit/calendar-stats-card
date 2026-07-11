@@ -16,7 +16,7 @@ Every test task MUST be written and confirmed failing before its implementation 
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm green test baseline with `npm test` in `frontend/` (572 tests passing as of 2026-07-11); stop and report if not green
+- [X] T001 Confirm green test baseline with `npm test` in `frontend/` (572 tests passing as of 2026-07-11); stop and report if not green
 
 ---
 
@@ -26,11 +26,11 @@ Every test task MUST be written and confirmed failing before its implementation 
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 Write failing unit tests for scope filtering in `frontend/tests/unit/services/threshold-resolver.test.ts`: scope-less rule matches only `day` cells; `month`/`year` rules match only their scope; closest-wins and tie-breaks rank within the cell's scope only (mixed-scope list, ≥3 value bands per scope); invalid scope string behaves as `day`; `not-below`/`not-above` role exclusions unchanged within each scope
-- [ ] T003 [P] Add `ThresholdScope` type and `ThresholdRule.scope?: ThresholdScope` in `frontend/src/types/card-config.ts` per data-model.md
-- [ ] T004 Add `cellScope: ThresholdScope` parameter, scope normalization (unknown → `'day'`), and scope pre-filter to `resolveThreshold` in `frontend/src/services/threshold-resolver.ts` (filter joins the existing colorless-rule filter, before distance ranking)
-- [ ] T005 Update every existing `resolveThreshold` call site to pass explicit `'day'` (compile-green, behavior identical for day cells) in `frontend/src/components/year-table.ts`, `frontend/src/components/year-summary-table.ts`, `frontend/src/components/month-comparison-table.ts`
-- [ ] T006 Run `npm test` — T002 tests green, no regressions
+- [X] T002 Write failing unit tests for scope filtering in `frontend/tests/unit/services/threshold-resolver.test.ts`: scope-less rule matches only `day` cells; `month`/`year` rules match only their scope; closest-wins and tie-breaks rank within the cell's scope only (mixed-scope list, ≥3 value bands per scope); invalid scope string behaves as `day`; `not-below`/`not-above` role exclusions unchanged within each scope
+- [X] T003 [P] Add `ThresholdScope` type and `ThresholdRule.scope?: ThresholdScope` in `frontend/src/types/card-config.ts` per data-model.md
+- [X] T004 Add `cellScope: ThresholdScope` parameter, scope normalization (unknown → `'day'`), and scope pre-filter to `resolveThreshold` in `frontend/src/services/threshold-resolver.ts` (filter joins the existing colorless-rule filter, before distance ranking)
+- [X] T005 Update every existing `resolveThreshold` call site to pass explicit `'day'` (compile-green, behavior identical for day cells) in `frontend/src/components/year-table.ts`, `frontend/src/components/year-summary-table.ts`, `frontend/src/components/month-comparison-table.ts`
+- [X] T006 Run `npm test` — T002 tests green, no regressions
 
 **Checkpoint**: Resolver is scope-aware; all cells still evaluate as `day` (no behavior change yet).
 

@@ -6,9 +6,14 @@ export type CellRole =
   | 'min' | 'avg' | 'max' | 'scalar'
   | 'summary-min' | 'summary-avg' | 'summary-max' | 'summary-scalar';
 
+/** Aggregation period of the quantity a cell displays: sums define the
+ *  period, statistics inherit the period of the values they summarize. */
+export type ThresholdScope = 'day' | 'month' | 'year';
+
 export interface ThresholdRule {
   operator: ThresholdOperator;
   value: number;
+  scope?: ThresholdScope; // absent or invalid → 'day'
   name?: string;
   text_color?: string;
   background_color?: string;

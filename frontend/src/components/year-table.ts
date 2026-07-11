@@ -391,7 +391,7 @@ export class YearTable extends LitElement {
           if (minV === 0 && !showZero) {
             minCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`);
           } else {
-            const minRule = resolveThreshold(minV, cfg.thresholds ?? [], 'min');
+            const minRule = resolveThreshold(minV, cfg.thresholds ?? [], 'min', 'day');
             if (minRule) this._addTriggered(rowIndex, groupLabel, minRule);
             const minStyle = buildCellStyle(cfg.text_color, cfg.background_color, minRule, this.autoTextFor(minRule?.background_color ?? cfg.background_color));
             minCells.push(html`<td class="data-cell has-data" style=${ifDefined(minStyle)}>${nf.format(minV)}${pc}</td>`);
@@ -400,7 +400,7 @@ export class YearTable extends LitElement {
           if (meanV === 0 && !showZero) {
             meanCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`);
           } else {
-            const avgRule = resolveThreshold(meanV, cfg.thresholds ?? [], 'avg');
+            const avgRule = resolveThreshold(meanV, cfg.thresholds ?? [], 'avg', 'day');
             if (avgRule) this._addTriggered(rowIndex, groupLabel, avgRule);
             const avgStyle = buildCellStyle(cfg.text_color, cfg.background_color, avgRule, this.autoTextFor(avgRule?.background_color ?? cfg.background_color));
             meanCells.push(html`<td class="data-cell has-data" style=${ifDefined(avgStyle)}>${nf.format(meanV)}</td>`);
@@ -409,7 +409,7 @@ export class YearTable extends LitElement {
           if (maxV === 0 && !showZero) {
             maxCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`);
           } else {
-            const maxRule = resolveThreshold(maxV, cfg.thresholds ?? [], 'max');
+            const maxRule = resolveThreshold(maxV, cfg.thresholds ?? [], 'max', 'day');
             if (maxRule) this._addTriggered(rowIndex, groupLabel, maxRule);
             const maxStyle = buildCellStyle(cfg.text_color, cfg.background_color, maxRule, this.autoTextFor(maxRule?.background_color ?? cfg.background_color));
             maxCells.push(html`<td class="data-cell has-data" style=${ifDefined(maxStyle)}>${nf.format(maxV)}${pc}</td>`);
@@ -451,7 +451,7 @@ export class YearTable extends LitElement {
           const v = rawSummaryVals[row];
           if (v != null) {
             const role = row === 'min' ? 'summary-min' : row === 'avg' ? 'summary-avg' : 'summary-max';
-            const rule = resolveThreshold(v, cfg.thresholds ?? [], role);
+            const rule = resolveThreshold(v, cfg.thresholds ?? [], role, 'day');
             if (rule) this._addTriggered(rowIndex, groupLabel, rule);
             summaryStyles[row] = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
           }
@@ -493,7 +493,7 @@ export class YearTable extends LitElement {
       }
       let cellStyle = staticStyle;
       if (numericValue !== undefined) {
-        const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar');
+        const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar', 'day');
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
         cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
       }
@@ -519,7 +519,7 @@ export class YearTable extends LitElement {
     // Total column never gets threshold coloring — static color only.
     const cumulTotalStyle = staticStyle;
     if (summary?.mean != null && (showMin || showAvg || showMax)) {
-      const rule = resolveThreshold(summary.mean * f, cfg.thresholds ?? [], 'summary-scalar');
+      const rule = resolveThreshold(summary.mean * f, cfg.thresholds ?? [], 'summary-scalar', 'day');
       if (rule) this._addTriggered(rowIndex, groupLabel, rule);
       cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
     }

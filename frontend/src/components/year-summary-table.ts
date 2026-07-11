@@ -340,7 +340,7 @@ export class YearSummaryTable extends LitElement {
           return html`<td class="data-cell" style=${ifDefined(staticStyle)}></td>`;
         }
         const v = raw * f;
-        const rule = resolveThreshold(v, cfg.thresholds ?? [], row);
+        const rule = resolveThreshold(v, cfg.thresholds ?? [], row, 'day');
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
         const style = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
         return html`<td class="data-cell has-data" style=${ifDefined(style)}>${nf.format(v)}</td>`;
@@ -362,7 +362,7 @@ export class YearSummaryTable extends LitElement {
         const v = rollupVals[row];
         if (v != null) {
           const role = row === 'min' ? 'summary-min' : row === 'avg' ? 'summary-avg' : 'summary-max';
-          const rule = resolveThreshold(v, cfg.thresholds ?? [], role);
+          const rule = resolveThreshold(v, cfg.thresholds ?? [], role, 'day');
           if (rule) this._addTriggered(rowIndex, groupLabel, rule);
           summaryStyles[row] = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
         }
@@ -405,7 +405,7 @@ export class YearSummaryTable extends LitElement {
       }
       let cellStyle = staticStyle;
       if (numericValue !== undefined && cellContent) {
-        const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar');
+        const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar', 'day');
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
         cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
       }
@@ -432,7 +432,7 @@ export class YearSummaryTable extends LitElement {
     // Total column never gets threshold coloring — static color only (mirrors the monthly view).
     const cumulTotalStyle = staticStyle;
     if (rollup.mean != null && (showMin || showAvg || showMax)) {
-      const rule = resolveThreshold(rollup.mean * f, cfg.thresholds ?? [], 'summary-scalar');
+      const rule = resolveThreshold(rollup.mean * f, cfg.thresholds ?? [], 'summary-scalar', 'day');
       if (rule) this._addTriggered(rowIndex, groupLabel, rule);
       cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
     }

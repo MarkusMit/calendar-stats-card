@@ -1,4 +1,4 @@
-import type { ThresholdRule, CellRole } from '../types/card-config';
+import type { ThresholdRule, CellRole, ThresholdScope } from '../types/card-config';
 
 const NOT_BELOW_EXCLUDED: ReadonlySet<CellRole> = new Set(['avg', 'max', 'summary-avg', 'summary-max']);
 const NOT_ABOVE_EXCLUDED: ReadonlySet<CellRole> = new Set(['min', 'avg', 'summary-min', 'summary-avg']);
@@ -15,13 +15,21 @@ function matchesOperator(cellValue: number, rule: ThresholdRule, cellRole: CellR
   }
 }
 
+/** Unknown/absent scope values degrade to the default 'day'. */
+function normalizeScope(scope: ThresholdRule['scope']): ThresholdScope {
+  return scope === 'month' || scope === 'year' ? scope : 'day';
+}
+
 export function resolveThreshold(
   cellValue: number,
   thresholds: ThresholdRule[],
   cellRole: CellRole,
+  cellScope: ThresholdScope = 'day',
 ): ThresholdRule | undefined {
   const matching = thresholds.filter(
-    (t) => (t.text_color || t.background_color) && matchesOperator(cellValue, t, cellRole),
+    (t) => normalizeScope(t.scope) === cellScope
+      && (t.text_color || t.background_color)
+      && matchesOperator(cellValue, t, cellRole),
   );
 
   if (matching.length === 0) return undefined;

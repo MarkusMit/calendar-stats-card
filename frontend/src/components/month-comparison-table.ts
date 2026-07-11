@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { EntityConfig, ThresholdRule, ThresholdLegendGroup, CellRole } from '../types/card-config';
+import type { EntityConfig, ThresholdRule, ThresholdLegendGroup, CellRole, ThresholdScope } from '../types/card-config';
 import { rowKey } from '../types/card-config';
 import type { EntityMetadata, ComparisonSeries, ComparisonEntry, MonthlySummary } from '../types/statistics';
 import { localize } from '../localize/localize';
@@ -235,6 +235,7 @@ export class MonthComparisonTable extends LitElement {
     rowIndex: number,
     groupLabel: string,
     role: CellRole,
+    scope: ThresholdScope,
     factor: number,
     nf: Intl.NumberFormat,
     sf: Intl.NumberFormat,
@@ -253,7 +254,7 @@ export class MonthComparisonTable extends LitElement {
         ${diffCell(null, null, 'Ø', 'diff-avg', 'comparison.diff_avg')}`;
     }
     const v = entry.value * factor;
-    const rule = resolveThreshold(v, cfg.thresholds ?? [], role);
+    const rule = resolveThreshold(v, cfg.thresholds ?? [], role, scope);
     if (rule) this._addTriggered(rowIndex, groupLabel, rule);
     const valueStyle = buildCellStyle(
       cfg.text_color, cfg.background_color, rule,
@@ -273,6 +274,7 @@ export class MonthComparisonTable extends LitElement {
     rowIndex: number,
     groupLabel: string,
     summaryRole: CellRole,
+    scope: ThresholdScope,
     factor: number,
     nf: Intl.NumberFormat,
     staticStyle: string | undefined,
@@ -281,7 +283,7 @@ export class MonthComparisonTable extends LitElement {
       return html`<td class="avg-cell" style=${ifDefined(staticStyle)}></td>`;
     }
     const v = series.crossYearAvg * factor;
-    const rule = resolveThreshold(v, cfg.thresholds ?? [], summaryRole);
+    const rule = resolveThreshold(v, cfg.thresholds ?? [], summaryRole, scope);
     if (rule) this._addTriggered(rowIndex, groupLabel, rule);
     const style = buildCellStyle(
       cfg.text_color, cfg.background_color, rule,
@@ -334,8 +336,8 @@ export class MonthComparisonTable extends LitElement {
           <tr class="${idx < visibleRows.length - 1 ? 'sub-row' : ''}">
             ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(staticStyle)}>${groupLabel}</td>` : ''}
             <td class="sub-label" style=${ifDefined(staticStyle)}>${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
-            ${series.entries.map((entry) => this._renderEntryCells(entry, cfg, rowIndex, groupLabel, row, f, nf, sf, pf, staticStyle))}
-            ${this._renderAvgCell(series, cfg, rowIndex, groupLabel, summaryRole, f, nf, staticStyle)}
+            ${series.entries.map((entry) => this._renderEntryCells(entry, cfg, rowIndex, groupLabel, row, 'day', f, nf, sf, pf, staticStyle))}
+            ${this._renderAvgCell(series, cfg, rowIndex, groupLabel, summaryRole, 'day', f, nf, staticStyle)}
           </tr>
         `;
       })}`;
@@ -346,8 +348,8 @@ export class MonthComparisonTable extends LitElement {
     return html`
       <tr>
         <td class="label-column" colspan="${hasMeasurement ? 2 : 1}" style=${ifDefined(staticStyle)}>${hasError ? '— ' : ''}${groupLabel}</td>
-        ${series.entries.map((entry) => this._renderEntryCells(entry, cfg, rowIndex, groupLabel, 'scalar', f, nf, sf, pf, staticStyle))}
-        ${this._renderAvgCell(series, cfg, rowIndex, groupLabel, 'summary-scalar', f, nf, staticStyle)}
+        ${series.entries.map((entry) => this._renderEntryCells(entry, cfg, rowIndex, groupLabel, 'scalar', 'day', f, nf, sf, pf, staticStyle))}
+        ${this._renderAvgCell(series, cfg, rowIndex, groupLabel, 'summary-scalar', 'day', f, nf, staticStyle)}
       </tr>
     `;
   }
