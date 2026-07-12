@@ -5,6 +5,17 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-07-12
+
+### Fixed
+
+- In a multi-year monthly view, the day columns of all years now share the same widths;
+  previously each year's month tables sized their columns independently, misaligning the grid.
+
+### Changed
+
+- The Summary and Total column headers in the monthly and yearly views are now bold.
+
 ## [0.5.0] - 2026-07-11
 
 ### Added
