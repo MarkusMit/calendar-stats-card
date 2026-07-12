@@ -201,6 +201,9 @@ export class YearTable extends LitElement {
     .month-header-row th.pad-cell {
       opacity: 1;
     }
+    .month-header-row th.summary-column {
+      font-weight: bold;
+    }
     .col-header th {
       text-align: center;
       padding: 1px 3px;
