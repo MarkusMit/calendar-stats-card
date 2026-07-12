@@ -13,6 +13,7 @@ import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStar
 import { localize } from './localize/localize';
 import './components/loading-overlay';
 import './components/year-table';
+import type { MonthSegment } from './components/year-table';
 import './components/year-summary-table';
 import './components/month-comparison-table';
 import './components/view-mode-toggle';
@@ -660,6 +661,20 @@ export class CalendarStatsCard extends LitElement {
     });
   }
 
+  /** Flat month-section list for the monthly view over a multi-year range. */
+  private _buildMonthSegments(yearSegments: Array<{ year: number; months: number[] }>): MonthSegment[] {
+    return yearSegments.flatMap((seg) => {
+      const yearStats = this._viewState.statisticsByYear.get(seg.year);
+      return seg.months.map((month) => ({
+        year: seg.year,
+        month,
+        dailyValues: yearStats?.dailyValues ?? this._emptyDailyValues,
+        monthlySummaries: yearStats?.monthlySummaries ?? this._emptyMonthlySummaries,
+        entityMetadata: yearStats?.entityMetadata ?? this._emptyEntityMetadata,
+      }));
+    });
+  }
+
   /** True when any configured row has a summary for the month in this segment. */
   private _segmentHasMonthData(seg: ReturnType<CalendarStatsCard['_buildSegments']>[number], month: number): boolean {
     if (!this._config) return false;
@@ -764,11 +779,22 @@ export class CalendarStatsCard extends LitElement {
                     @thresholds-applied=${this._onThresholdsApplied}
                     @calendar-stats-month-select=${this._onMonthSelect}
                   ></calendar-stats-year-summary-table>`
-                : yearSegments.map((seg) => {
+                // Multi-year ranges put every month into ONE year-table (as
+                // cross-year segments) so all sections share the same
+                // day-column widths; single-year ranges already do via the
+                // per-year props and keep the year out of the month headers.
+                : showYear
+                  ? html`<calendar-stats-year-table
+                      .monthSegments=${this._buildMonthSegments(yearSegments)}
+                      .entityConfigs=${config.entities}
+                      .entityErrors=${this._viewState.entityErrors}
+                      .lang=${lang}
+                      @thresholds-applied=${this._onThresholdsApplied}
+                    ></calendar-stats-year-table>`
+                  : yearSegments.map((seg) => {
                     const yearStats = this._viewState.statisticsByYear.get(seg.year);
                     return html`<calendar-stats-year-table
                       .year=${seg.year}
-                      .showYear=${showYear}
                       .visibleMonths=${seg.months}
                       .entityConfigs=${config.entities}
                       .dailyValues=${yearStats?.dailyValues ?? this._emptyDailyValues}

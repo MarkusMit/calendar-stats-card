@@ -129,6 +129,9 @@ export class YearSummaryTable extends LitElement {
       background: var(--secondary-background-color, #f0f0f0);
       border-bottom: 1px solid var(--divider-color, #ccc);
     }
+    .year-header-row th.summary-column {
+      font-weight: bold;
+    }
     .year-header-row th.year-name {
       font-weight: bold;
       font-size: 1em;
