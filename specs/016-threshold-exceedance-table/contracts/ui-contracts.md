@@ -96,8 +96,8 @@ entities: []
 |---|---|---|---|
 | `show_threshold_table` | boolean | `true` | Hides the threshold days table when set to `false` (FR-022) |
 
-The visual editor shows it as a checkbox above the row list and writes the key only when unchecked, so the default stays implicit (FR-023).
-Additional translation key: `editor.show_threshold_table` — "Show threshold days table" / "Schwellwerttage-Tabelle anzeigen".
+The visual editor shows it as a checkbox in an "Options" section at the end of the editor, below the add-row controls, and writes the key only when unchecked, so the default stays implicit (FR-023).
+Additional translation keys: `editor.options` — "Options" / "Optionen", and `editor.show_threshold_table` — "Show threshold days table" / "Schwellwerttage-Tabelle anzeigen".
 
 ## Row label
 

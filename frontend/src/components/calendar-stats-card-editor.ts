@@ -27,12 +27,18 @@ export class CalendarStatsCardEditor extends LitElement {
       text-align: center;
       font-style: italic;
     }
-    .card-options {
-      padding: 0 0 4px;
-      border-bottom: 1px solid var(--divider-color, #e0e0e0);
-      margin-bottom: 8px;
+    .options-section {
+      padding: 8px 0 0;
+      border-top: 1px solid var(--divider-color, #e0e0e0);
+      margin-top: 8px;
     }
-    .card-options ha-formfield {
+    .options-title {
+      color: var(--secondary-text-color);
+      font-weight: 600;
+      font-size: 0.9em;
+      margin-bottom: 4px;
+    }
+    .options-section ha-formfield {
       --mdc-typography-body2-font-size: 0.9em;
     }
     .add-row-section {
@@ -304,15 +310,6 @@ export class CalendarStatsCardEditor extends LitElement {
     const empty = this._entities.length === 0;
 
     return html`
-      <div class="card-options">
-        <ha-formfield .label=${localize('editor.show_threshold_table', lang)}>
-          <ha-checkbox
-            data-field="show_threshold_table"
-            .checked=${this._rest['show_threshold_table'] !== false}
-            @change=${this._handleThresholdTableToggle}
-          ></ha-checkbox>
-        </ha-formfield>
-      </div>
       ${empty ? html`
         <div class="empty-state">
           ${localize('editor.no_rows', lang)}
@@ -353,6 +350,17 @@ export class CalendarStatsCardEditor extends LitElement {
             <button type="button" class="type-menu-cancel" @click=${() => { this._addingEntityRow = false; }}>✕</button>
           </div>
         `}
+      </div>
+
+      <div class="options-section">
+        <div class="options-title">${localize('editor.options', lang)}</div>
+        <ha-formfield .label=${localize('editor.show_threshold_table', lang)}>
+          <ha-checkbox
+            data-field="show_threshold_table"
+            .checked=${this._rest['show_threshold_table'] !== false}
+            @change=${this._handleThresholdTableToggle}
+          ></ha-checkbox>
+        </ha-formfield>
       </div>
     `;
   }

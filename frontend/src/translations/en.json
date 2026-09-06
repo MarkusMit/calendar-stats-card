@@ -100,7 +100,8 @@
     "entity_not_found": "Entity not found",
     "invalid_expression_syntax": "Invalid expression syntax",
     "entity_not_found_in_expression": "Entity not found: {entity}",
-    "show_threshold_table": "Show threshold days table"
+    "show_threshold_table": "Show threshold days table",
+    "options": "Options"
   },
   "threshold": {
     "symbols": {

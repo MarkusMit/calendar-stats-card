@@ -362,3 +362,35 @@ describe('CalendarStatsCardEditor — threshold table toggle', () => {
     expect('show_threshold_table' in config).toBe(false);
   });
 });
+
+describe('CalendarStatsCardEditor — options section', () => {
+  const CONFIG: CardConfig = {
+    type: 'calendar-stats-card',
+    entities: [{ entity: 'sensor.temp' }],
+  };
+
+  it('renders an Options section with a heading', async () => {
+    const el = await createEditor(CONFIG);
+    const section = el.shadowRoot!.querySelector('.options-section');
+    expect(section).not.toBeNull();
+    expect(section!.querySelector('.options-title')!.textContent!.trim()).toBe('Options');
+  });
+
+  it('places the section after the add-row controls', async () => {
+    const el = await createEditor(CONFIG);
+    const addRow = el.shadowRoot!.querySelector('.add-row-section')!;
+    const section = el.shadowRoot!.querySelector('.options-section')!;
+    expect(addRow.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('holds the threshold table checkbox', async () => {
+    const el = await createEditor(CONFIG);
+    const section = el.shadowRoot!.querySelector('.options-section')!;
+    expect(section.querySelector('ha-checkbox[data-field="show_threshold_table"]')).not.toBeNull();
+  });
+
+  it('shows the section even with no rows configured', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
+    expect(el.shadowRoot!.querySelector('.options-section')).not.toBeNull();
+  });
+});

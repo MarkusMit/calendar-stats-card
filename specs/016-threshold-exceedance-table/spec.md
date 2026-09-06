@@ -98,7 +98,7 @@ It is a correctness guarantee on top of the two stories above rather than a sepa
 - **FR-020**: The monthly view MUST keep the range-wide counts without per-year columns, and a yearly view showing a single year MUST do the same.
 - **FR-021**: Each row label MUST state the rule threshold alongside its name, as an operator symbol and the day value.
 - **FR-022**: A card-level option MUST control whether the table is shown, defaulting to shown when the option is absent.
-- **FR-023**: The visual editor MUST expose that option as a checkbox, and MUST omit the key from the emitted configuration when the table is shown.
+- **FR-023**: The visual editor MUST expose that option as a checkbox in an "Options" section at the end of the editor, and MUST omit the key from the emitted configuration when the table is shown.
 
 ### Key Entities
 
