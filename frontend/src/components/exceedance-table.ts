@@ -4,7 +4,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { localize } from '../localize/localize';
 import { buildCellStyle } from '../services/threshold-resolver';
 import { ContrastResolver } from '../services/readable-text';
-import type { ExceedanceGroup } from '../services/threshold-exceedance';
+import type { ExceedanceGroup, ExceedanceRow } from '../services/threshold-exceedance';
 
 /**
  * Bottom-of-page summary: per named day threshold, how many days of the viewed
@@ -14,6 +14,8 @@ import type { ExceedanceGroup } from '../services/threshold-exceedance';
 @customElement('calendar-stats-exceedance-table')
 export class ExceedanceTable extends LitElement {
   @property({ attribute: false }) groups: ExceedanceGroup[] = [];
+  /** Years to break the counts down by; fewer than two renders the plain layout. */
+  @property({ attribute: false }) years: number[] = [];
   @property({ type: String }) lang = 'en';
 
   /** Shared auto-contrast text-color resolver for threshold-colored cells. */
@@ -56,6 +58,11 @@ export class ExceedanceTable extends LitElement {
       background: var(--secondary-background-color, #f0f0f0);
       border-bottom: 1px solid var(--divider-color, #ccc);
     }
+    thead th.year-group {
+      text-align: center;
+      font-weight: 600;
+      border-left: 1px solid var(--divider-color, #ccc);
+    }
     thead th.rule-column {
       text-align: left;
     }
@@ -82,31 +89,65 @@ export class ExceedanceTable extends LitElement {
     }
   `;
 
+  /** Per-year columns only pay off from two years on — one year duplicates the overall pair. */
+  private get _yearColumns(): number[] {
+    return this.years.length > 1 ? this.years : [];
+  }
+
+  private _renderHead() {
+    const years = this._yearColumns;
+    if (years.length === 0) {
+      return html`
+        <tr>
+          <th class="rule-column">${localize('exceedance.title', this.lang)}</th>
+          <th>${localize('exceedance.band', this.lang)}</th>
+          <th>${localize('exceedance.total', this.lang)}</th>
+        </tr>
+      `;
+    }
+    return html`
+      <tr>
+        <th class="rule-column" rowspan="2">${localize('exceedance.title', this.lang)}</th>
+        ${years.map((y) => html`<th class="year-group" colspan="2">${y}</th>`)}
+        <th class="year-group" colspan="2">${localize('exceedance.all_years', this.lang)}</th>
+      </tr>
+      <tr>
+        ${[...years, null].map(() => html`
+          <th>${localize('exceedance.band', this.lang)}</th>
+          <th>${localize('exceedance.total', this.lang)}</th>
+        `)}
+      </tr>
+    `;
+  }
+
+  private _renderCounts(row: ExceedanceRow) {
+    const years = this._yearColumns;
+    const perYear = years.map((y) => row.byYear.find((e) => e.year === y) ?? { year: y, band: 0, cumulative: 0 });
+    return [...perYear, { year: 0, band: row.band, cumulative: row.cumulative }].map((entry) => html`
+      <td class="count-cell band-cell">${entry.band}</td>
+      <td class="count-cell total-cell">${entry.cumulative}</td>
+    `);
+  }
+
   override render() {
     if (this.groups.length === 0) return '';
+    const columns = 1 + 2 * (this._yearColumns.length + 1);
     return html`
       <div class="title">${localize('exceedance.title', this.lang)}</div>
       <div class="table-container">
         <table>
-          <thead>
-            <tr>
-              <th class="rule-column">${localize('exceedance.title', this.lang)}</th>
-              <th>${localize('exceedance.band', this.lang)}</th>
-              <th>${localize('exceedance.total', this.lang)}</th>
-            </tr>
-          </thead>
+          <thead>${this._renderHead()}</thead>
           <tbody>
             ${this.groups.map((g) => html`
               <tr>
-                <td class="group-label" colspan="3">${g.label}</td>
+                <td class="group-label" colspan="${columns}">${g.label}</td>
               </tr>
               ${g.rows.map((row) => html`
                 <tr>
                   <td class="rule-name" style=${ifDefined(buildCellStyle(
                     undefined, undefined, row.rule, this._contrast.textFor(row.rule.background_color),
                   ))}>${row.rule.name}</td>
-                  <td class="count-cell band-cell">${row.band}</td>
-                  <td class="count-cell total-cell">${row.cumulative}</td>
+                  ${this._renderCounts(row)}
                 </tr>
               `)}
             `)}

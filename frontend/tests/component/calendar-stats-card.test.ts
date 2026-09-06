@@ -980,3 +980,49 @@ describe('CalendarStatsCard — exceedance table across views', () => {
     expect(monthly.length).toBeGreaterThan(0);
   });
 });
+
+describe('CalendarStatsCard — exceedance per-year columns', () => {
+  const withThreshold: CardConfig = {
+    type: 'custom:calendar-stats-card',
+    entities: [{
+      entity: 'sensor.temp',
+      name: 'Temperature',
+      thresholds: [{ operator: 'equals-above', value: 25, name: 'Summer day', background_color: 'orange' }],
+    }],
+  };
+
+  function table(card: CalendarStatsCard): (HTMLElement & { years: number[] }) | null {
+    return card.shadowRoot!.querySelector('calendar-stats-exceedance-table') as
+      (HTMLElement & { years: number[] }) | null;
+  }
+
+  async function toYearly(card: CalendarStatsCard): Promise<void> {
+    card.viewMode = 'yearly';
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      if (!card.shadowRoot!.querySelector('calendar-stats-year-summary-table')) throw new Error('not yearly yet');
+    }, { timeout: 3000 });
+  }
+
+  it('passes the displayed years in the yearly view', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await toYearly(card);
+    const el = table(card)!;
+    expect(el.years.length).toBeGreaterThan(0);
+    expect(el.years).toEqual([...el.years].sort((a, b) => a - b));
+  });
+
+  it('passes no years in the monthly view', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await card.updateComplete;
+    expect(table(card)!.years).toEqual([]);
+  });
+
+  it('the years match the rows own per-year entries', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await toYearly(card);
+    const el = table(card) as unknown as { years: number[]; groups: Array<{ rows: Array<{ byYear: Array<{ year: number }> }> }> };
+    const rowYears = el.groups[0]!.rows[0]!.byYear.map((y) => y.year);
+    expect(el.years).toEqual(rowYears);
+  });
+});

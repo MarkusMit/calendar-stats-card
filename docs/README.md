@@ -216,6 +216,15 @@ The table appears in the monthly and yearly views whenever at least one rule qua
 A rule qualifies when it has a `name`, a day `value` and at least one colour — rules that only set `value_month` or `value_year` describe sums rather than days and are left out.
 Counts follow what is visible: today and future days are excluded, values hidden by `show_zero: false` are not counted, and a day with several values (min/avg/max) counts once per rule.
 
+In the yearly view over more than one year, each year gets its own Band and Total columns, followed by an "All years" pair for the whole range:
+
+| Rain [mm] | 2024 Band | 2024 Total | 2025 Band | 2025 Total | All years Band | All years Total |
+|---|---|---|---|---|---|---|
+| Wet day | 2 | 3 | 3 | 5 | 5 | 8 |
+
+A displayed year with no matching day still gets its columns, showing 0.
+The monthly view, and a yearly view showing a single year, keep the plain two-column layout.
+
 ### Predecessor entry
 
 Each entry in an entity row's `predecessors:` list points to an earlier HA entity whose statistics should be used for dates strictly before `replaced_on`.

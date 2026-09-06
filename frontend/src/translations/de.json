@@ -57,7 +57,8 @@
   "exceedance": {
     "title": "Schwellwerttage",
     "band": "Bereich",
-    "total": "Gesamt"
+    "total": "Gesamt",
+    "all_years": "Alle Jahre"
   },
   "editor": {
     "add_entity": "Entität",

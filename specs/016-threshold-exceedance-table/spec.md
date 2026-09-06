@@ -92,6 +92,10 @@ It is a correctness guarantee on top of the two stories above rather than a sepa
 - **FR-014**: The counts for a given range MUST be identical in the monthly and the yearly view.
 - **FR-015**: All headings and column labels of the table MUST be available in English and German.
 - **FR-016**: Each threshold row MUST carry the visual marking of its rule, so a row can be matched to the colored cells it summarizes.
+- **FR-017**: In the yearly view, when the range spans more than one year, each row MUST show its two counts separately for every displayed year, in chronological order, followed by the counts over the whole range.
+- **FR-018**: A displayed year with no matching day MUST still get its own columns, showing zero.
+- **FR-019**: The per-year counts of a row MUST sum to that row's counts over the whole range.
+- **FR-020**: The monthly view MUST keep the range-wide counts without per-year columns, and a yearly view showing a single year MUST do the same.
 
 ### Key Entities
 

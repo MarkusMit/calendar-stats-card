@@ -57,7 +57,8 @@
   "exceedance": {
     "title": "Threshold days",
     "band": "Band",
-    "total": "Total"
+    "total": "Total",
+    "all_years": "All years"
   },
   "editor": {
     "add_entity": "Entity",

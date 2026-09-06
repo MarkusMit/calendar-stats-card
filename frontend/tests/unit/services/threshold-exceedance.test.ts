@@ -347,3 +347,77 @@ describe('countExceedances — range coverage', () => {
     expect(rows[0]!.cumulative).toBe(1);
   });
 });
+
+describe('countExceedances — per-year breakdown', () => {
+  function statsMulti(byYear: Record<number, Record<string, number>>): Map<number, YearStatistics> {
+    const out = new Map<number, YearStatistics>();
+    for (const [year, days] of Object.entries(byYear)) {
+      const dailyValues = new Map<string, DailyValue>();
+      for (const [date, sum] of Object.entries(days)) {
+        dailyValues.set(`sensor.rain::${date}`, { kind: 'cumulative', entityId: 'sensor.rain', date, sum, partialCoverage: false });
+      }
+      out.set(Number(year), { dailyValues, monthlySummaries: new Map(), entityMetadata: new Map([['sensor.rain', RAIN_META]]) });
+    }
+    return out;
+  }
+
+  const HEAVY: ThresholdRule = { operator: 'equals-above', value: 30, name: 'Heavy day', background_color: 'red' };
+  const SEGMENTS = [{ year: 2024, months: [1] }, { year: 2025, months: [1] }];
+
+  it('reports one entry per segment year, in chronological order', () => {
+    const stats = statsMulti({ 2024: { '2024-01-05': 12 }, 2025: { '2025-01-05': 12 } });
+    const row = countExceedances([rainRow([WET])], SEGMENTS, stats)[0]!.rows[0]!;
+    expect(row.byYear.map((y) => y.year)).toEqual([2024, 2025]);
+  });
+
+  it('per-year counts sum to the overall counts', () => {
+    const stats = statsMulti({
+      2024: { '2024-01-05': 12, '2024-01-06': 40 },
+      2025: { '2025-01-07': 15, '2025-01-08': 50, '2025-01-09': 2 },
+    });
+    const row = countExceedances([rainRow([WET, HEAVY])], SEGMENTS, stats)[0]!.rows[0]!;
+    expect(row.byYear.reduce((s, y) => s + y.cumulative, 0)).toBe(row.cumulative);
+    expect(row.byYear.reduce((s, y) => s + y.band, 0)).toBe(row.band);
+  });
+
+  it('splits the counts by the year the day falls in', () => {
+    const stats = statsMulti({
+      2024: { '2024-01-05': 12, '2024-01-06': 40 },
+      2025: { '2025-01-07': 15 },
+    });
+    const rows = countExceedances([rainRow([WET, HEAVY])], SEGMENTS, stats)[0]!.rows;
+    const wet = rows[0]!;
+    expect(wet.byYear).toEqual([
+      { year: 2024, band: 1, cumulative: 2 },
+      { year: 2025, band: 1, cumulative: 1 },
+    ]);
+  });
+
+  it('a year with no matching day still gets a zero entry', () => {
+    const stats = statsMulti({ 2024: { '2024-01-05': 1 }, 2025: { '2025-01-07': 15 } });
+    const row = countExceedances([rainRow([WET])], SEGMENTS, stats)[0]!.rows[0]!;
+    expect(row.byYear).toEqual([
+      { year: 2024, band: 0, cumulative: 0 },
+      { year: 2025, band: 1, cumulative: 1 },
+    ]);
+  });
+
+  it('a segment year missing from the statistics still gets a zero entry', () => {
+    const stats = statsMulti({ 2025: { '2025-01-07': 15 } });
+    const row = countExceedances([rainRow([WET])], SEGMENTS, stats)[0]!.rows[0]!;
+    expect(row.byYear.map((y) => y.year)).toEqual([2024, 2025]);
+    expect(row.byYear[0]).toEqual({ year: 2024, band: 0, cumulative: 0 });
+  });
+
+  it('a single-year range yields exactly one entry', () => {
+    const stats = rainYear({ 1: 12 });
+    const row = countExceedances([rainRow([WET])], JAN_2025, stats)[0]!.rows[0]!;
+    expect(row.byYear).toEqual([{ year: 2025, band: 1, cumulative: 1 }]);
+  });
+
+  it('no segments yields no per-year entries', () => {
+    const stats = rainYear({ 1: 12 });
+    const row = countExceedances([rainRow([WET])], [], stats)[0]!.rows[0]!;
+    expect(row.byYear).toEqual([]);
+  });
+});

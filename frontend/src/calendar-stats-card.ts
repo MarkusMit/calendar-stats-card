@@ -835,6 +835,7 @@ export class CalendarStatsCard extends LitElement {
           ${exceedanceGroups.length > 0
             ? html`<calendar-stats-exceedance-table
                 .groups=${exceedanceGroups}
+                .years=${this._viewState.viewMode === 'yearly' ? yearSegments.map((seg) => seg.year) : []}
                 .lang=${lang}
               ></calendar-stats-exceedance-table>`
             : ''}

@@ -4,6 +4,13 @@ import type { DailyValue, YearStatistics } from '../types/statistics';
 import { matchingThresholds, resolveThreshold } from './threshold-resolver';
 import { rowLabel } from './row-label';
 
+/** The same two counts restricted to one year of the viewed range. */
+export interface ExceedanceYearCount {
+  year: number;
+  band: number;
+  cumulative: number;
+}
+
 /** One named day threshold with its day counts over the viewed range. */
 export interface ExceedanceRow {
   rule: ThresholdRule;
@@ -11,6 +18,8 @@ export interface ExceedanceRow {
   band: number;
   /** Days where this rule applies at all, whether or not it colors the cell. */
   cumulative: number;
+  /** Per-year split of the same counts, one entry per segment year, chronological. */
+  byYear: ExceedanceYearCount[];
 }
 
 /** The exceedance rows of one configured row, under that row's display label. */
@@ -45,11 +54,13 @@ function dayCandidates(
   factor: number,
 ): Array<[number, CellRole]> {
   if (val.kind === 'measurement') {
-    const showZero = ('show_zero' in cfg ? cfg.show_zero : undefined) !== false;
+    const showZero = cfg.show_zero !== false;
+    // Only entity rows carry sub-row visibility; expression rows never render as measurement.
+    const entityCfg = 'entity' in cfg ? cfg : undefined;
     const roles: Array<[number, CellRole]> = [];
-    if (cfg.show_min !== false) roles.push([val.min * factor, 'min']);
-    if (cfg.show_avg !== false) roles.push([val.mean * factor, 'avg']);
-    if (cfg.show_max !== false) roles.push([val.max * factor, 'max']);
+    if (entityCfg?.show_min !== false) roles.push([val.min * factor, 'min']);
+    if (entityCfg?.show_avg !== false) roles.push([val.mean * factor, 'avg']);
+    if (entityCfg?.show_max !== false) roles.push([val.max * factor, 'max']);
     return showZero ? roles : roles.filter(([v]) => v !== 0);
   }
   if (val.kind === 'cumulative') return [[val.sum * factor, 'scalar']];
@@ -77,9 +88,14 @@ export function countExceedances(
     const factor = ('factor' in cfg && cfg.factor != null) ? cfg.factor : 1;
     const cumulative = new Map<ThresholdRule, number>();
     const band = new Map<ThresholdRule, number>();
+    // Per year, the same two tallies — every segment year gets an entry, even
+    // one without data, so the yearly view can show a column for it.
+    const perYear = new Map<number, { band: Map<ThresholdRule, number>; cumulative: Map<ThresholdRule, number> }>();
     let meta;
 
     for (const seg of segments) {
+      const yearTally = { band: new Map<ThresholdRule, number>(), cumulative: new Map<ThresholdRule, number>() };
+      perYear.set(seg.year, yearTally);
       const yearStats = statisticsByYear.get(seg.year);
       if (!yearStats) continue;
       meta ??= yearStats.entityMetadata.get(key);
@@ -99,8 +115,14 @@ export function countExceedances(
           }
 
           // Sets first, counts after: a day contributes at most 1 to each rule.
-          for (const rule of dayCumulative) cumulative.set(rule, (cumulative.get(rule) ?? 0) + 1);
-          for (const rule of dayBand) band.set(rule, (band.get(rule) ?? 0) + 1);
+          for (const rule of dayCumulative) {
+            cumulative.set(rule, (cumulative.get(rule) ?? 0) + 1);
+            yearTally.cumulative.set(rule, (yearTally.cumulative.get(rule) ?? 0) + 1);
+          }
+          for (const rule of dayBand) {
+            band.set(rule, (band.get(rule) ?? 0) + 1);
+            yearTally.band.set(rule, (yearTally.band.get(rule) ?? 0) + 1);
+          }
         }
       }
     }
@@ -110,7 +132,18 @@ export function countExceedances(
     const rows = thresholds
       .filter((r) => r.name && r.value != null && (r.text_color || r.background_color))
       .sort((a, b) => a.value! - b.value!)
-      .map((rule) => ({ rule, band: band.get(rule) ?? 0, cumulative: cumulative.get(rule) ?? 0 }));
+      .map((rule) => ({
+        rule,
+        band: band.get(rule) ?? 0,
+        cumulative: cumulative.get(rule) ?? 0,
+        byYear: [...perYear.entries()]
+          .sort((a, b) => a[0] - b[0])
+          .map(([year, tally]) => ({
+            year,
+            band: tally.band.get(rule) ?? 0,
+            cumulative: tally.cumulative.get(rule) ?? 0,
+          })),
+      }));
 
     if (rows.length > 0) groups.push({ label: rowLabel(cfg, meta), rows });
   }

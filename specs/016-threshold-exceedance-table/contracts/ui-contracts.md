@@ -61,3 +61,25 @@ No hard-coded display string is introduced anywhere (Constitution IV).
 
 Existing configurations gain the table without any change.
 A configuration whose threshold rules are all unnamed, or all month/year-only, renders exactly as before — no table, no heading.
+
+## Per-year columns (yearly view)
+
+In the yearly view over a range of two or more years, each rule row carries one Band/Total pair per displayed year, followed by a pair for the whole range under an "All years" header:
+
+| Rain [mm] | 2024 Band | 2024 Total | 2025 Band | 2025 Total | All years Band | All years Total |
+|---|---|---|---|---|---|---|
+| Wet day | 2 | 3 | 3 | 5 | 5 | 8 |
+
+| Element | Contract |
+|---|---|
+| Header | Two rows — year names (and "All years") spanning their pair, then the Band/Total labels (FR-017) |
+| Year order | Chronological, matching the year order of the tables above |
+| Empty years | A displayed year with no matching day still gets its columns, showing 0 (FR-018) |
+| Consistency | The per-year counts of a row sum to its range-wide counts (FR-019) |
+| Other views | The monthly view, and a yearly view showing a single year, keep the two-column layout (FR-020) |
+
+Additional translation key:
+
+| Key | English | German |
+|---|---|---|
+| `exceedance.all_years` | All years | Alle Jahre |

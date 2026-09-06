@@ -67,3 +67,19 @@ Rules without a name or without a day value are dropped after counting, so they 
 
 Bounded by days × configured rows × rules: a five-year range with ten rows is under 20 000 day lookups, each a map hit and a handful of numeric comparisons.
 Recomputed per render; no caching, no persistence.
+
+## Per-year breakdown
+
+`ExceedanceRow` carries a `byYear: ExceedanceYearCount[]` alongside its range-wide counts.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `year` | `number` | One entry per segment year, chronological |
+| `band` | `number` | That year's share of the row's band count |
+| `cumulative` | `number` | That year's share of the row's cumulative count |
+
+**Invariants**:
+
+- One entry per year in `segments`, including years with no statistics and years with no matching day (both yield zeros).
+- The entries sum to the row's `band` and `cumulative` respectively.
+- Presentation decides whether to show them: fewer than two years renders the range-wide pair alone.
