@@ -574,6 +574,24 @@ describe('CalendarStatsCard — threshold legend (grouped, floating bar)', () =>
     expect(swatch!.style.backgroundColor).toBeTruthy();
   });
 
+  it('legend entry swatch shows sample letter in text_color', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'orange', text_color: 'blue', name: 'Summer day' })]);
+    await openLegend(card);
+    const swatch = card.shadowRoot!.querySelector('.legend-swatch') as HTMLElement | null;
+    expect(swatch!.textContent!.trim()).toBe('A');
+    expect(swatch!.style.color).toBe('blue');
+  });
+
+  it('legend entry swatch shows sample letter even without text_color', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' })]);
+    await openLegend(card);
+    const swatch = card.shadowRoot!.querySelector('.legend-swatch') as HTMLElement | null;
+    expect(swatch!.textContent!.trim()).toBe('A');
+    expect(swatch!.style.color).toBe('');
+  });
+
   it('multiple named rules in one entity → one entry each, one group', async () => {
     const card = await createCard(CONFIG, makeHass());
     await applyThresholdGroups(card, [group('Temperature [°C]',

@@ -20,6 +20,17 @@ import './components/view-mode-toggle';
 import './components/range-navigator';
 import './components/calendar-stats-card-editor';
 
+/** Glyph in the legend swatch, so text_color is visible and not only background_color. */
+const SWATCH_SAMPLE = 'A';
+
+/** Combined background/text colors for a legend swatch; undefined when the rule sets neither. */
+function swatchStyle(r: ThresholdRule): string | undefined {
+  const parts: string[] = [];
+  if (r.background_color) parts.push(`background-color:${r.background_color}`);
+  if (r.text_color) parts.push(`color:${r.text_color}`);
+  return parts.length > 0 ? parts.join(';') : undefined;
+}
+
 @customElement('calendar-stats-card')
 export class CalendarStatsCard extends LitElement {
   @state() private _config: CardConfig | null = null;
@@ -175,12 +186,17 @@ export class CalendarStatsCard extends LitElement {
       font-size: 0.8em;
     }
     .legend-swatch {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
       border-radius: 2px;
       border: 1px solid rgba(0,0,0,0.15);
       flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1;
     }
   `;
 
@@ -640,9 +656,8 @@ export class CalendarStatsCard extends LitElement {
                 <span class="legend-group-label">${g.label}:</span>
                 ${g.rules.map(r => html`
                   <span class="legend-entry">
-                    <span class="legend-swatch" style=${ifDefined(
-                      r.background_color ? `background-color:${r.background_color}` : undefined,
-                    )}></span>
+                    <span class="legend-swatch" style=${ifDefined(swatchStyle(r))}
+                      >${SWATCH_SAMPLE}</span>
                     ${r.name}
                   </span>
                 `)}
