@@ -219,8 +219,10 @@ export function transformMonthlyStats(
   entityConfigs: EntityConfig[],
   viewingYear: number,
   timeZone: string,
+  nowMs: number,
 ): Map<string, MonthlySummary> {
   const result = new Map<string, MonthlySummary>();
+  const { year: nowYear, month: nowMonth } = yearMonthInTz(nowMs, timeZone);
 
   // Iterate per row (not per entityId) so duplicate entity rows with different show_zero each
   // produce an independent summary keyed by row index.
@@ -252,7 +254,12 @@ export function transformMonthlyStats(
       // total: HA monthly sum delta for cumulative rows (feature 011); null for measurement rows.
       let total: number | null = null;
       if (!isMeasurement) {
-        if (entry.sum === undefined) {
+        if (year === nowYear && month === nowMonth) {
+          // Current month: HA's monthly bucket already includes today's elapsed hours,
+          // but the day cells stop at yesterday (FR-003). Sum the completed daily deltas
+          // instead — today is stored as an `empty` DailyValue and drops out on its own.
+          total = fromDaily?.total ?? null;
+        } else if (entry.sum === undefined) {
           // FR-002 missing-sum edge case: render empty rather than fall back to daily-sum.
           total = null;
         } else {

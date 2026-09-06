@@ -1,6 +1,7 @@
 {
   "card": {
     "no_entities": "Keine Entitäten konfiguriert.",
+    "no_visible_months": "Für diesen Zeitraum liegen noch keine abgeschlossenen Tage vor.",
     "loading": "Laden…",
     "description": "Monatliche Statistiktabellen für Ihre Home Assistant Entitäten"
   },

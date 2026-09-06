@@ -271,15 +271,21 @@ export class CalendarStatsCard extends LitElement {
     return this._hass;
   }
 
-  private _currentYearMonth(): { year: number; month: number } {
+  /** Today in the HA server timezone. `day` gates the current month's table (visible from the 2nd). */
+  private _currentYearMonth(): { year: number; month: number; day: number } {
     if (!this._hass) {
       const now = new Date();
-      return { year: now.getFullYear(), month: now.getMonth() + 1 };
+      return { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
     }
     const tz = this._hass.config.time_zone;
-    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit' }).format(new Date());
-    const [y, m] = parts.split('-').map(Number);
-    return { year: y ?? new Date().getFullYear(), month: m ?? new Date().getMonth() + 1 };
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const [y, m, d] = parts.split('-').map(Number);
+    const fallback = new Date();
+    return {
+      year: y ?? fallback.getFullYear(),
+      month: m ?? fallback.getMonth() + 1,
+      day: d ?? fallback.getDate(),
+    };
   }
 
   private _earliestAnchor(): MonthAnchor | null {
@@ -423,7 +429,7 @@ export class CalendarStatsCard extends LitElement {
         }
       }
 
-      const monthlySummaries = transformMonthlyStats(monthlyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, dailyValues, this._config.entities, year, tz);
+      const monthlySummaries = transformMonthlyStats(monthlyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, dailyValues, this._config.entities, year, tz, nowMs);
 
       // Compute expression monthly summaries from expression daily values.
       // min/mean/max exclude zero-value days when the row's show_zero is false (FR-003);
@@ -562,7 +568,7 @@ export class CalendarStatsCard extends LitElement {
       return Math.max(rangeYears(range).length * 2, 1);
     }
     const total = rangeYears(range).reduce(
-      (sum, y) => sum + visibleMonthsForYear(range, y, now, earliest).length,
+      (sum, y) => sum + visibleMonthsForYear(range, y, now, earliest, now.day).length,
       0,
     );
     return total || 1;
@@ -753,7 +759,7 @@ export class CalendarStatsCard extends LitElement {
     const earliest = this._earliestAnchor();
     // Years with at least one visible month, in chronological order.
     const yearSegments = rangeYears(range)
-      .map((year) => ({ year, months: visibleMonthsForYear(range, year, now, earliest) }))
+      .map((year) => ({ year, months: visibleMonthsForYear(range, year, now, earliest, now.day) }))
       .filter((seg) => seg.months.length > 0);
     const showYear = yearSegments.length > 1;
     const comparisonOpen = this._viewState.viewMode === 'yearly' && this._viewState.comparisonMonth !== null;
@@ -765,7 +771,10 @@ export class CalendarStatsCard extends LitElement {
           ${!isLoading && config && config.entities.length === 0
             ? html`<p class="no-entities">${localize('card.no_entities', lang)}</p>`
             : ''}
-          ${!isLoading && config && config.entities.length > 0
+          ${!isLoading && config && config.entities.length > 0 && yearSegments.length === 0
+            ? html`<p class="no-entities">${localize('card.no_visible_months', lang)}</p>`
+            : ''}
+          ${!isLoading && config && config.entities.length > 0 && yearSegments.length > 0
             ? (comparisonOpen
               ? this._renderComparison(this._buildSegments(yearSegments), lang, now)
               : this._viewState.viewMode === 'yearly'

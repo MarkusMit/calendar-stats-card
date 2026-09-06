@@ -1,6 +1,7 @@
 {
   "card": {
     "no_entities": "No entities configured.",
+    "no_visible_months": "No completed days in this period yet.",
     "loading": "Loading…",
     "description": "Monthly statistics tables for your Home Assistant entities"
   },

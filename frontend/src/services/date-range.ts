@@ -178,12 +178,17 @@ export function rangeYears(range: DateRange): number[] {
  * Months of `year` visible for the range, clamped so nothing after `now` and
  * nothing before `earliest` shows. Returns an empty array for years fully
  * outside the available window.
+ *
+ * `nowDay` is today's day-of-month in the HA server timezone. On the 1st the
+ * current month has no completed day yet (day cells only ever show days
+ * strictly before today), so it is dropped instead of rendered empty.
  */
 export function visibleMonthsForYear(
   range: DateRange,
   year: number,
   now: MonthAnchor,
   earliest: MonthAnchor | null,
+  nowDay: number,
 ): number[] {
   if (year > now.year) return [];
   if (earliest !== null && year < earliest.year) return [];
@@ -191,7 +196,7 @@ export function visibleMonthsForYear(
   let lo = year === range.start.year ? range.start.month : 1;
   let hi = year === range.end.year ? range.end.month : 12;
 
-  if (year === now.year) hi = Math.min(hi, now.month);
+  if (year === now.year) hi = Math.min(hi, nowDay <= 1 ? now.month - 1 : now.month);
   if (earliest !== null && year === earliest.year) lo = Math.max(lo, earliest.month);
 
   const months: number[] = [];

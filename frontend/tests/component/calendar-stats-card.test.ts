@@ -783,3 +783,45 @@ describe('CalendarStatsCard — editor protocol (T002)', () => {
     expect(stub.entities).toHaveLength(0);
   });
 });
+
+describe('CalendarStatsCard — current month hidden on the first of the month', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function freezeAt(iso: string): void {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(iso));
+  }
+
+  it('January 1st → no month table, localized hint instead', async () => {
+    freezeAt('2026-01-01T12:00:00Z');
+    const el = await createCard(CONFIG, makeHass());
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('calendar-stats-year-table')).toBeNull();
+      const hint = el.shadowRoot!.querySelector('p.no-entities');
+      expect(hint?.textContent).toBe('No completed days in this period yet.');
+    }, { timeout: 3000 });
+  });
+
+  it('January 2nd → month table back, no hint', async () => {
+    freezeAt('2026-01-02T12:00:00Z');
+    const el = await createCard(CONFIG, makeHass());
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      expect(el.shadowRoot!.querySelector('calendar-stats-year-table')).toBeTruthy();
+      expect(el.shadowRoot!.querySelector('p.no-entities')).toBeNull();
+    }, { timeout: 3000 });
+  });
+
+  it('hint is localized to German', async () => {
+    freezeAt('2026-01-01T12:00:00Z');
+    const el = await createCard(CONFIG, makeHass({ language: 'de' }));
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      const hint = el.shadowRoot!.querySelector('p.no-entities');
+      expect(hint?.textContent).toBe('Für diesen Zeitraum liegen noch keine abgeschlossenen Tage vor.');
+    }, { timeout: 3000 });
+  });
+});
