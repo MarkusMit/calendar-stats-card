@@ -6,6 +6,7 @@ import {
   contrastTextColor,
   resolveCssColor,
   autoContrastText,
+  ContrastResolver,
 } from '../../../src/services/readable-text';
 
 describe('parseRgb', () => {
@@ -117,5 +118,46 @@ describe('autoContrastText', () => {
   it('unresolvable color → undefined', () => {
     const probe = document.createElement('span');
     expect(autoContrastText('var(--x)', probe)).toBeUndefined();
+  });
+});
+
+describe('ContrastResolver', () => {
+  it('undefined background → undefined, no probe created', () => {
+    const r = new ContrastResolver();
+    expect(r.textFor(undefined)).toBeUndefined();
+    expect(document.body.querySelector('span')).toBeNull();
+  });
+
+  it('resolves contrast text and appends a probe to the body', () => {
+    const r = new ContrastResolver();
+    expect(r.textFor('#ffffff')).toBe('#000000');
+    expect(document.body.querySelector('span')).not.toBeNull();
+    r.dispose();
+  });
+
+  it('caches repeated lookups, probe created once', () => {
+    const r = new ContrastResolver();
+    r.textFor('darkred');
+    const probe = document.body.querySelector('span');
+    r.textFor('darkred');
+    expect(document.body.querySelectorAll('span').length).toBe(1);
+    expect(document.body.querySelector('span')).toBe(probe);
+    r.dispose();
+  });
+
+  it('caches negative results (unresolvable color resolved once)', () => {
+    const r = new ContrastResolver();
+    expect(r.textFor('var(--x)')).toBeUndefined();
+    expect(r.textFor('var(--x)')).toBeUndefined();
+    expect(document.body.querySelectorAll('span').length).toBe(1);
+    r.dispose();
+  });
+
+  it('dispose removes the probe from the document', () => {
+    const r = new ContrastResolver();
+    r.textFor('navy');
+    expect(document.body.querySelector('span')).not.toBeNull();
+    r.dispose();
+    expect(document.body.querySelector('span')).toBeNull();
   });
 });
