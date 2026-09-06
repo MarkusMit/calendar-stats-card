@@ -9,8 +9,13 @@ import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMo
 import { rowKey } from './types/card-config';
 import { resolvePredecessorData } from './services/predecessor-resolver';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
-import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor } from './services/date-range';
+import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor, msUntilNextMidnight } from './services/date-range';
 import { localize } from './localize/localize';
+import { buildCellStyle } from './services/threshold-resolver';
+import { ContrastResolver } from './services/readable-text';
+import { zonedDateFormatter, zonedDateString, monthNameFormatter } from './services/formatters';
+import { countExceedances } from './services/threshold-exceedance';
+import type { ExceedanceGroup, MonthSpan } from './services/threshold-exceedance';
 import './components/loading-overlay';
 import './components/year-table';
 import type { MonthSegment } from './components/year-table';
@@ -18,12 +23,18 @@ import './components/year-summary-table';
 import './components/month-comparison-table';
 import './components/view-mode-toggle';
 import './components/range-navigator';
+import './components/exceedance-table';
 import './components/calendar-stats-card-editor';
 
 @customElement('calendar-stats-card')
 export class CalendarStatsCard extends LitElement {
   @state() private _config: CardConfig | null = null;
-  @state() private _hass: HomeAssistant | null = null;
+  /** Not reactive: HA reassigns `hass` on every state push, and the card's own
+   *  output depends on it only through the language and time zone below. */
+  private _hass: HomeAssistant | null = null;
+  /** The parts of `hass` the template actually reads — these do trigger a render. */
+  @state() private _lang = 'en';
+  @state() private _timeZone: string | null = null;
   @state() private _thresholdGroups: ThresholdLegendGroup[] = [];
   @state() private _legendOpen = false;
   @state() private _inEditor = false;
@@ -39,10 +50,14 @@ export class CalendarStatsCard extends LitElement {
   };
 
   private _service = new StatisticsService();
+  /** Pending day-rollover refresh; see `_scheduleMidnightRefresh`. */
+  private _midnightTimer: ReturnType<typeof setTimeout> | null = null;
   private _fetchAbortFlag = 0;
   /** True once the earliest-data probe ran (whether or not it found data). */
   private _earliestProbed = false;
   private _warnedPredecessors = new Set<string>();
+  /** Shared auto-contrast text-color resolver, so legend swatches match data cells. */
+  private _contrast = new ContrastResolver();
   private readonly _emptyDailyValues = new Map();
   private readonly _emptyMonthlySummaries = new Map();
   private readonly _emptyEntityMetadata = new Map();
@@ -175,12 +190,17 @@ export class CalendarStatsCard extends LitElement {
       font-size: 0.8em;
     }
     .legend-swatch {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       width: 12px;
       height: 12px;
       border-radius: 2px;
       border: 1px solid rgba(0,0,0,0.15);
       flex-shrink: 0;
+      font-size: 9px;
+      font-weight: 600;
+      line-height: 1;
     }
   `;
 
@@ -258,7 +278,12 @@ export class CalendarStatsCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     const firstSet = this._hass === null;
+    const previousTimeZone = this._timeZone;
     this._hass = hass;
+    this._lang = hass.selectedLanguage ?? hass.language ?? 'en';
+    this._timeZone = hass.config.time_zone;
+
+    if (this._timeZone !== previousTimeZone) this._scheduleMidnightRefresh();
 
     if (firstSet && this._config) {
       const range = presetToRange('this_year', this._currentYearMonth());
@@ -271,21 +296,72 @@ export class CalendarStatsCard extends LitElement {
     return this._hass;
   }
 
-  private _currentYearMonth(): { year: number; month: number } {
-    if (!this._hass) {
+  /** Last today/earliest values, reused while equal so child props keep their identity. */
+  private _nowMemo: { year: number; month: number; day: number } | null = null;
+  private _earliestMemo: MonthAnchor | null = null;
+
+  /** Today in the HA server timezone. `day` gates the current month's table (visible from the 2nd). */
+  private _currentYearMonth(): { year: number; month: number; day: number } {
+    const tz = this._timeZone;
+    let value: { year: number; month: number; day: number };
+    if (tz === null) {
       const now = new Date();
-      return { year: now.getFullYear(), month: now.getMonth() + 1 };
+      value = { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
+    } else {
+      const parts = zonedDateFormatter(tz).format(new Date());
+      const [y, m, d] = parts.split('-').map(Number);
+      const fallback = new Date();
+      value = {
+        year: y ?? fallback.getFullYear(),
+        month: m ?? fallback.getMonth() + 1,
+        day: d ?? fallback.getDate(),
+      };
     }
-    const tz = this._hass.config.time_zone;
-    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit' }).format(new Date());
-    const [y, m] = parts.split('-').map(Number);
-    return { year: y ?? new Date().getFullYear(), month: m ?? new Date().getMonth() + 1 };
+    const prev = this._nowMemo;
+    if (prev && prev.year === value.year && prev.month === value.month && prev.day === value.day) {
+      return prev;
+    }
+    this._nowMemo = value;
+    return value;
   }
 
   private _earliestAnchor(): MonthAnchor | null {
     const { earliestDataYear, earliestDataMonth } = this._viewState;
     if (earliestDataYear === null || earliestDataMonth === null) return null;
-    return { year: earliestDataYear, month: earliestDataMonth };
+    const prev = this._earliestMemo;
+    if (prev && prev.year === earliestDataYear && prev.month === earliestDataMonth) return prev;
+    const value = { year: earliestDataYear, month: earliestDataMonth };
+    this._earliestMemo = value;
+    return value;
+  }
+
+  /**
+   * Statistics are cached per year and a day only becomes complete at midnight,
+   * so a dashboard left open would keep showing yesterday's last row. Refresh
+   * once the local day has rolled over, then schedule the next one.
+   */
+  private _scheduleMidnightRefresh(): void {
+    if (this._midnightTimer !== null) clearTimeout(this._midnightTimer);
+    const tz = this._timeZone;
+    if (tz === null) return;
+    // A minute of slack so the recorder has written the final hour of the day.
+    const delay = msUntilNextMidnight(tz, Date.now()) + 60_000;
+    this._midnightTimer = setTimeout(() => {
+      this._midnightTimer = null;
+      void this._refreshCompletedDay();
+    }, delay);
+  }
+
+  /** Drop the cached years the finished day can belong to and fetch them again. */
+  private async _refreshCompletedDay(): Promise<void> {
+    const { year } = this._currentYearMonth();
+    const statisticsByYear = new Map(this._viewState.statisticsByYear);
+    // On January 1st the day that just completed belongs to the previous year.
+    statisticsByYear.delete(year);
+    statisticsByYear.delete(year - 1);
+    this._viewState = { ...this._viewState, statisticsByYear };
+    this._scheduleMidnightRefresh();
+    await this._fetchRange(this._viewState.range);
   }
 
   /** Fetch every year the range spans that is not already cached, under one loading state. */
@@ -381,15 +457,13 @@ export class CalendarStatsCard extends LitElement {
       const nowMs = Date.now();
       const dailyValues = resolvePredecessorData(
         this._config.entities,
-        transformDailyStats(dailyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, tz, nowMs, {}),
+        transformDailyStats(dailyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, tz, nowMs),
         metadataMap,
         this._warnedPredecessors,
       );
 
       // Compute expression daily values from constituent entity daily values
-      const todayStr = new Intl.DateTimeFormat('en-CA', {
-        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(new Date(nowMs));
+      const todayStr = zonedDateString(nowMs, tz);
       for (const cfg of this._config.entities) {
         if (!('expression' in cfg)) continue;
         const exprEntityIds = extractEntityIds(cfg.expression);
@@ -416,14 +490,13 @@ export class CalendarStatsCard extends LitElement {
                 entityId: cfg.expression,
                 date: dateStr,
                 sum: evaluate(cfg.expression, context),
-                partialCoverage: false,
               });
             }
           }
         }
       }
 
-      const monthlySummaries = transformMonthlyStats(monthlyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, dailyValues, this._config.entities, year, tz);
+      const monthlySummaries = transformMonthlyStats(monthlyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, dailyValues, this._config.entities, year, tz, nowMs);
 
       // Compute expression monthly summaries from expression daily values.
       // min/mean/max exclude zero-value days when the row's show_zero is false (FR-003);
@@ -562,7 +635,7 @@ export class CalendarStatsCard extends LitElement {
       return Math.max(rangeYears(range).length * 2, 1);
     }
     const total = rangeYears(range).reduce(
-      (sum, y) => sum + visibleMonthsForYear(range, y, now, earliest).length,
+      (sum, y) => sum + visibleMonthsForYear(range, y, now, earliest, now.day).length,
       0,
     );
     return total || 1;
@@ -615,6 +688,11 @@ export class CalendarStatsCard extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     document.removeEventListener('click', this._onDocClick);
+    if (this._midnightTimer !== null) {
+      clearTimeout(this._midnightTimer);
+      this._midnightTimer = null;
+    }
+    this._contrast.dispose();
   }
 
   /** Legend toggle button + popover, rendered inside the floating bottom bar. */
@@ -634,10 +712,12 @@ export class CalendarStatsCard extends LitElement {
                 <span class="legend-group-label">${g.label}:</span>
                 ${g.rules.map(r => html`
                   <span class="legend-entry">
-                    <span class="legend-swatch" style=${ifDefined(
-                      r.background_color ? `background-color:${r.background_color}` : undefined,
-                    )}></span>
-                    ${r.name}
+                    ${r.background_color || r.text_color ? html`
+                      <span class="legend-swatch" aria-hidden="true" style=${ifDefined(
+                        buildCellStyle(undefined, undefined, r, this._contrast.textFor(r.background_color)),
+                      )}>${localize('legend.swatch_sample', lang)}</span>
+                    ` : ''}
+                    <span class="legend-name">${r.name}</span>
                   </span>
                 `)}
               </div>
@@ -647,10 +727,52 @@ export class CalendarStatsCard extends LitElement {
     `;
   }
 
+  /** Last result per memo name, with the dependencies it was computed from. */
+  private _memos = new Map<string, { deps: readonly unknown[]; value: unknown }>();
+
+  /**
+   * Reuses the previous result while every dependency is identical. Child
+   * components diff their properties by identity, so a rebuilt-but-equal array
+   * would re-render a whole table; memoizing keeps those renders out.
+   */
+  private _memoize<T>(name: string, deps: readonly unknown[], compute: () => T): T {
+    const hit = this._memos.get(name);
+    if (hit && hit.deps.length === deps.length && hit.deps.every((d, i) => d === deps[i])) {
+      return hit.value as T;
+    }
+    const value = compute();
+    this._memos.set(name, { deps, value });
+    return value;
+  }
+
+  /**
+   * Exceedance counts for the visible range. Counting walks every day of every
+   * visible month, so the result is reused until the entities, the fetched
+   * statistics or the visible months actually change.
+   */
+  private _exceedanceGroups(entities: CardConfig['entities'], yearSegments: MonthSpan[]): ExceedanceGroup[] {
+    const stats = this._viewState.statisticsByYear;
+    return this._memoize('exceedance', [entities, stats, yearSegments], () =>
+      countExceedances(entities, yearSegments, stats));
+  }
+
+  /** Years with at least one visible month, in chronological order. */
+  private _yearSegments(
+    range: DateRange,
+    now: { year: number; month: number; day: number },
+    earliest: MonthAnchor | null,
+  ): Array<{ year: number; months: number[] }> {
+    return this._memoize('yearSegments', [range, now, earliest], () =>
+      rangeYears(range)
+        .map((year) => ({ year, months: visibleMonthsForYear(range, year, now, earliest, now.day) }))
+        .filter((seg) => seg.months.length > 0));
+  }
+
   /** Per-year data slices for the yearly view and the month comparison. */
   private _buildSegments(yearSegments: Array<{ year: number; months: number[] }>) {
-    return yearSegments.map((seg) => {
-      const yearStats = this._viewState.statisticsByYear.get(seg.year);
+    const stats = this._viewState.statisticsByYear;
+    return this._memoize('segments', [yearSegments, stats], () => yearSegments.map((seg) => {
+      const yearStats = stats.get(seg.year);
       return {
         year: seg.year,
         visibleMonths: seg.months,
@@ -658,12 +780,12 @@ export class CalendarStatsCard extends LitElement {
         dailyValues: yearStats?.dailyValues ?? this._emptyDailyValues,
         entityMetadata: yearStats?.entityMetadata ?? this._emptyEntityMetadata,
       };
-    });
+    }));
   }
 
   /** Flat month-section list for the monthly view over a multi-year range. */
   private _buildMonthSegments(yearSegments: Array<{ year: number; months: number[] }>): MonthSegment[] {
-    return yearSegments.flatMap((seg) => {
+    return this._memoize('monthSegments', [yearSegments, this._viewState.statisticsByYear], () => yearSegments.flatMap((seg) => {
       const yearStats = this._viewState.statisticsByYear.get(seg.year);
       return seg.months.map((month) => ({
         year: seg.year,
@@ -672,7 +794,7 @@ export class CalendarStatsCard extends LitElement {
         monthlySummaries: yearStats?.monthlySummaries ?? this._emptyMonthlySummaries,
         entityMetadata: yearStats?.entityMetadata ?? this._emptyEntityMetadata,
       }));
-    });
+    }));
   }
 
   /** True when any configured row has a summary for the month in this segment. */
@@ -695,7 +817,7 @@ export class CalendarStatsCard extends LitElement {
     // Daily section: one section per data-bearing year inside ONE year-table so
     // every section shares the same day-column widths; a year without data gets
     // no section (its absence is visible in the summary table above).
-    const dailySegments = segments
+    const dailySegments = this._memoize('comparisonDailySegments', [segments, month], () => segments
       .filter((seg) => this._segmentHasMonthData(seg, month))
       .map((seg) => ({
         year: seg.year,
@@ -703,7 +825,7 @@ export class CalendarStatsCard extends LitElement {
         dailyValues: seg.dailyValues,
         monthlySummaries: seg.monthlySummaries,
         entityMetadata: seg.entityMetadata,
-      }));
+      })));
 
     return html`
       ${hasAnyData
@@ -732,7 +854,7 @@ export class CalendarStatsCard extends LitElement {
   /** Back + month prev/next controls shown in the bottom bar while the comparison is open. */
   private _renderComparisonNav(lang: string) {
     const month = this._viewState.comparisonMonth!;
-    const monthName = new Intl.DateTimeFormat(lang, { month: 'long' }).format(new Date(2020, month - 1, 1));
+    const monthName = monthNameFormatter(lang).format(new Date(2020, month - 1, 1));
     return html`
       <button class="comparison-back" @click=${this._closeComparison}>← ${localize('comparison.back', lang)}</button>
       <button class="comparison-prev" aria-label=${localize('comparison.prev_month', lang)}
@@ -746,17 +868,16 @@ export class CalendarStatsCard extends LitElement {
   render() {
     const { isLoading, range } = this._viewState;
     const config = this._config;
-    const hass = this._hass;
-    const lang = hass?.selectedLanguage ?? hass?.language ?? 'en';
+    const lang = this._lang;
 
     const now = this._currentYearMonth();
     const earliest = this._earliestAnchor();
-    // Years with at least one visible month, in chronological order.
-    const yearSegments = rangeYears(range)
-      .map((year) => ({ year, months: visibleMonthsForYear(range, year, now, earliest) }))
-      .filter((seg) => seg.months.length > 0);
+    const yearSegments = this._yearSegments(range, now, earliest);
     const showYear = yearSegments.length > 1;
     const comparisonOpen = this._viewState.viewMode === 'yearly' && this._viewState.comparisonMonth !== null;
+    const exceedanceGroups = config && !comparisonOpen && config.show_threshold_table !== false
+      ? this._exceedanceGroups(config.entities, yearSegments)
+      : [];
 
     return html`
       <ha-card>
@@ -765,7 +886,10 @@ export class CalendarStatsCard extends LitElement {
           ${!isLoading && config && config.entities.length === 0
             ? html`<p class="no-entities">${localize('card.no_entities', lang)}</p>`
             : ''}
-          ${!isLoading && config && config.entities.length > 0
+          ${!isLoading && config && config.entities.length > 0 && yearSegments.length === 0
+            ? html`<p class="no-entities">${localize('card.no_visible_months', lang)}</p>`
+            : ''}
+          ${!isLoading && config && config.entities.length > 0 && yearSegments.length > 0
             ? (comparisonOpen
               ? this._renderComparison(this._buildSegments(yearSegments), lang, now)
               : this._viewState.viewMode === 'yearly'
@@ -805,6 +929,13 @@ export class CalendarStatsCard extends LitElement {
                       @thresholds-applied=${this._onThresholdsApplied}
                     ></calendar-stats-year-table>`;
                   }))
+            : ''}
+          ${exceedanceGroups.length > 0
+            ? html`<calendar-stats-exceedance-table
+                .groups=${exceedanceGroups}
+                .years=${this._viewState.viewMode === 'yearly' ? yearSegments.map((seg) => seg.year) : []}
+                .lang=${lang}
+              ></calendar-stats-exceedance-table>`
             : ''}
         </div>
         ${!this._inEditor ? html`<div class="bottom-bar">

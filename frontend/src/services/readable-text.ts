@@ -136,3 +136,37 @@ export function autoContrastText(bg: string, probe: HTMLElement): string | undef
   const rgb = resolveCssColor(bg, probe);
   return rgb ? contrastTextColor(rgb) : undefined;
 }
+
+/**
+ * Resolves auto-contrast text colors for background strings, reusing one hidden
+ * probe element and caching results (negative ones included) per background.
+ * Shared by every component that colors cells or swatches from threshold rules.
+ */
+export class ContrastResolver {
+  /** Hidden probe (light DOM child) used to resolve CSS colors via the browser. */
+  private probe?: HTMLElement;
+  private cache = new Map<string, string | undefined>();
+
+  textFor(bg: string | undefined): string | undefined {
+    if (!bg) return undefined;
+    const cached = this.cache.get(bg);
+    if (cached !== undefined || this.cache.has(bg)) return cached;
+    if (!this.probe) {
+      const span = document.createElement('span');
+      span.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none';
+      // Append to document.body so the probe is actually rendered (in the flat
+      // tree): getComputedStyle then resolves named colors and global theme
+      // var(...) values. Named colors also resolve statically via parseRgb.
+      document.body.appendChild(span);
+      this.probe = span;
+    }
+    const result = autoContrastText(bg, this.probe);
+    this.cache.set(bg, result);
+    return result;
+  }
+
+  dispose(): void {
+    this.probe?.remove();
+    this.probe = undefined;
+  }
+}

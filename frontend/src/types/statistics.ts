@@ -14,7 +14,6 @@ export interface MeasurementDailyValue {
   min: number;
   mean: number;
   max: number;
-  partialCoverage: boolean;
 }
 
 export interface CumulativeDailyValue {
@@ -22,7 +21,6 @@ export interface CumulativeDailyValue {
   entityId: string;
   date: string;
   sum: number;
-  partialCoverage: boolean;
 }
 
 export interface EmptyDailyValue {

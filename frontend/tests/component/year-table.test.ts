@@ -136,7 +136,6 @@ describe('YearTable — show_zero (cumulative)', () => {
       entityId: RAIN_ID,
       date: '2025-01-01',
       sum,
-      partialCoverage: false,
     };
     el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();
@@ -172,7 +171,7 @@ describe('YearTable — show_zero (cumulative)', () => {
     expect(day1?.classList.contains('has-data')).toBe(true);
   });
 
-  it('show_zero: false + sum=0 + partialCoverage=true → blank cell (suppression wins)', async () => {
+  it('show_zero: false + sum=0 → blank cell (suppression wins)', async () => {
     const el = new YearTable();
     el.year = 2025;
     el.visibleMonths = [1];
@@ -182,7 +181,6 @@ describe('YearTable — show_zero (cumulative)', () => {
       entityId: RAIN_ID,
       date: '2025-01-01',
       sum: 0,
-      partialCoverage: true,
     };
     el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();
@@ -215,7 +213,6 @@ describe('YearTable — show_zero (measurement)', () => {
       min,
       mean,
       max,
-      partialCoverage: false,
     };
     el.dailyValues = new Map([[`${ENTITY_ID}::2025-01-05`, dayVal]]);
     el.monthlySummaries = new Map();
@@ -703,7 +700,7 @@ describe('YearTable — scalar threshold coloring', () => {
     el.entityConfigs = [cfg];
     const dayVal: CumulativeDailyValue = {
       kind: 'cumulative', entityId: RAIN_ID, date: '2025-01-01',
-      sum: value, partialCoverage: false,
+      sum: value,
     };
     el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();
@@ -875,7 +872,7 @@ describe('YearTable — measurement threshold coloring', () => {
     }];
     const dayVal: MeasurementDailyValue = {
       kind: 'measurement', entityId: ENTITY_ID, date: '2025-01-01',
-      min: minV, mean: avgV, max: maxV, partialCoverage: false,
+      min: minV, mean: avgV, max: maxV,
     };
     el.dailyValues = new Map([[`${ENTITY_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();
@@ -1063,7 +1060,7 @@ describe('YearTable — auto-contrast text color', () => {
     el.entityConfigs = [{ entity: RAIN_ID, ...cfg } as EntityConfig];
     const dayVal: CumulativeDailyValue = {
       kind: 'cumulative', entityId: RAIN_ID, date: '2025-01-01',
-      sum: dayValue, partialCoverage: false,
+      sum: dayValue,
     };
     el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();

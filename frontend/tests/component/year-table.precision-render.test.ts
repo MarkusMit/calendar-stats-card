@@ -21,7 +21,7 @@ const rainMeta: EntityMetadata = {
 
 function cumulDay(sum: number, day = 1): [string, CumulativeDailyValue] {
   const date = `2025-01-${String(day).padStart(2, '0')}`;
-  return [`${RAIN_ID}::${date}`, { kind: 'cumulative', entityId: RAIN_ID, date, sum, partialCoverage: false }];
+  return [`${RAIN_ID}::${date}`, { kind: 'cumulative', entityId: RAIN_ID, date, sum }];
 }
 
 async function renderRow(opts: {

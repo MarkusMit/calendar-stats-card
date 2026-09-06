@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { localize } from '../localize/localize';
+import { monthShortFormatter } from '../services/formatters';
 import { compareAnchors } from '../services/date-range';
 import type { MonthAnchor, RangePreset, DateRange } from '../types/statistics';
 
@@ -167,7 +168,7 @@ export class RangeNavigator extends LitElement {
   `;
 
   private _monthName(month: number): string {
-    return new Intl.DateTimeFormat(this.lang, { month: 'short' }).format(new Date(2020, month - 1, 1));
+    return monthShortFormatter(this.lang).format(new Date(2020, month - 1, 1));
   }
 
   private static _pad2(n: number): string {

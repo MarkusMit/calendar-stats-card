@@ -1,6 +1,7 @@
 {
   "card": {
     "no_entities": "No entities configured.",
+    "no_visible_months": "No completed days in this period yet.",
     "loading": "Loading…",
     "description": "Monthly statistics tables for your Home Assistant entities"
   },
@@ -50,7 +51,14 @@
     "no_data": "No data for this month in any compared year"
   },
   "legend": {
-    "title": "Legend"
+    "title": "Legend",
+    "swatch_sample": "A"
+  },
+  "exceedance": {
+    "title": "Threshold days",
+    "band": "Band",
+    "total": "Total",
+    "all_years": "All years"
   },
   "editor": {
     "add_entity": "Entity",
@@ -91,16 +99,26 @@
     "predecessor_factor": "Factor (optional)",
     "entity_not_found": "Entity not found",
     "invalid_expression_syntax": "Invalid expression syntax",
-    "entity_not_found_in_expression": "Entity not found: {entity}"
+    "entity_not_found_in_expression": "Entity not found: {entity}",
+    "show_threshold_table": "Show threshold days table",
+    "options": "Options"
   },
   "threshold": {
+    "symbols": {
+      "above": ">",
+      "equals_above": "≥",
+      "equals_below": "≤",
+      "below": "<",
+      "not_below": "↓≥",
+      "not_above": "↑≤"
+    },
     "operators": {
       "above": "Above (>)",
       "equals_above": "At least (≥)",
       "equals_below": "At most (≤)",
       "below": "Below (<)",
-      "not_below": "Not below (≥)",
-      "not_above": "Not above (≤)"
+      "not_below": "Not below (↓≥)",
+      "not_above": "Not above (↑≤)"
     }
   }
 }

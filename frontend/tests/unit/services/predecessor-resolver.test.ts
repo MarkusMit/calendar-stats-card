@@ -28,11 +28,11 @@ function makeCumulativeMeta(entityId: string, unit = 'kWh'): EntityMetadata {
 }
 
 function makeMeasurement(entityId: string, date: string, mean = 10): MeasurementDailyValue {
-  return { kind: 'measurement', entityId, date, min: mean - 1, mean, max: mean + 1, partialCoverage: false };
+  return { kind: 'measurement', entityId, date, min: mean - 1, mean, max: mean + 1 };
 }
 
 function makeCumulative(entityId: string, date: string, sum = 5): CumulativeDailyValue {
-  return { kind: 'cumulative', entityId, date, sum, partialCoverage: false };
+  return { kind: 'cumulative', entityId, date, sum };
 }
 
 function makeEmpty(entityId: string, date: string): DailyValue {

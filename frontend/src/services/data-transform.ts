@@ -11,65 +11,19 @@ import type {
 } from '../types/statistics';
 import type { EntityConfig } from '../types/card-config';
 import type { RawStats } from './statistics-service';
+import { zonedDateString } from './formatters';
 
 function dateStringInTz(timestampMs: number, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(timestampMs));
+  return zonedDateString(timestampMs, timeZone);
 }
 
 function todayStringInTz(timeZone: string, nowMs: number): string {
   return dateStringInTz(nowMs, timeZone);
 }
 
-type HourlyEntry = { start: number; end: number };
-
 function yearMonthInTz(timestampMs: number, timeZone: string): { year: number; month: number } {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-  }).format(new Date(timestampMs));
-  const [y, m] = parts.split('-').map(Number);
+  const [y, m] = zonedDateString(timestampMs, timeZone).split('-').map(Number);
   return { year: y!, month: m! };
-}
-
-function hourInTz(timestampMs: number, timeZone: string): number {
-  return Number(
-    new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hour12: false }).format(
-      new Date(timestampMs),
-    ),
-  );
-}
-
-function computePartialCoverage(
-  dateStr: string,
-  entityId: string,
-  stateClass: string,
-  timeZone: string,
-  hourlyStats: Record<string, HourlyEntry[]>,
-): boolean {
-  const entityHourly = hourlyStats[entityId];
-  if (!entityHourly || entityHourly.length === 0) return false;
-
-  const dayEntries = entityHourly.filter(
-    (e) => dateStringInTz(e.start, timeZone) === dateStr,
-  );
-
-  if (dayEntries.length === 0) return false;
-
-  if (stateClass === 'measurement') {
-    return dayEntries.length < 24;
-  }
-
-  // Cumulative: check day-boundary gaps only
-  const hours = dayEntries.map((e) => hourInTz(e.start, timeZone));
-  const hasFirstHour = hours.includes(0);
-  const hasLastHour = hours.includes(23);
-  return !hasFirstHour || !hasLastHour;
 }
 
 /**
@@ -81,7 +35,6 @@ export function transformDailyStats(
   metadataMap: Record<string, EntityMetadata>,
   timeZone: string,
   nowMs: number,
-  hourlyStats: Record<string, HourlyEntry[]>,
 ): Map<string, DailyValue> {
   const result = new Map<string, DailyValue>();
   const todayStr = todayStringInTz(timeZone, nowMs);
@@ -108,7 +61,6 @@ export function transformDailyStats(
       }
 
       if (isMeasurement) {
-        const partial = computePartialCoverage(dateStr, entityId, meta.stateClass, timeZone, hourlyStats);
         const dayVal: MeasurementDailyValue = {
           kind: 'measurement',
           entityId,
@@ -116,7 +68,6 @@ export function transformDailyStats(
           min: entry.min ?? 0,
           mean: entry.mean ?? 0,
           max: entry.max ?? 0,
-          partialCoverage: partial,
         };
         result.set(key, dayVal);
       } else {
@@ -128,13 +79,11 @@ export function transformDailyStats(
 
         if (isTotalIncreasing && delta < 0) delta = 0;
 
-        const partial = computePartialCoverage(dateStr, entityId, meta.stateClass, timeZone, hourlyStats);
         const dayVal: CumulativeDailyValue = {
           kind: 'cumulative',
           entityId,
           date: dateStr,
           sum: delta,
-          partialCoverage: partial,
         };
         result.set(key, dayVal);
       }
@@ -219,8 +168,10 @@ export function transformMonthlyStats(
   entityConfigs: EntityConfig[],
   viewingYear: number,
   timeZone: string,
+  nowMs: number,
 ): Map<string, MonthlySummary> {
   const result = new Map<string, MonthlySummary>();
+  const { year: nowYear, month: nowMonth } = yearMonthInTz(nowMs, timeZone);
 
   // Iterate per row (not per entityId) so duplicate entity rows with different show_zero each
   // produce an independent summary keyed by row index.
@@ -252,7 +203,12 @@ export function transformMonthlyStats(
       // total: HA monthly sum delta for cumulative rows (feature 011); null for measurement rows.
       let total: number | null = null;
       if (!isMeasurement) {
-        if (entry.sum === undefined) {
+        if (year === nowYear && month === nowMonth) {
+          // Current month: HA's monthly bucket already includes today's elapsed hours,
+          // but the day cells stop at yesterday (FR-003). Sum the completed daily deltas
+          // instead — today is stored as an `empty` DailyValue and drops out on its own.
+          total = fromDaily?.total ?? null;
+        } else if (entry.sum === undefined) {
           // FR-002 missing-sum edge case: render empty rather than fall back to daily-sum.
           total = null;
         } else {

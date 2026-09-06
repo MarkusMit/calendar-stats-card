@@ -139,7 +139,10 @@ A user configures named thresholds on a temperature entity: "Summer day" for max
 - **FR-013**: The legend MUST combine named threshold entries from all entities into a single list; entries from the same name appearing in multiple entities MUST be deduplicated (first-defined wins).
 - **FR-014**: Named threshold rules that do not fire during rendering of the current view MUST NOT appear in the legend; only rules that matched at least one visible cell are eligible for legend display.
 - **FR-015**: When no valid named threshold rule fires during the current render (including the case where named rules are configured but none match any visible cell value), the legend MUST NOT be rendered.
-- **FR-016**: Each legend entry MUST display a colored swatch using `background_color` if set, paired with the threshold name as a text label; if only `text_color` is set (no `background_color`), the name label MUST be rendered in that text color instead of a filled swatch.
+- **FR-016**: Each legend entry MUST display a swatch showing a sample glyph, paired with the threshold name as a plain text label.
+The swatch MUST reproduce what the rule does to a matched cell: `background_color` as the swatch background, and the glyph in `text_color`, or in the auto-contrast color when only `background_color` is set.
+A rule with only `text_color` MUST still show the swatch, with no background fill and the glyph in that color.
+A rule with neither color MUST show no swatch.
 - **FR-017**: Legend entries MUST be ordered by first appearance across all entities, following config definition order; duplicate names are deduplicated on first occurrence.
 
 ### Key Entities

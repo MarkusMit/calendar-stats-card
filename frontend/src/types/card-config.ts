@@ -69,4 +69,6 @@ export function rowKey(cfg: EntityConfig): string {
 export interface CardConfig {
   type: string;
   entities: EntityConfig[];
+  /** Threshold days table below the tables; omitted or true shows it. */
+  show_threshold_table?: boolean;
 }

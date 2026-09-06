@@ -154,32 +154,64 @@ describe('rangeYears', () => {
 });
 
 describe('visibleMonthsForYear', () => {
+  const NOW_DAY = 15;
   const now = a(2026, 7);
   const earliest = a(2025, 4);
 
   it('full interior year returns the in-range months', () => {
     const r: DateRange = { start: a(2025, 8), end: a(2026, 5), preset: 'custom' };
-    expect(visibleMonthsForYear(r, 2025, now, null)).toEqual([8, 9, 10, 11, 12]);
-    expect(visibleMonthsForYear(r, 2026, now, null)).toEqual([1, 2, 3, 4, 5]);
+    expect(visibleMonthsForYear(r, 2025, now, null, NOW_DAY)).toEqual([8, 9, 10, 11, 12]);
+    expect(visibleMonthsForYear(r, 2026, now, null, NOW_DAY)).toEqual([1, 2, 3, 4, 5]);
   });
 
   it('clamps future months in the current year to now', () => {
     const r: DateRange = { start: a(2026, 1), end: a(2026, 12), preset: 'custom' };
-    expect(visibleMonthsForYear(r, 2026, now, null)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(visibleMonthsForYear(r, 2026, now, null, NOW_DAY)).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 
   it('floors to earliest month in the earliest data year', () => {
     const r: DateRange = { start: a(2025, 1), end: a(2025, 12), preset: 'this_year' };
-    expect(visibleMonthsForYear(r, 2025, now, earliest)).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(visibleMonthsForYear(r, 2025, now, earliest, NOW_DAY)).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12]);
   });
 
   it('year before earliest data → empty', () => {
     const r: DateRange = { start: a(2024, 1), end: a(2026, 7), preset: 'custom' };
-    expect(visibleMonthsForYear(r, 2024, now, earliest)).toEqual([]);
+    expect(visibleMonthsForYear(r, 2024, now, earliest, NOW_DAY)).toEqual([]);
   });
 
   it('year after now → empty', () => {
     const r: DateRange = { start: a(2026, 1), end: a(2027, 3), preset: 'custom' };
-    expect(visibleMonthsForYear(r, 2027, now, null)).toEqual([]);
+    expect(visibleMonthsForYear(r, 2027, now, null, NOW_DAY)).toEqual([]);
+  });
+});
+
+describe('visibleMonthsForYear — current month hidden on the first of the month', () => {
+  const now = a(2026, 7);
+
+  it('nowDay 1 → current month dropped (no completed day to show yet)', () => {
+    const r: DateRange = { start: a(2026, 1), end: a(2026, 12), preset: 'custom' };
+    expect(visibleMonthsForYear(r, 2026, now, null, 1)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it('nowDay 2 → current month visible again', () => {
+    const r: DateRange = { start: a(2026, 1), end: a(2026, 12), preset: 'custom' };
+    expect(visibleMonthsForYear(r, 2026, now, null, 2)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it('this_month preset on the 1st → no visible month at all', () => {
+    const r: DateRange = { start: now, end: now, preset: 'this_month' };
+    expect(visibleMonthsForYear(r, 2026, now, null, 1)).toEqual([]);
+  });
+
+  it('January 1st → current year has no visible months', () => {
+    const jan = a(2026, 1);
+    const r: DateRange = { start: a(2025, 1), end: jan, preset: 'custom' };
+    expect(visibleMonthsForYear(r, 2026, jan, null, 1)).toEqual([]);
+    expect(visibleMonthsForYear(r, 2025, jan, null, 1)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+  });
+
+  it('past years are unaffected by nowDay', () => {
+    const r: DateRange = { start: a(2025, 8), end: a(2026, 7), preset: 'custom' };
+    expect(visibleMonthsForYear(r, 2025, now, null, 1)).toEqual([8, 9, 10, 11, 12]);
   });
 });

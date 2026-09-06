@@ -7,9 +7,11 @@ import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statis
 import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
 import { NBSP } from './year-table';
-import { autoContrastText } from '../services/readable-text';
+import { ContrastResolver } from '../services/readable-text';
+import { FrameScheduler } from '../services/frame-scheduler';
 import { rowSummaryKey, computeMeasurementYearRollup, computeCumulativeYearRollup } from '../services/data-transform';
 import { resolvePrecision } from './year-table';
+import { numberFormatter, monthShortFormatter } from '../services/formatters';
 
 const ALL_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -48,29 +50,13 @@ export class YearSummaryTable extends LitElement {
     g.rules.add(rule);
   }
 
-  /** Hidden probe (light DOM child) used to resolve CSS colors via the browser. */
-  private _contrastProbe?: HTMLSpanElement;
-  private _contrastCache = new Map<string, string | undefined>();
-
-  private autoTextFor(bg: string | undefined): string | undefined {
-    if (!bg) return undefined;
-    const cached = this._contrastCache.get(bg);
-    if (cached !== undefined || this._contrastCache.has(bg)) return cached;
-    if (!this._contrastProbe) {
-      const span = document.createElement('span');
-      span.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none';
-      document.body.appendChild(span);
-      this._contrastProbe = span;
-    }
-    const result = autoContrastText(bg, this._contrastProbe);
-    this._contrastCache.set(bg, result);
-    return result;
-  }
+  /** Shared auto-contrast text-color resolver for threshold-colored cells. */
+  private _contrast = new ContrastResolver();
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    this._contrastProbe?.remove();
-    this._contrastProbe = undefined;
+    this._layoutFrame.cancel();
+    this._contrast.dispose();
   }
 
   static styles = css`
@@ -201,11 +187,21 @@ export class YearSummaryTable extends LitElement {
 
   private _lastDispatchedGroups: ThresholdLegendGroup[] = [];
 
-  override updated() {
+  private _layoutFrame = new FrameScheduler();
+  private _lastLabelWidth = '';
+
+  /** Measures the sticky label column on a frame, never inside `updated()`. */
+  private _syncLabelWidth(): void {
     const labelCol = this.shadowRoot?.querySelector<HTMLElement>('td.label-column[rowspan]');
-    if (labelCol) {
-      this.style.setProperty('--label-col-width', `${labelCol.getBoundingClientRect().width}px`);
-    }
+    if (!labelCol) return;
+    const width = `${labelCol.getBoundingClientRect().width}px`;
+    if (width === this._lastLabelWidth) return;
+    this._lastLabelWidth = width;
+    this.style.setProperty('--label-col-width', width);
+  }
+
+  override updated() {
+    this._layoutFrame.schedule(() => this._syncLabelWidth());
     const current: ThresholdLegendGroup[] = [...this._triggeredGroups.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([, g]) => ({ label: g.label, rules: [...g.rules] }));
@@ -233,9 +229,7 @@ export class YearSummaryTable extends LitElement {
   }
 
   private monthName(month: number): string {
-    return new Intl.DateTimeFormat(this.lang, { month: 'short' }).format(
-      new Date(2020, month - 1, 1),
-    );
+    return monthShortFormatter(this.lang).format(new Date(2020, month - 1, 1));
   }
 
   /** Row-type flags from the union of all segments' metadata — the column
@@ -298,7 +292,7 @@ export class YearSummaryTable extends LitElement {
   private renderEntityRows(seg: YearSummarySegment, cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean, hasCumulative: boolean) {
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
+    const nf = numberFormatter(this.lang, precision);
     const meta = seg.entityMetadata.get(key) ?? this._metaFor(key);
     const visible = (m: number) => seg.visibleMonths.includes(m);
     const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
@@ -314,7 +308,7 @@ export class YearSummaryTable extends LitElement {
       cfg.text_color,
       cfg.background_color,
       undefined,
-      this.autoTextFor(cfg.background_color),
+      this._contrast.textFor(cfg.background_color),
     );
 
     if (isMeasurement && !hasError) {
@@ -344,7 +338,7 @@ export class YearSummaryTable extends LitElement {
         const v = raw * f;
         const rule = resolveThreshold(v, cfg.thresholds ?? [], row, 'day');
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
-        const style = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+        const style = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
         return html`<td class="data-cell has-data" style=${ifDefined(style)}>${nf.format(v)}</td>`;
       });
 
@@ -366,7 +360,7 @@ export class YearSummaryTable extends LitElement {
           const role = row === 'min' ? 'summary-min' : row === 'avg' ? 'summary-avg' : 'summary-max';
           const rule = resolveThreshold(v, cfg.thresholds ?? [], role, 'day');
           if (rule) this._addTriggered(rowIndex, groupLabel, rule);
-          summaryStyles[row] = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+          summaryStyles[row] = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
         }
       }
 
@@ -410,7 +404,7 @@ export class YearSummaryTable extends LitElement {
         // Monthly totals are month-scale sums — gated by month-scope rules (015).
         const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar', 'month');
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
-        cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+        cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
       }
       return html`<td class="data-cell ${cellContent ? 'has-data' : ''}" style=${ifDefined(cellStyle)}>${cellContent || NBSP}</td>`;
     });
@@ -437,13 +431,13 @@ export class YearSummaryTable extends LitElement {
     if (rollup.total != null) {
       const rule = resolveThreshold(rollup.total * f, cfg.thresholds ?? [], 'scalar', 'year');
       if (rule) this._addTriggered(rowIndex, groupLabel, rule);
-      cumulTotalStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+      cumulTotalStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
     }
     if (rollup.mean != null && (showMin || showAvg || showMax)) {
       // Rollup over monthly totals inherits their month scale (015).
       const rule = resolveThreshold(rollup.mean * f, cfg.thresholds ?? [], 'summary-scalar', 'month');
       if (rule) this._addTriggered(rowIndex, groupLabel, rule);
-      cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this.autoTextFor(rule?.background_color ?? cfg.background_color));
+      cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
     }
 
     return html`

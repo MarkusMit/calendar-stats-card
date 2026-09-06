@@ -198,3 +198,39 @@ describe('ThresholdListEditor — per-period value inputs (015/US4)', () => {
     expect(labels).toContain('Wert (Jahr)');
   });
 });
+
+describe('ThresholdListEditor — operator symbol in the panel header', () => {
+  async function headers(thresholds: ThresholdRule[], lang = 'en'): Promise<string[]> {
+    const el = await createThresholdListEditor(thresholds, lang);
+    return [...el.shadowRoot!.querySelectorAll('ha-expansion-panel')]
+      .map((panel) => (panel as HTMLElement & { header?: string }).header ?? '');
+  }
+
+  it('tells not-below apart from equals-above at the same value', async () => {
+    const [equalsAbove, notBelow] = await headers([
+      { operator: 'equals-above', value: 25, background_color: 'orange' },
+      { operator: 'not-below', value: 25, background_color: 'lime' },
+    ]);
+
+    expect(equalsAbove).not.toBe(notBelow);
+  });
+
+  it('tells not-above apart from equals-below at the same value', async () => {
+    const [equalsBelow, notAbove] = await headers([
+      { operator: 'equals-below', value: 10, background_color: 'orange' },
+      { operator: 'not-above', value: 10, background_color: 'lime' },
+    ]);
+
+    expect(equalsBelow).not.toBe(notAbove);
+  });
+
+  it('marks the cell the min/max operators target', async () => {
+    const [notBelow, notAbove] = await headers([
+      { operator: 'not-below', value: 0, name: 'Frost free', background_color: 'lime' },
+      { operator: 'not-above', value: 25, background_color: 'cyan' },
+    ]);
+
+    expect(notBelow).toBe('Frost free (↓≥ 0)');
+    expect(notAbove).toBe('↑≤ 25');
+  });
+});

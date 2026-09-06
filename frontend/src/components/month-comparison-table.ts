@@ -7,7 +7,9 @@ import type { EntityMetadata, ComparisonSeries, ComparisonEntry, MonthlySummary 
 import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
 import { NBSP } from './year-table';
-import { autoContrastText } from '../services/readable-text';
+import { ContrastResolver } from '../services/readable-text';
+import { FrameScheduler } from '../services/frame-scheduler';
+import { numberFormatter, signedNumberFormatter, percentFormatter, monthNameFormatter } from '../services/formatters';
 import { buildComparisonSeries } from '../services/data-transform';
 import { resolvePrecision } from './year-table';
 import type { YearSummarySegment } from './year-summary-table';
@@ -43,29 +45,13 @@ export class MonthComparisonTable extends LitElement {
     g.rules.add(rule);
   }
 
-  /** Hidden probe (light DOM child) used to resolve CSS colors via the browser. */
-  private _contrastProbe?: HTMLSpanElement;
-  private _contrastCache = new Map<string, string | undefined>();
-
-  private autoTextFor(bg: string | undefined): string | undefined {
-    if (!bg) return undefined;
-    const cached = this._contrastCache.get(bg);
-    if (cached !== undefined || this._contrastCache.has(bg)) return cached;
-    if (!this._contrastProbe) {
-      const span = document.createElement('span');
-      span.style.cssText = 'position:absolute;width:0;height:0;visibility:hidden;pointer-events:none';
-      document.body.appendChild(span);
-      this._contrastProbe = span;
-    }
-    const result = autoContrastText(bg, this._contrastProbe);
-    this._contrastCache.set(bg, result);
-    return result;
-  }
+  /** Shared auto-contrast text-color resolver for threshold-colored cells. */
+  private _contrast = new ContrastResolver();
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    this._contrastProbe?.remove();
-    this._contrastProbe = undefined;
+    this._layoutFrame.cancel();
+    this._contrast.dispose();
   }
 
   /* Styles mirror year-table (monthly tables) so the comparison looks identical. */
@@ -176,11 +162,21 @@ export class MonthComparisonTable extends LitElement {
 
   private _lastDispatchedGroups: ThresholdLegendGroup[] = [];
 
-  override updated() {
+  private _layoutFrame = new FrameScheduler();
+  private _lastLabelWidth = '';
+
+  /** Measures the sticky label column on a frame, never inside `updated()`. */
+  private _syncLabelWidth(): void {
     const labelCol = this.shadowRoot?.querySelector<HTMLElement>('td.label-column[rowspan]');
-    if (labelCol) {
-      this.style.setProperty('--label-col-width', `${labelCol.getBoundingClientRect().width}px`);
-    }
+    if (!labelCol) return;
+    const width = `${labelCol.getBoundingClientRect().width}px`;
+    if (width === this._lastLabelWidth) return;
+    this._lastLabelWidth = width;
+    this.style.setProperty('--label-col-width', width);
+  }
+
+  override updated() {
+    this._layoutFrame.schedule(() => this._syncLabelWidth());
     const current: ThresholdLegendGroup[] = [...this._triggeredGroups.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([, g]) => ({ label: g.label, rules: [...g.rules] }));
@@ -257,7 +253,7 @@ export class MonthComparisonTable extends LitElement {
     if (rule) this._addTriggered(rowIndex, groupLabel, rule);
     const valueStyle = buildCellStyle(
       cfg.text_color, cfg.background_color, rule,
-      this.autoTextFor(rule?.background_color ?? cfg.background_color),
+      this._contrast.textFor(rule?.background_color ?? cfg.background_color),
     );
     return html`<td class="data-cell has-data" style=${ifDefined(valueStyle)}>${nf.format(v)}${entry.incomplete
         ? html`<span class="incomplete-marker" title=${localize('comparison.incomplete', this.lang)}>*</span>`
@@ -286,7 +282,7 @@ export class MonthComparisonTable extends LitElement {
     if (rule) this._addTriggered(rowIndex, groupLabel, rule);
     const style = buildCellStyle(
       cfg.text_color, cfg.background_color, rule,
-      this.autoTextFor(rule?.background_color ?? cfg.background_color),
+      this._contrast.textFor(rule?.background_color ?? cfg.background_color),
     );
     return html`<td class="avg-cell" style=${ifDefined(style)}>${nf.format(v)}</td>`;
   }
@@ -294,9 +290,9 @@ export class MonthComparisonTable extends LitElement {
   private renderEntityRows(cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean) {
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
-    const sf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision, signDisplay: 'exceptZero' });
-    const pf = new Intl.NumberFormat(this.lang, { style: 'percent', maximumFractionDigits: 0, signDisplay: 'exceptZero' });
+    const nf = numberFormatter(this.lang, precision);
+    const sf = signedNumberFormatter(this.lang, precision);
+    const pf = percentFormatter(this.lang);
     const meta = this._metaFor(key);
     const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
     const unitStr = ('unit' in cfg && cfg.unit) ? cfg.unit : meta?.unitOfMeasurement;
@@ -309,7 +305,7 @@ export class MonthComparisonTable extends LitElement {
     const byYear = this._summariesByYear();
 
     const staticStyle = buildCellStyle(
-      cfg.text_color, cfg.background_color, undefined, this.autoTextFor(cfg.background_color),
+      cfg.text_color, cfg.background_color, undefined, this._contrast.textFor(cfg.background_color),
     );
 
     if (isMeasurement && !hasError) {
@@ -356,7 +352,7 @@ export class MonthComparisonTable extends LitElement {
   render() {
     this._triggeredGroups.clear();
     const hasMeasurement = this.hasMeasurement();
-    const monthName = new Intl.DateTimeFormat(this.lang, { month: 'long' }).format(new Date(2020, this.month - 1, 1));
+    const monthName = monthNameFormatter(this.lang).format(new Date(2020, this.month - 1, 1));
 
     return html`
       <div class="table-container">

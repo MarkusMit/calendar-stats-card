@@ -41,18 +41,6 @@ describe('StatisticsService.fetchMonthlyStats', () => {
   });
 });
 
-describe('StatisticsService.fetchHourlyStats', () => {
-  it('sends recorder/statistics_during_period with period:hour', async () => {
-    const send = vi.fn().mockResolvedValue({});
-    const hass = makeHass('2026.5.0', send);
-    const svc = new StatisticsService();
-    await svc.fetchHourlyStats(hass, ENTITY_IDS, START, END);
-    expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'recorder/statistics_during_period', period: 'hour', statistic_ids: ENTITY_IDS }),
-    );
-  });
-});
-
 describe('StatisticsService.listStatisticIds', () => {
   it('sends recorder/list_statistic_ids', async () => {
     const send = vi.fn().mockResolvedValue([]);

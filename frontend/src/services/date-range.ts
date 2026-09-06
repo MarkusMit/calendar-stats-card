@@ -178,12 +178,17 @@ export function rangeYears(range: DateRange): number[] {
  * Months of `year` visible for the range, clamped so nothing after `now` and
  * nothing before `earliest` shows. Returns an empty array for years fully
  * outside the available window.
+ *
+ * `nowDay` is today's day-of-month in the HA server timezone. On the 1st the
+ * current month has no completed day yet (day cells only ever show days
+ * strictly before today), so it is dropped instead of rendered empty.
  */
 export function visibleMonthsForYear(
   range: DateRange,
   year: number,
   now: MonthAnchor,
   earliest: MonthAnchor | null,
+  nowDay: number,
 ): number[] {
   if (year > now.year) return [];
   if (earliest !== null && year < earliest.year) return [];
@@ -191,10 +196,28 @@ export function visibleMonthsForYear(
   let lo = year === range.start.year ? range.start.month : 1;
   let hi = year === range.end.year ? range.end.month : 12;
 
-  if (year === now.year) hi = Math.min(hi, now.month);
+  if (year === now.year) hi = Math.min(hi, nowDay <= 1 ? now.month - 1 : now.month);
   if (earliest !== null && year === earliest.year) lo = Math.max(lo, earliest.month);
 
   const months: number[] = [];
   for (let m = lo; m <= hi; m++) months.push(m);
   return months;
+}
+
+/**
+ * Milliseconds from `nowMs` until the next midnight in the given time zone.
+ * Used to refresh the day's statistics when the calendar day rolls over.
+ * Always in (0, 24h] — at exactly midnight a full day is returned.
+ */
+export function msUntilNextMidnight(timeZone: string, nowMs: number): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(nowMs));
+  const [h, m, s] = parts.split(':').map(Number);
+  const elapsed = ((h ?? 0) * 3600 + (m ?? 0) * 60 + (s ?? 0)) * 1000 + (nowMs % 1000);
+  return 24 * 3600_000 - elapsed;
 }
