@@ -385,7 +385,6 @@ export class YearTable extends LitElement {
         }
         const val = sec.dailyValues.get(`${key}::${dayKeys[d - 1]}`);
         if (val?.kind === 'measurement') {
-          const pc = val.partialCoverage ? '*' : '';
           const showZero = cfg.show_zero !== false;
           const minV = val.min * f;
           const meanV = val.mean * f;
@@ -397,7 +396,7 @@ export class YearTable extends LitElement {
             const minRule = resolveThreshold(minV, cfg.thresholds ?? [], 'min', 'day');
             if (minRule) this._addTriggered(rowIndex, groupLabel, minRule);
             const minStyle = buildCellStyle(cfg.text_color, cfg.background_color, minRule, this._contrast.textFor(minRule?.background_color ?? cfg.background_color));
-            minCells.push(html`<td class="data-cell has-data" style=${ifDefined(minStyle)}>${nf.format(minV)}${pc}</td>`);
+            minCells.push(html`<td class="data-cell has-data" style=${ifDefined(minStyle)}>${nf.format(minV)}</td>`);
           }
 
           if (meanV === 0 && !showZero) {
@@ -415,7 +414,7 @@ export class YearTable extends LitElement {
             const maxRule = resolveThreshold(maxV, cfg.thresholds ?? [], 'max', 'day');
             if (maxRule) this._addTriggered(rowIndex, groupLabel, maxRule);
             const maxStyle = buildCellStyle(cfg.text_color, cfg.background_color, maxRule, this._contrast.textFor(maxRule?.background_color ?? cfg.background_color));
-            maxCells.push(html`<td class="data-cell has-data" style=${ifDefined(maxStyle)}>${nf.format(maxV)}${pc}</td>`);
+            maxCells.push(html`<td class="data-cell has-data" style=${ifDefined(maxStyle)}>${nf.format(maxV)}</td>`);
           }
         } else {
           minCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
@@ -490,7 +489,7 @@ export class YearTable extends LitElement {
         const v = val.sum * f;
         numericValue = v;
         if (v !== 0 || cfg.show_zero !== false) {
-          cellContent = `${nf.format(v)}${val.partialCoverage ? '*' : ''}`;
+          cellContent = nf.format(v);
         }
       }
       let cellStyle = staticStyle;

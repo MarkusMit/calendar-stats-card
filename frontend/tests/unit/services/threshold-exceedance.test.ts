@@ -23,7 +23,7 @@ function rainYear(sums: Record<number, number | null>, meta: EntityMetadata = RA
     const date = day(Number(d));
     dailyValues.set(`sensor.rain::${date}`, sum === null
       ? { kind: 'empty', entityId: 'sensor.rain', date }
-      : { kind: 'cumulative', entityId: 'sensor.rain', date, sum, partialCoverage: false });
+      : { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
   }
   return new Map([[2025, {
     dailyValues,
@@ -215,7 +215,7 @@ function tempYear(days: Record<number, [number, number, number] | null>): Map<nu
     const date = day(Number(d));
     dailyValues.set(`sensor.temp::${date}`, triple === null
       ? { kind: 'empty', entityId: 'sensor.temp', date }
-      : { kind: 'measurement', entityId: 'sensor.temp', date, min: triple[0], mean: triple[1], max: triple[2], partialCoverage: false });
+      : { kind: 'measurement', entityId: 'sensor.temp', date, min: triple[0], mean: triple[1], max: triple[2] });
   }
   return new Map([[2025, {
     dailyValues,
@@ -298,7 +298,7 @@ describe('countExceedances — range coverage', () => {
     for (const [year, days] of Object.entries(byYear)) {
       const dailyValues = new Map<string, DailyValue>();
       for (const [date, sum] of Object.entries(days)) {
-        dailyValues.set(`sensor.rain::${date}`, { kind: 'cumulative', entityId: 'sensor.rain', date, sum, partialCoverage: false });
+        dailyValues.set(`sensor.rain::${date}`, { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
       }
       out.set(Number(year), { dailyValues, monthlySummaries: new Map(), entityMetadata: new Map([['sensor.rain', RAIN_META]]) });
     }
@@ -354,7 +354,7 @@ describe('countExceedances — per-year breakdown', () => {
     for (const [year, days] of Object.entries(byYear)) {
       const dailyValues = new Map<string, DailyValue>();
       for (const [date, sum] of Object.entries(days)) {
-        dailyValues.set(`sensor.rain::${date}`, { kind: 'cumulative', entityId: 'sensor.rain', date, sum, partialCoverage: false });
+        dailyValues.set(`sensor.rain::${date}`, { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
       }
       out.set(Number(year), { dailyValues, monthlySummaries: new Map(), entityMetadata: new Map([['sensor.rain', RAIN_META]]) });
     }

@@ -423,7 +423,7 @@ export class CalendarStatsCard extends LitElement {
       const nowMs = Date.now();
       const dailyValues = resolvePredecessorData(
         this._config.entities,
-        transformDailyStats(dailyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, tz, nowMs, {}),
+        transformDailyStats(dailyRaw as Record<string, { start: number; end: number; mean?: number; min?: number; max?: number; sum?: number }[]>, metadataMap, tz, nowMs),
         metadataMap,
         this._warnedPredecessors,
       );
@@ -456,7 +456,6 @@ export class CalendarStatsCard extends LitElement {
                 entityId: cfg.expression,
                 date: dateStr,
                 sum: evaluate(cfg.expression, context),
-                partialCoverage: false,
               });
             }
           }

@@ -21,46 +21,9 @@ function todayStringInTz(timeZone: string, nowMs: number): string {
   return dateStringInTz(nowMs, timeZone);
 }
 
-type HourlyEntry = { start: number; end: number };
-
 function yearMonthInTz(timestampMs: number, timeZone: string): { year: number; month: number } {
   const [y, m] = zonedDateString(timestampMs, timeZone).split('-').map(Number);
   return { year: y!, month: m! };
-}
-
-function hourInTz(timestampMs: number, timeZone: string): number {
-  return Number(
-    new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hour12: false }).format(
-      new Date(timestampMs),
-    ),
-  );
-}
-
-function computePartialCoverage(
-  dateStr: string,
-  entityId: string,
-  stateClass: string,
-  timeZone: string,
-  hourlyStats: Record<string, HourlyEntry[]>,
-): boolean {
-  const entityHourly = hourlyStats[entityId];
-  if (!entityHourly || entityHourly.length === 0) return false;
-
-  const dayEntries = entityHourly.filter(
-    (e) => dateStringInTz(e.start, timeZone) === dateStr,
-  );
-
-  if (dayEntries.length === 0) return false;
-
-  if (stateClass === 'measurement') {
-    return dayEntries.length < 24;
-  }
-
-  // Cumulative: check day-boundary gaps only
-  const hours = dayEntries.map((e) => hourInTz(e.start, timeZone));
-  const hasFirstHour = hours.includes(0);
-  const hasLastHour = hours.includes(23);
-  return !hasFirstHour || !hasLastHour;
 }
 
 /**
@@ -72,7 +35,6 @@ export function transformDailyStats(
   metadataMap: Record<string, EntityMetadata>,
   timeZone: string,
   nowMs: number,
-  hourlyStats: Record<string, HourlyEntry[]>,
 ): Map<string, DailyValue> {
   const result = new Map<string, DailyValue>();
   const todayStr = todayStringInTz(timeZone, nowMs);
@@ -99,7 +61,6 @@ export function transformDailyStats(
       }
 
       if (isMeasurement) {
-        const partial = computePartialCoverage(dateStr, entityId, meta.stateClass, timeZone, hourlyStats);
         const dayVal: MeasurementDailyValue = {
           kind: 'measurement',
           entityId,
@@ -107,7 +68,6 @@ export function transformDailyStats(
           min: entry.min ?? 0,
           mean: entry.mean ?? 0,
           max: entry.max ?? 0,
-          partialCoverage: partial,
         };
         result.set(key, dayVal);
       } else {
@@ -119,13 +79,11 @@ export function transformDailyStats(
 
         if (isTotalIncreasing && delta < 0) delta = 0;
 
-        const partial = computePartialCoverage(dateStr, entityId, meta.stateClass, timeZone, hourlyStats);
         const dayVal: CumulativeDailyValue = {
           kind: 'cumulative',
           entityId,
           date: dateStr,
           sum: delta,
-          partialCoverage: partial,
         };
         result.set(key, dayVal);
       }

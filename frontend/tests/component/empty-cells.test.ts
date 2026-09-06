@@ -37,7 +37,7 @@ describe('empty cells render a non-breaking space (borders via td.data-cell)', (
     el.entityConfigs = [{ entity: RAIN_ID }];
     const dayVal: CumulativeDailyValue = {
       kind: 'cumulative', entityId: RAIN_ID, date: '2025-01-01',
-      sum: 12, partialCoverage: false,
+      sum: 12,
     };
     el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();
