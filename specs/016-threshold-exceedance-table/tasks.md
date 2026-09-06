@@ -97,9 +97,9 @@ All commands run from `frontend/`.
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T022 [P] Document the table in `docs/README.md` next to the existing threshold and legend documentation, including a short example matching [quickstart.md](quickstart.md).
-- [ ] T023 Run `npm test`, `npm run lint` and `npm run build` from `frontend/` and confirm all green with no new build warnings beyond the pre-existing `threshold-list-editor.ts:137` TS2352 notice.
-- [ ] T024 Deploy with `wsl -e bash -lc "cd /mnt/c/Dev/HomeAssistant/tabularizer && ./scripts/deploy.sh"`, verify the deployed bundle's md5 matches the local build, and check against real data per [quickstart.md](quickstart.md): band counts equal the visibly colored days, band counts sum to the lowest threshold's total, and the numbers are unchanged after switching to the yearly view.
+- [X] T022 [P] Document the table in `docs/README.md` next to the existing threshold and legend documentation, including a short example matching [quickstart.md](quickstart.md).
+- [X] T023 Run `npm test`, `npm run lint` and `npm run build` from `frontend/` and confirm all green with no new build warnings beyond the pre-existing `threshold-list-editor.ts:137` TS2352 notice.
+- [X] T024 Deploy with `wsl -e bash -lc "cd /mnt/c/Dev/HomeAssistant/tabularizer && ./scripts/deploy.sh"`, verify the deployed bundle's md5 matches the local build, and check against real data per [quickstart.md](quickstart.md): band counts equal the visibly colored days, band counts sum to the lowest threshold's total, and the numbers are unchanged after switching to the yearly view.
 
 ---
 

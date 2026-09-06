@@ -24,7 +24,7 @@ Future months and today's still-running day are hidden.
 - **Smart monthly summary** — for `measurement` entities, monthly extremes are computed from the per-day extremes (not from the per-day means as HA does natively).
   For cumulative and expression rows, you decide per row whether zero-value days count toward min/avg/max via the `show_zero` option (default: included).
 - **Expression rows** — define a row as an arithmetic formula over several entities, evaluated per day.
-- **Threshold colouring** — flag days that go above/below configurable values with per-rule text and background colours; matched rules show in a legend.
+- **Threshold colouring** — flag days that go above/below configurable values with per-rule text and background colours; matched rules show in a legend, and a table at the end of the page counts the days each threshold was reached.
 - **Predecessor entities** — stitch together history from a sensor that was replaced, with an optional unit-conversion factor.
 - **Dense layout** — maximum 4 px cell padding, no decorative whitespace, sticky entity-label column, horizontal scroll per table.
 - **Visual editor** — full GUI configuration; no YAML required.
@@ -179,6 +179,42 @@ entities:
         name: Extreme month
         background_color: "#01579b"
 ```
+
+### Threshold days table
+
+Below every table, the card counts how often each named day threshold was reached over the viewed range.
+Each row shows two numbers:
+
+| Column | Meaning |
+|--------|---------|
+| Band   | Days where this rule is the one that colours the cell — days between this threshold and the next. |
+| Total  | Days where this rule applies at all, whether or not another rule takes precedence for the colour. |
+
+With thresholds at 25 and 30 on a temperature row, a day at 28 counts in the 25 band and a day at 32 in the 30 band, while both days count toward the 25 total:
+
+```yaml
+entities:
+  - entity: sensor.outdoor_temperature
+    name: Temperature
+    thresholds:
+      - operator: equals-above
+        value: 25
+        name: Summer day
+        background_color: orange
+      - operator: equals-above
+        value: 30
+        name: Hot day
+        background_color: red
+```
+
+| Temperature [°C] | Band | Total |
+|---|---|---|
+| Summer day | 5 | 8 |
+| Hot day | 3 | 3 |
+
+The table appears in the monthly and yearly views whenever at least one rule qualifies; there is no option to turn it on or off.
+A rule qualifies when it has a `name`, a day `value` and at least one colour — rules that only set `value_month` or `value_year` describe sums rather than days and are left out.
+Counts follow what is visible: today and future days are excluded, values hidden by `show_zero: false` are not counted, and a day with several values (min/avg/max) counts once per rule.
 
 ### Predecessor entry
 
