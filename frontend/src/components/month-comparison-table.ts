@@ -8,6 +8,8 @@ import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
 import { NBSP } from './year-table';
 import { ContrastResolver } from '../services/readable-text';
+import { FrameScheduler } from '../services/frame-scheduler';
+import { numberFormatter, signedNumberFormatter, percentFormatter, monthNameFormatter } from '../services/formatters';
 import { buildComparisonSeries } from '../services/data-transform';
 import { resolvePrecision } from './year-table';
 import type { YearSummarySegment } from './year-summary-table';
@@ -48,6 +50,7 @@ export class MonthComparisonTable extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._layoutFrame.cancel();
     this._contrast.dispose();
   }
 
@@ -159,11 +162,21 @@ export class MonthComparisonTable extends LitElement {
 
   private _lastDispatchedGroups: ThresholdLegendGroup[] = [];
 
-  override updated() {
+  private _layoutFrame = new FrameScheduler();
+  private _lastLabelWidth = '';
+
+  /** Measures the sticky label column on a frame, never inside `updated()`. */
+  private _syncLabelWidth(): void {
     const labelCol = this.shadowRoot?.querySelector<HTMLElement>('td.label-column[rowspan]');
-    if (labelCol) {
-      this.style.setProperty('--label-col-width', `${labelCol.getBoundingClientRect().width}px`);
-    }
+    if (!labelCol) return;
+    const width = `${labelCol.getBoundingClientRect().width}px`;
+    if (width === this._lastLabelWidth) return;
+    this._lastLabelWidth = width;
+    this.style.setProperty('--label-col-width', width);
+  }
+
+  override updated() {
+    this._layoutFrame.schedule(() => this._syncLabelWidth());
     const current: ThresholdLegendGroup[] = [...this._triggeredGroups.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([, g]) => ({ label: g.label, rules: [...g.rules] }));
@@ -277,9 +290,9 @@ export class MonthComparisonTable extends LitElement {
   private renderEntityRows(cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean) {
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
-    const sf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision, signDisplay: 'exceptZero' });
-    const pf = new Intl.NumberFormat(this.lang, { style: 'percent', maximumFractionDigits: 0, signDisplay: 'exceptZero' });
+    const nf = numberFormatter(this.lang, precision);
+    const sf = signedNumberFormatter(this.lang, precision);
+    const pf = percentFormatter(this.lang);
     const meta = this._metaFor(key);
     const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
     const unitStr = ('unit' in cfg && cfg.unit) ? cfg.unit : meta?.unitOfMeasurement;
@@ -339,7 +352,7 @@ export class MonthComparisonTable extends LitElement {
   render() {
     this._triggeredGroups.clear();
     const hasMeasurement = this.hasMeasurement();
-    const monthName = new Intl.DateTimeFormat(this.lang, { month: 'long' }).format(new Date(2020, this.month - 1, 1));
+    const monthName = monthNameFormatter(this.lang).format(new Date(2020, this.month - 1, 1));
 
     return html`
       <div class="table-container">

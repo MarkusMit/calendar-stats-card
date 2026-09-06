@@ -8,8 +8,10 @@ import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
 import { NBSP } from './year-table';
 import { ContrastResolver } from '../services/readable-text';
+import { FrameScheduler } from '../services/frame-scheduler';
 import { rowSummaryKey, computeMeasurementYearRollup, computeCumulativeYearRollup } from '../services/data-transform';
 import { resolvePrecision } from './year-table';
+import { numberFormatter, monthShortFormatter } from '../services/formatters';
 
 const ALL_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -53,6 +55,7 @@ export class YearSummaryTable extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._layoutFrame.cancel();
     this._contrast.dispose();
   }
 
@@ -184,11 +187,21 @@ export class YearSummaryTable extends LitElement {
 
   private _lastDispatchedGroups: ThresholdLegendGroup[] = [];
 
-  override updated() {
+  private _layoutFrame = new FrameScheduler();
+  private _lastLabelWidth = '';
+
+  /** Measures the sticky label column on a frame, never inside `updated()`. */
+  private _syncLabelWidth(): void {
     const labelCol = this.shadowRoot?.querySelector<HTMLElement>('td.label-column[rowspan]');
-    if (labelCol) {
-      this.style.setProperty('--label-col-width', `${labelCol.getBoundingClientRect().width}px`);
-    }
+    if (!labelCol) return;
+    const width = `${labelCol.getBoundingClientRect().width}px`;
+    if (width === this._lastLabelWidth) return;
+    this._lastLabelWidth = width;
+    this.style.setProperty('--label-col-width', width);
+  }
+
+  override updated() {
+    this._layoutFrame.schedule(() => this._syncLabelWidth());
     const current: ThresholdLegendGroup[] = [...this._triggeredGroups.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([, g]) => ({ label: g.label, rules: [...g.rules] }));
@@ -216,9 +229,7 @@ export class YearSummaryTable extends LitElement {
   }
 
   private monthName(month: number): string {
-    return new Intl.DateTimeFormat(this.lang, { month: 'short' }).format(
-      new Date(2020, month - 1, 1),
-    );
+    return monthShortFormatter(this.lang).format(new Date(2020, month - 1, 1));
   }
 
   /** Row-type flags from the union of all segments' metadata — the column
@@ -281,7 +292,7 @@ export class YearSummaryTable extends LitElement {
   private renderEntityRows(seg: YearSummarySegment, cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean, hasCumulative: boolean) {
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
+    const nf = numberFormatter(this.lang, precision);
     const meta = seg.entityMetadata.get(key) ?? this._metaFor(key);
     const visible = (m: number) => seg.visibleMonths.includes(m);
     const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');

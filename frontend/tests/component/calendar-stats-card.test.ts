@@ -872,3 +872,183 @@ describe('CalendarStatsCard — current month hidden on the first of the month',
     }, { timeout: 3000 });
   });
 });
+
+// --- Threshold exceedance table (spec 016) ---
+
+describe('CalendarStatsCard — exceedance table', () => {
+  const withThreshold: CardConfig = {
+    type: 'custom:calendar-stats-card',
+    entities: [{
+      entity: 'sensor.temp',
+      name: 'Temperature',
+      thresholds: [{ operator: 'equals-above', value: 25, name: 'Summer day', background_color: 'orange' }],
+    }],
+  };
+
+  it('renders in the monthly view when a rule qualifies', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).not.toBeNull();
+  });
+
+  it('renders after the data tables, inside the card content', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await card.updateComplete;
+    const content = card.shadowRoot!.querySelector('.card-content')!;
+    const table = content.querySelector('calendar-stats-exceedance-table');
+    expect(table).not.toBeNull();
+    const lastTable = [...content.querySelectorAll('calendar-stats-year-table, calendar-stats-year-summary-table')].pop();
+    if (lastTable) {
+      expect(lastTable.compareDocumentPosition(table!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
+  it('is absent when no rule qualifies', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
+  });
+
+  it('is absent when the only rule is unnamed', async () => {
+    const unnamed: CardConfig = {
+      type: 'custom:calendar-stats-card',
+      entities: [{
+        entity: 'sensor.temp',
+        thresholds: [{ operator: 'equals-above', value: 25, background_color: 'orange' }],
+      }],
+    };
+    const card = await createCard(unnamed, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
+  });
+});
+
+describe('CalendarStatsCard — exceedance table across views', () => {
+  const withThreshold: CardConfig = {
+    type: 'custom:calendar-stats-card',
+    entities: [{
+      entity: 'sensor.temp',
+      name: 'Temperature',
+      thresholds: [{ operator: 'equals-above', value: 25, name: 'Summer day', background_color: 'orange' }],
+    }],
+  };
+
+  function counts(card: CalendarStatsCard): Array<[string, number, number]> {
+    const el = card.shadowRoot!.querySelector('calendar-stats-exceedance-table') as
+      (HTMLElement & { groups: Array<{ label: string; rows: Array<{ band: number; cumulative: number }> }> }) | null;
+    if (!el) return [];
+    return el.groups.flatMap((g) => g.rows.map((r) => [g.label, r.band, r.cumulative] as [string, number, number]));
+  }
+
+  it('renders in the yearly view', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    card.viewMode = 'yearly';
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      if (!card.shadowRoot!.querySelector('calendar-stats-year-summary-table')) throw new Error('not yearly yet');
+    }, { timeout: 3000 });
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).not.toBeNull();
+  });
+
+  it('is absent while the month comparison is open', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    card.viewMode = 'yearly';
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      if (!card.shadowRoot!.querySelector('calendar-stats-year-summary-table')) throw new Error('not yearly yet');
+    }, { timeout: 3000 });
+    card.shadowRoot!.querySelector('calendar-stats-year-summary-table')!.dispatchEvent(
+      new CustomEvent('calendar-stats-month-select', { detail: { month: 3 }, bubbles: true, composed: true }),
+    );
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      if (!card.shadowRoot!.querySelector('button.comparison-back')) throw new Error('no comparison');
+    }, { timeout: 3000 });
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
+  });
+
+  it('reports the same counts in the monthly and the yearly view', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await card.updateComplete;
+    const monthly = counts(card);
+    card.viewMode = 'yearly';
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      if (!card.shadowRoot!.querySelector('calendar-stats-year-summary-table')) throw new Error('not yearly yet');
+    }, { timeout: 3000 });
+    expect(counts(card)).toEqual(monthly);
+    expect(monthly.length).toBeGreaterThan(0);
+  });
+});
+
+describe('CalendarStatsCard — exceedance per-year columns', () => {
+  const withThreshold: CardConfig = {
+    type: 'custom:calendar-stats-card',
+    entities: [{
+      entity: 'sensor.temp',
+      name: 'Temperature',
+      thresholds: [{ operator: 'equals-above', value: 25, name: 'Summer day', background_color: 'orange' }],
+    }],
+  };
+
+  function table(card: CalendarStatsCard): (HTMLElement & { years: number[] }) | null {
+    return card.shadowRoot!.querySelector('calendar-stats-exceedance-table') as
+      (HTMLElement & { years: number[] }) | null;
+  }
+
+  async function toYearly(card: CalendarStatsCard): Promise<void> {
+    card.viewMode = 'yearly';
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      if (!card.shadowRoot!.querySelector('calendar-stats-year-summary-table')) throw new Error('not yearly yet');
+    }, { timeout: 3000 });
+  }
+
+  it('passes the displayed years in the yearly view', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await toYearly(card);
+    const el = table(card)!;
+    expect(el.years.length).toBeGreaterThan(0);
+    expect(el.years).toEqual([...el.years].sort((a, b) => a - b));
+  });
+
+  it('passes no years in the monthly view', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await card.updateComplete;
+    expect(table(card)!.years).toEqual([]);
+  });
+
+  it('the years match the rows own per-year entries', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await toYearly(card);
+    const el = table(card) as unknown as { years: number[]; groups: Array<{ rows: Array<{ byYear: Array<{ year: number }> }> }> };
+    const rowYears = el.groups[0]!.rows[0]!.byYear.map((y) => y.year);
+    expect(el.years).toEqual(rowYears);
+  });
+});
+
+describe('CalendarStatsCard — exceedance table visibility option', () => {
+  const base = {
+    entity: 'sensor.temp',
+    name: 'Temperature',
+    thresholds: [{ operator: 'equals-above' as const, value: 25, name: 'Summer day', background_color: 'orange' }],
+  };
+
+  it('renders the table when show_threshold_table is omitted', async () => {
+    const card = await createCard({ type: 'custom:calendar-stats-card', entities: [base] }, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).not.toBeNull();
+  });
+
+  it('renders the table when show_threshold_table is true', async () => {
+    const card = await createCard({ type: 'custom:calendar-stats-card', entities: [base], show_threshold_table: true } as CardConfig, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).not.toBeNull();
+  });
+
+  it('hides the table when show_threshold_table is false', async () => {
+    const card = await createCard({ type: 'custom:calendar-stats-card', entities: [base], show_threshold_table: false } as CardConfig, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
+  });
+});

@@ -54,6 +54,12 @@
     "title": "Legende",
     "swatch_sample": "A"
   },
+  "exceedance": {
+    "title": "Schwellwerttage",
+    "band": "Bereich",
+    "total": "Gesamt",
+    "all_years": "Alle Jahre"
+  },
   "editor": {
     "add_entity": "Entität",
     "add_expression": "Ausdruck",
@@ -93,9 +99,19 @@
     "predecessor_factor": "Faktor (optional)",
     "entity_not_found": "Entität nicht gefunden",
     "invalid_expression_syntax": "Ungültige Ausdruckssyntax",
-    "entity_not_found_in_expression": "Entität nicht gefunden: {entity}"
+    "entity_not_found_in_expression": "Entität nicht gefunden: {entity}",
+    "show_threshold_table": "Schwellwerttage-Tabelle anzeigen",
+    "options": "Optionen"
   },
   "threshold": {
+    "symbols": {
+      "above": ">",
+      "equals_above": "≥",
+      "equals_below": "≤",
+      "below": "<",
+      "not_below": "≥",
+      "not_above": "≤"
+    },
     "operators": {
       "above": "Darüber (>)",
       "equals_above": "Mindestens (≥)",

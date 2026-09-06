@@ -61,23 +61,6 @@ export class StatisticsService {
     return hass.connection.sendMessagePromise<RawStats>(msg);
   }
 
-  async fetchHourlyStats(
-    hass: HomeAssistant,
-    entityIds: string[],
-    startTime: string,
-    endTime: string,
-  ): Promise<RawStats> {
-    const msg: Record<string, unknown> = {
-      type: 'recorder/statistics_during_period',
-      start_time: startTime,
-      end_time: endTime,
-      statistic_ids: entityIds,
-      period: 'hour',
-      types: ['mean', 'min', 'max', 'sum'],
-    };
-    return hass.connection.sendMessagePromise<RawStats>(msg);
-  }
-
   async listStatisticIds(hass: HomeAssistant): Promise<StatisticMetaEntry[]> {
     return hass.connection.sendMessagePromise<StatisticMetaEntry[]>({
       type: 'recorder/list_statistic_ids',

@@ -20,7 +20,7 @@ function daily(month: number, day: number, mean: number): [string, MeasurementDa
   const dateStr = `${YEAR}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   return [`${ID}::${dateStr}`, {
     kind: 'measurement', entityId: ID, date: dateStr,
-    min: mean - 1, mean, max: mean + 1, partialCoverage: false,
+    min: mean - 1, mean, max: mean + 1,
   }];
 }
 

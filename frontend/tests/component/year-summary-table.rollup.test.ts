@@ -31,7 +31,7 @@ function dailyTemp(month: number, day: number, mean: number): [string, Measureme
   const dateStr = `${YEAR}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   return [`sensor.temp::${dateStr}`, {
     kind: 'measurement', entityId: 'sensor.temp', date: dateStr,
-    min: mean - 1, mean, max: mean + 1, partialCoverage: false,
+    min: mean - 1, mean, max: mean + 1,
   }];
 }
 

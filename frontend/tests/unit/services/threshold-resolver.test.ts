@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveThreshold, buildCellStyle } from '../../../src/services/threshold-resolver';
+import { resolveThreshold, matchingThresholds, buildCellStyle } from '../../../src/services/threshold-resolver';
 import type { ThresholdRule } from '../../../src/types/card-config';
 
 // --- resolveThreshold ---
@@ -430,5 +430,63 @@ describe('buildCellStyle', () => {
 
   it('autoText ignored when no background', () => {
     expect(buildCellStyle(undefined, undefined, undefined, '#000000')).toBeUndefined();
+  });
+});
+
+// --- matchingThresholds ---
+
+describe('matchingThresholds', () => {
+  it('empty thresholds → empty list', () => {
+    expect(matchingThresholds(15, [], 'scalar')).toEqual([]);
+  });
+
+  it('returns every applicable rule, not only the winner', () => {
+    const warm: ThresholdRule = { operator: 'equals-above', value: 25, background_color: 'orange' };
+    const hot: ThresholdRule = { operator: 'equals-above', value: 30, background_color: 'red' };
+    const all = matchingThresholds(32, [warm, hot], 'scalar');
+    expect(all).toHaveLength(2);
+    expect(all).toContain(warm);
+    expect(all).toContain(hot);
+    // The winner is one of them.
+    expect(all).toContain(resolveThreshold(32, [warm, hot], 'scalar'));
+  });
+
+  it('excludes rules whose operator does not match', () => {
+    const warm: ThresholdRule = { operator: 'equals-above', value: 25, background_color: 'orange' };
+    const hot: ThresholdRule = { operator: 'equals-above', value: 30, background_color: 'red' };
+    expect(matchingThresholds(28, [warm, hot], 'scalar')).toEqual([warm]);
+  });
+
+  it('excludes rules without a value for the requested period', () => {
+    const dayOnly: ThresholdRule = { operator: 'above', value: 10, background_color: 'red' };
+    const monthOnly: ThresholdRule = { operator: 'above', value_month: 10, background_color: 'blue' };
+    expect(matchingThresholds(20, [dayOnly, monthOnly], 'scalar', 'day')).toEqual([dayOnly]);
+    expect(matchingThresholds(20, [dayOnly, monthOnly], 'scalar', 'month')).toEqual([monthOnly]);
+  });
+
+  it('excludes colorless rules', () => {
+    const colorless: ThresholdRule = { operator: 'above', value: 5, name: 'x' };
+    const colored: ThresholdRule = { operator: 'above', value: 5, text_color: 'blue' };
+    expect(matchingThresholds(10, [colorless, colored], 'scalar')).toEqual([colored]);
+  });
+
+  it('honours not-below role exclusions (inert on avg and max)', () => {
+    const r: ThresholdRule = { operator: 'not-below', value: 5, background_color: 'red' };
+    expect(matchingThresholds(10, [r], 'min')).toEqual([r]);
+    expect(matchingThresholds(10, [r], 'avg')).toEqual([]);
+    expect(matchingThresholds(10, [r], 'max')).toEqual([]);
+  });
+
+  it('honours not-above role exclusions (inert on min and avg)', () => {
+    const r: ThresholdRule = { operator: 'not-above', value: 20, background_color: 'red' };
+    expect(matchingThresholds(10, [r], 'max')).toEqual([r]);
+    expect(matchingThresholds(10, [r], 'min')).toEqual([]);
+    expect(matchingThresholds(10, [r], 'avg')).toEqual([]);
+  });
+
+  it('preserves the order the rules were defined in', () => {
+    const a: ThresholdRule = { operator: 'above', value: 30, background_color: 'red' };
+    const b: ThresholdRule = { operator: 'above', value: 10, background_color: 'blue' };
+    expect(matchingThresholds(40, [a, b], 'scalar')).toEqual([a, b]);
   });
 });

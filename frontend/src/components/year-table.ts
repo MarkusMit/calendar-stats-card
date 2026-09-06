@@ -8,6 +8,9 @@ import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
 import { ContrastResolver } from '../services/readable-text';
 import { rowSummaryKey } from '../services/data-transform';
+import { rowLabel } from '../services/row-label';
+import { FrameScheduler } from '../services/frame-scheduler';
+import { numberFormatter, monthNameFormatter } from '../services/formatters';
 
 const TOTAL_DAYS = 31;
 
@@ -64,8 +67,8 @@ export class YearTable extends LitElement {
   }
 
   /** Metadata lookup across all sections (column structure must match everywhere). */
-  private _metaFor(key: string): EntityMetadata | undefined {
-    for (const sec of this._sections()) {
+  private _metaFor(sections: MonthSegment[], key: string): EntityMetadata | undefined {
+    for (const sec of sections) {
       const meta = sec.entityMetadata.get(key);
       if (meta) return meta;
     }
@@ -89,6 +92,7 @@ export class YearTable extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._layoutFrame.cancel();
     this._contrast.dispose();
   }
 
@@ -249,18 +253,36 @@ export class YearTable extends LitElement {
     }
   };
 
-  override updated() {
+  private _layoutFrame = new FrameScheduler();
+  private _lastLabelWidth = '';
+  private _lastSpacerWidth = '';
+
+  /**
+   * Measures the sticky column and the scroll width. Runs on an animation
+   * frame, not in `updated()`, so a table of thousands of cells is not laid
+   * out synchronously on every render; both reads happen before either write,
+   * and unchanged values are not written back at all.
+   */
+  private _syncWidths(): void {
     const labelCol = this.shadowRoot?.querySelector<HTMLElement>('td.label-column[rowspan]');
-    if (labelCol) {
-      this.style.setProperty('--label-col-width', `${labelCol.getBoundingClientRect().width}px`);
-    }
-    // Size the sticky scrollbar's spacer to the table's scroll width so both
-    // scroll areas share the same range (no overflow → scrollbar auto-hides).
     const container = this.shadowRoot?.querySelector<HTMLElement>('.table-container');
     const spacer = this.shadowRoot?.querySelector<HTMLElement>('.sticky-scrollbar-spacer');
-    if (container && spacer) {
-      spacer.style.width = `${container.scrollWidth}px`;
+    const labelWidth = labelCol ? `${labelCol.getBoundingClientRect().width}px` : null;
+    // The sticky scrollbar's spacer matches the table's scroll width so both
+    // scroll areas share the same range (no overflow → scrollbar auto-hides).
+    const spacerWidth = container && spacer ? `${container.scrollWidth}px` : null;
+    if (labelWidth !== null && labelWidth !== this._lastLabelWidth) {
+      this._lastLabelWidth = labelWidth;
+      this.style.setProperty('--label-col-width', labelWidth);
     }
+    if (spacerWidth !== null && spacer && spacerWidth !== this._lastSpacerWidth) {
+      this._lastSpacerWidth = spacerWidth;
+      spacer.style.setProperty('width', spacerWidth);
+    }
+  }
+
+  override updated() {
+    this._layoutFrame.schedule(() => this._syncWidths());
     const current: ThresholdLegendGroup[] = [...this._triggeredGroups.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([, g]) => ({ label: g.label, rules: [...g.rules] }));
@@ -296,35 +318,37 @@ export class YearTable extends LitElement {
   }
 
   private monthName(month: number): string {
-    return new Intl.DateTimeFormat(this.lang, { month: 'long' }).format(
-      new Date(2020, month - 1, 1),
-    );
+    return monthNameFormatter(this.lang).format(new Date(2020, month - 1, 1));
   }
 
-  private hasCumulative(): boolean {
+  private hasCumulative(sections: MonthSegment[]): boolean {
     return this.entityConfigs.some((cfg) => {
-      const meta = this._metaFor(rowKey(cfg));
+      const meta = this._metaFor(sections, rowKey(cfg));
       return meta && meta.stateClass !== 'measurement';
     });
   }
 
-  private hasMeasurement(): boolean {
+  private hasMeasurement(sections: MonthSegment[]): boolean {
     return this.entityConfigs.some((cfg) => {
-      const meta = this._metaFor(rowKey(cfg));
+      const meta = this._metaFor(sections, rowKey(cfg));
       return meta?.stateClass === 'measurement';
     });
   }
 
-  private renderEntityRows(cfg: EntityConfig, rowIndex: number, sec: MonthSegment, days: number, hasMeasurement: boolean) {
+  /** Date keys of the section's 31 day columns, built once and shared by every row. */
+  private dayKeys(year: number, month: number): string[] {
+    const keys: string[] = [];
+    for (let d = 1; d <= TOTAL_DAYS; d++) keys.push(this.dateStr(year, month, d));
+    return keys;
+  }
+
+  private renderEntityRows(cfg: EntityConfig, rowIndex: number, sec: MonthSegment, days: number, hasMeasurement: boolean, hasCumulative: boolean, dayKeys: string[]) {
     const { year, month } = sec;
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
+    const nf = numberFormatter(this.lang, precision);
     const meta = sec.entityMetadata.get(key);
-    const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
-    const unitStr = ('unit' in cfg && cfg.unit) ? cfg.unit : meta?.unitOfMeasurement;
-    const unit = unitStr ? ` [${unitStr}]` : '';
-    const groupLabel = `${label}${unit}`;
+    const groupLabel = rowLabel(cfg, meta);
     const f = ('factor' in cfg && cfg.factor != null) ? cfg.factor : 1;
     const hasStats = meta?.hasStatistics ?? true;
     const hasError = this.entityErrors.has(key);
@@ -359,9 +383,8 @@ export class YearTable extends LitElement {
           maxCells.push(html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`);
           continue;
         }
-        const val = sec.dailyValues.get(`${key}::${this.dateStr(year, month, d)}`);
+        const val = sec.dailyValues.get(`${key}::${dayKeys[d - 1]}`);
         if (val?.kind === 'measurement') {
-          const pc = val.partialCoverage ? '*' : '';
           const showZero = cfg.show_zero !== false;
           const minV = val.min * f;
           const meanV = val.mean * f;
@@ -373,7 +396,7 @@ export class YearTable extends LitElement {
             const minRule = resolveThreshold(minV, cfg.thresholds ?? [], 'min', 'day');
             if (minRule) this._addTriggered(rowIndex, groupLabel, minRule);
             const minStyle = buildCellStyle(cfg.text_color, cfg.background_color, minRule, this._contrast.textFor(minRule?.background_color ?? cfg.background_color));
-            minCells.push(html`<td class="data-cell has-data" style=${ifDefined(minStyle)}>${nf.format(minV)}${pc}</td>`);
+            minCells.push(html`<td class="data-cell has-data" style=${ifDefined(minStyle)}>${nf.format(minV)}</td>`);
           }
 
           if (meanV === 0 && !showZero) {
@@ -391,7 +414,7 @@ export class YearTable extends LitElement {
             const maxRule = resolveThreshold(maxV, cfg.thresholds ?? [], 'max', 'day');
             if (maxRule) this._addTriggered(rowIndex, groupLabel, maxRule);
             const maxStyle = buildCellStyle(cfg.text_color, cfg.background_color, maxRule, this._contrast.textFor(maxRule?.background_color ?? cfg.background_color));
-            maxCells.push(html`<td class="data-cell has-data" style=${ifDefined(maxStyle)}>${nf.format(maxV)}${pc}</td>`);
+            maxCells.push(html`<td class="data-cell has-data" style=${ifDefined(maxStyle)}>${nf.format(maxV)}</td>`);
           }
         } else {
           minCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
@@ -403,7 +426,7 @@ export class YearTable extends LitElement {
       if (visibleRows.length === 0) {
         return html`
           <tr>
-            <td class="label-column" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>
+            <td class="label-column" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${groupLabel}</td>
           </tr>
         `;
       }
@@ -437,10 +460,9 @@ export class YearTable extends LitElement {
         }
       }
 
-      const hasCumulative = this.hasCumulative();
       return html`${visibleRows.map((row, idx) => html`
         <tr class="${idx < visibleRows.length - 1 ? 'sub-row' : ''}">
-          ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>` : ''}
+          ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${groupLabel}</td>` : ''}
           <td class="sub-label" style=${ifDefined(staticStyle)}>${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
           ${cells[row]}
           <td class="summary-column" style=${ifDefined(summaryStyles[row])}>${summaryVals[row]}</td>
@@ -456,7 +478,7 @@ export class YearTable extends LitElement {
         dayCells.push(html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`);
         continue;
       }
-      const val = sec.dailyValues.get(`${key}::${this.dateStr(year, month, d)}`);
+      const val = sec.dailyValues.get(`${key}::${dayKeys[d - 1]}`);
       let cellContent = '';
       let numericValue: number | undefined;
       if (hasError) {
@@ -467,7 +489,7 @@ export class YearTable extends LitElement {
         const v = val.sum * f;
         numericValue = v;
         if (v !== 0 || cfg.show_zero !== false) {
-          cellContent = `${nf.format(v)}${val.partialCoverage ? '*' : ''}`;
+          cellContent = nf.format(v);
         }
       }
       let cellStyle = staticStyle;
@@ -510,7 +532,7 @@ export class YearTable extends LitElement {
 
     return html`
       <tr>
-        <td class="label-column" colspan="${hasMeasurement ? 2 : 1}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>
+        <td class="label-column" colspan="${hasMeasurement ? 2 : 1}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${groupLabel}</td>
         ${dayCells}
         <td class="summary-column" style=${ifDefined(cumulSummaryStyle)}>${summaryContent}</td>
         <td class="summary-column" style=${ifDefined(cumulTotalStyle)}>${totalContent}</td>
@@ -520,22 +542,28 @@ export class YearTable extends LitElement {
 
   render() {
     this._triggeredGroups.clear();
-    const hasCumulative = this.hasCumulative();
-    const hasMeasurement = this.hasMeasurement();
+    // One scan of the sections feeds every column decision below; recomputing
+    // it per row would rescan every section for every row.
+    const sections = this._sections();
+    const hasCumulative = this.hasCumulative(sections);
+    const hasMeasurement = this.hasMeasurement(sections);
     // Cross-year section mode always shows the year in the month header.
     const withYear = this.showYear || (this.monthSegments?.length ?? 0) > 0;
 
     return html`
       <div class="table-container" @scroll=${this._onContainerScroll}>
         <table>
-          ${this._sections().map((sec) => {
+          ${sections.map((sec) => {
             const days = this.daysInMonth(sec.year, sec.month);
+            const dayKeys = this.dayKeys(sec.year, sec.month);
+            // Weekday of the 1st, then count forward — one Date per month instead of one per day.
+            const firstWeekday = new Date(sec.year, sec.month - 1, 1).getDay();
             const dayHeaders = [];
             for (let d = 1; d <= TOTAL_DAYS; d++) {
               if (d > days) {
                 dayHeaders.push(html`<th class="pad-cell"></th>`);
               } else {
-                const isSunday = new Date(sec.year, sec.month - 1, d).getDay() === 0;
+                const isSunday = (firstWeekday + d - 1) % 7 === 0;
                 dayHeaders.push(html`<th class="${isSunday ? 'sunday' : ''}">${d}</th>`);
               }
             }
@@ -549,7 +577,7 @@ export class YearTable extends LitElement {
                 </tr>
               </thead>
               <tbody>
-                ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, sec, days, hasMeasurement))}
+                ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, sec, days, hasMeasurement, hasCumulative, dayKeys))}
               </tbody>
             `;
           })}
