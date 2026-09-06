@@ -23,20 +23,17 @@ function matchesOperator(cellValue: number, operator: ThresholdRule['operator'],
   }
 }
 
-/** Every rule that applies to the cell, in config order — the candidates a winner is picked from. */
-function applicableRules(
+/** The rule's threshold for this cell, or undefined when the rule cannot apply to it. */
+function applicableValue(
+  rule: ThresholdRule,
   cellValue: number,
-  thresholds: ThresholdRule[],
   cellRole: CellRole,
   cellScope: ThresholdScope,
-): Array<{ rule: ThresholdRule; value: number }> {
-  return thresholds
-    .map((t) => ({ rule: t, value: thresholdFor(t, cellScope) }))
-    .filter((e): e is { rule: ThresholdRule; value: number } =>
-      e.value != null
-      && Boolean(e.rule.text_color || e.rule.background_color)
-      && matchesOperator(cellValue, e.rule.operator, e.value, cellRole),
-    );
+): number | undefined {
+  const value = thresholdFor(rule, cellScope);
+  if (value == null) return undefined;
+  if (!rule.text_color && !rule.background_color) return undefined;
+  return matchesOperator(cellValue, rule.operator, value, cellRole) ? value : undefined;
 }
 
 /** All applicable rules, not just the winning one — used for cumulative exceedance counts. */
@@ -46,29 +43,41 @@ export function matchingThresholds(
   cellRole: CellRole,
   cellScope: ThresholdScope = 'day',
 ): ThresholdRule[] {
-  return applicableRules(cellValue, thresholds, cellRole, cellScope).map((e) => e.rule);
+  const matches: ThresholdRule[] = [];
+  for (const rule of thresholds) {
+    if (applicableValue(rule, cellValue, cellRole, cellScope) !== undefined) matches.push(rule);
+  }
+  return matches;
 }
 
+/**
+ * The rule that colors the cell: the closest applicable threshold, ties broken
+ * by the higher threshold and then by config order. Resolved in one pass —
+ * this runs several times per cell, for thousands of cells.
+ */
 export function resolveThreshold(
   cellValue: number,
   thresholds: ThresholdRule[],
   cellRole: CellRole,
   cellScope: ThresholdScope = 'day',
 ): ThresholdRule | undefined {
-  const withValue = applicableRules(cellValue, thresholds, cellRole, cellScope);
+  let winner: ThresholdRule | undefined;
+  let winnerDistance = Infinity;
+  let winnerValue = -Infinity;
 
-  if (withValue.length === 0) return undefined;
+  for (const rule of thresholds) {
+    const value = applicableValue(rule, cellValue, cellRole, cellScope);
+    if (value === undefined) continue;
+    const distance = Math.abs(cellValue - value);
+    // Strictly better only: an exact tie keeps the rule defined first.
+    if (distance < winnerDistance || (distance === winnerDistance && value > winnerValue)) {
+      winner = rule;
+      winnerDistance = distance;
+      winnerValue = value;
+    }
+  }
 
-  const minDist = Math.min(...withValue.map((e) => Math.abs(cellValue - e.value)));
-  const candidates = withValue.filter((e) => Math.abs(cellValue - e.value) === minDist);
-
-  if (candidates.length === 1) return candidates[0]!.rule;
-
-  const maxVal = Math.max(...candidates.map((e) => e.value));
-  const top = candidates.filter((e) => e.value === maxVal);
-
-  // Secondary tie-break: first-defined (filter preserves original order)
-  return top[0]!.rule;
+  return winner;
 }
 
 export function buildCellStyle(
