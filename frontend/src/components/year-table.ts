@@ -9,6 +9,7 @@ import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver
 import { ContrastResolver } from '../services/readable-text';
 import { rowSummaryKey } from '../services/data-transform';
 import { rowLabel } from '../services/row-label';
+import { FrameScheduler } from '../services/frame-scheduler';
 import { numberFormatter, monthNameFormatter } from '../services/formatters';
 
 const TOTAL_DAYS = 31;
@@ -91,6 +92,7 @@ export class YearTable extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._layoutFrame.cancel();
     this._contrast.dispose();
   }
 
@@ -251,18 +253,36 @@ export class YearTable extends LitElement {
     }
   };
 
-  override updated() {
+  private _layoutFrame = new FrameScheduler();
+  private _lastLabelWidth = '';
+  private _lastSpacerWidth = '';
+
+  /**
+   * Measures the sticky column and the scroll width. Runs on an animation
+   * frame, not in `updated()`, so a table of thousands of cells is not laid
+   * out synchronously on every render; both reads happen before either write,
+   * and unchanged values are not written back at all.
+   */
+  private _syncWidths(): void {
     const labelCol = this.shadowRoot?.querySelector<HTMLElement>('td.label-column[rowspan]');
-    if (labelCol) {
-      this.style.setProperty('--label-col-width', `${labelCol.getBoundingClientRect().width}px`);
-    }
-    // Size the sticky scrollbar's spacer to the table's scroll width so both
-    // scroll areas share the same range (no overflow → scrollbar auto-hides).
     const container = this.shadowRoot?.querySelector<HTMLElement>('.table-container');
     const spacer = this.shadowRoot?.querySelector<HTMLElement>('.sticky-scrollbar-spacer');
-    if (container && spacer) {
-      spacer.style.width = `${container.scrollWidth}px`;
+    const labelWidth = labelCol ? `${labelCol.getBoundingClientRect().width}px` : null;
+    // The sticky scrollbar's spacer matches the table's scroll width so both
+    // scroll areas share the same range (no overflow → scrollbar auto-hides).
+    const spacerWidth = container && spacer ? `${container.scrollWidth}px` : null;
+    if (labelWidth !== null && labelWidth !== this._lastLabelWidth) {
+      this._lastLabelWidth = labelWidth;
+      this.style.setProperty('--label-col-width', labelWidth);
     }
+    if (spacerWidth !== null && spacer && spacerWidth !== this._lastSpacerWidth) {
+      this._lastSpacerWidth = spacerWidth;
+      spacer.style.setProperty('width', spacerWidth);
+    }
+  }
+
+  override updated() {
+    this._layoutFrame.schedule(() => this._syncWidths());
     const current: ThresholdLegendGroup[] = [...this._triggeredGroups.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([, g]) => ({ label: g.label, rules: [...g.rules] }));

@@ -8,6 +8,7 @@ import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
 import { NBSP } from './year-table';
 import { ContrastResolver } from '../services/readable-text';
+import { FrameScheduler } from '../services/frame-scheduler';
 import { buildComparisonSeries } from '../services/data-transform';
 import { resolvePrecision } from './year-table';
 import type { YearSummarySegment } from './year-summary-table';
@@ -48,6 +49,7 @@ export class MonthComparisonTable extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._layoutFrame.cancel();
     this._contrast.dispose();
   }
 
@@ -159,11 +161,21 @@ export class MonthComparisonTable extends LitElement {
 
   private _lastDispatchedGroups: ThresholdLegendGroup[] = [];
 
-  override updated() {
+  private _layoutFrame = new FrameScheduler();
+  private _lastLabelWidth = '';
+
+  /** Measures the sticky label column on a frame, never inside `updated()`. */
+  private _syncLabelWidth(): void {
     const labelCol = this.shadowRoot?.querySelector<HTMLElement>('td.label-column[rowspan]');
-    if (labelCol) {
-      this.style.setProperty('--label-col-width', `${labelCol.getBoundingClientRect().width}px`);
-    }
+    if (!labelCol) return;
+    const width = `${labelCol.getBoundingClientRect().width}px`;
+    if (width === this._lastLabelWidth) return;
+    this._lastLabelWidth = width;
+    this.style.setProperty('--label-col-width', width);
+  }
+
+  override updated() {
+    this._layoutFrame.schedule(() => this._syncLabelWidth());
     const current: ThresholdLegendGroup[] = [...this._triggeredGroups.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([, g]) => ({ label: g.label, rules: [...g.rules] }));
