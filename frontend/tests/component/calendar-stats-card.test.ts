@@ -872,3 +872,53 @@ describe('CalendarStatsCard — current month hidden on the first of the month',
     }, { timeout: 3000 });
   });
 });
+
+// --- Threshold exceedance table (spec 016) ---
+
+describe('CalendarStatsCard — exceedance table', () => {
+  const withThreshold: CardConfig = {
+    type: 'custom:calendar-stats-card',
+    entities: [{
+      entity: 'sensor.temp',
+      name: 'Temperature',
+      thresholds: [{ operator: 'equals-above', value: 25, name: 'Summer day', background_color: 'orange' }],
+    }],
+  };
+
+  it('renders in the monthly view when a rule qualifies', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).not.toBeNull();
+  });
+
+  it('renders after the data tables, inside the card content', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await card.updateComplete;
+    const content = card.shadowRoot!.querySelector('.card-content')!;
+    const table = content.querySelector('calendar-stats-exceedance-table');
+    expect(table).not.toBeNull();
+    const lastTable = [...content.querySelectorAll('calendar-stats-year-table, calendar-stats-year-summary-table')].pop();
+    if (lastTable) {
+      expect(lastTable.compareDocumentPosition(table!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
+  it('is absent when no rule qualifies', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
+  });
+
+  it('is absent when the only rule is unnamed', async () => {
+    const unnamed: CardConfig = {
+      type: 'custom:calendar-stats-card',
+      entities: [{
+        entity: 'sensor.temp',
+        thresholds: [{ operator: 'equals-above', value: 25, background_color: 'orange' }],
+      }],
+    };
+    const card = await createCard(unnamed, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
+  });
+});

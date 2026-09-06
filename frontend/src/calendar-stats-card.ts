@@ -13,6 +13,7 @@ import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStar
 import { localize } from './localize/localize';
 import { buildCellStyle } from './services/threshold-resolver';
 import { ContrastResolver } from './services/readable-text';
+import { countExceedances } from './services/threshold-exceedance';
 import './components/loading-overlay';
 import './components/year-table';
 import type { MonthSegment } from './components/year-table';
@@ -20,6 +21,7 @@ import './components/year-summary-table';
 import './components/month-comparison-table';
 import './components/view-mode-toggle';
 import './components/range-navigator';
+import './components/exceedance-table';
 import './components/calendar-stats-card-editor';
 
 @customElement('calendar-stats-card')
@@ -775,6 +777,9 @@ export class CalendarStatsCard extends LitElement {
       .filter((seg) => seg.months.length > 0);
     const showYear = yearSegments.length > 1;
     const comparisonOpen = this._viewState.viewMode === 'yearly' && this._viewState.comparisonMonth !== null;
+    const exceedanceGroups = config && !comparisonOpen
+      ? countExceedances(config.entities, yearSegments, this._viewState.statisticsByYear)
+      : [];
 
     return html`
       <ha-card>
@@ -826,6 +831,12 @@ export class CalendarStatsCard extends LitElement {
                       @thresholds-applied=${this._onThresholdsApplied}
                     ></calendar-stats-year-table>`;
                   }))
+            : ''}
+          ${exceedanceGroups.length > 0
+            ? html`<calendar-stats-exceedance-table
+                .groups=${exceedanceGroups}
+                .lang=${lang}
+              ></calendar-stats-exceedance-table>`
             : ''}
         </div>
         ${!this._inEditor ? html`<div class="bottom-bar">
