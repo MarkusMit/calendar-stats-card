@@ -4,7 +4,17 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { localize } from '../localize/localize';
 import { buildCellStyle } from '../services/threshold-resolver';
 import { ContrastResolver } from '../services/readable-text';
+import type { ThresholdOperator, ThresholdRule } from '../types/card-config';
 import type { ExceedanceGroup, ExceedanceRow } from '../services/threshold-exceedance';
+
+const OPERATOR_KEYS: Record<ThresholdOperator, string> = {
+  'above': 'above',
+  'equals-above': 'equals_above',
+  'equals-below': 'equals_below',
+  'below': 'below',
+  'not-below': 'not_below',
+  'not-above': 'not_above',
+};
 
 /**
  * Bottom-of-page summary: per named day threshold, how many days of the viewed
@@ -98,6 +108,12 @@ export class ExceedanceTable extends LitElement {
     }
   `;
 
+  /** "Summer day (≥ 25)" — the name alone does not say what the threshold is. */
+  private _ruleLabel(rule: ThresholdRule): string {
+    const symbol = localize(`threshold.symbols.${OPERATOR_KEYS[rule.operator]}`, this.lang);
+    return `${rule.name} (${symbol} ${rule.value})`;
+  }
+
   /** Per-year columns only pay off from two years on — one year duplicates the overall pair. */
   private get _yearColumns(): number[] {
     return this.years.length > 1 ? this.years : [];
@@ -161,7 +177,7 @@ export class ExceedanceTable extends LitElement {
                 <tr>
                   <td class="rule-name" style=${ifDefined(buildCellStyle(
                     undefined, undefined, row.rule, this._contrast.textFor(row.rule.background_color),
-                  ))}>${row.rule.name}</td>
+                  ))}>${this._ruleLabel(row.rule)}</td>
                   ${this._renderCounts(row)}
                 </tr>
               `)}

@@ -777,7 +777,7 @@ export class CalendarStatsCard extends LitElement {
       .filter((seg) => seg.months.length > 0);
     const showYear = yearSegments.length > 1;
     const comparisonOpen = this._viewState.viewMode === 'yearly' && this._viewState.comparisonMonth !== null;
-    const exceedanceGroups = config && !comparisonOpen
+    const exceedanceGroups = config && !comparisonOpen && config.show_threshold_table !== false
       ? countExceedances(config.entities, yearSegments, this._viewState.statisticsByYear)
       : [];
 

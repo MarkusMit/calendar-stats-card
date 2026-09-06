@@ -82,6 +82,7 @@ entities:
 |----------|---------|----------|---------|-------------|
 | `type`     | string  | yes | — | Must be `custom:calendar-stats-card`. |
 | `entities` | list    | yes | — | Ordered list of entity rows and/or expression rows. |
+| `show_threshold_table` | boolean | no  | `true` | Show the [threshold days table](#threshold-days-table) below the tables. |
 
 ### Entity row
 
@@ -209,18 +210,19 @@ entities:
 
 | Temperature [°C] | Band | Total |
 |---|---|---|
-| Summer day | 5 | 8 |
-| Hot day | 3 | 3 |
+| Summer day (≥ 25) | 5 | 8 |
+| Hot day (≥ 30) | 3 | 3 |
 
-The table appears in the monthly and yearly views whenever at least one rule qualifies; there is no option to turn it on or off.
+The table appears in the monthly and yearly views whenever at least one rule qualifies, unless `show_threshold_table: false` is set on the card.
 A rule qualifies when it has a `name`, a day `value` and at least one colour — rules that only set `value_month` or `value_year` describe sums rather than days and are left out.
+Each row is labelled with the rule name and its threshold, e.g. `Summer day (≥ 25)`.
 Counts follow what is visible: today and future days are excluded, values hidden by `show_zero: false` are not counted, and a day with several values (min/avg/max) counts once per rule.
 
 In the yearly view over more than one year, each year gets its own Band and Total columns, followed by an "All years" pair for the whole range:
 
 | Rain [mm] | 2024 Band | 2024 Total | 2025 Band | 2025 Total | All years Band | All years Total |
 |---|---|---|---|---|---|---|
-| Wet day | 2 | 3 | 3 | 5 | 5 | 8 |
+| Wet day (≥ 10) | 2 | 3 | 3 | 5 | 5 | 8 |
 
 A displayed year with no matching day still gets its columns, showing 0.
 The monthly view, and a yearly view showing a single year, keep the plain two-column layout.

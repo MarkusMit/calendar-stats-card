@@ -27,6 +27,14 @@ export class CalendarStatsCardEditor extends LitElement {
       text-align: center;
       font-style: italic;
     }
+    .card-options {
+      padding: 0 0 4px;
+      border-bottom: 1px solid var(--divider-color, #e0e0e0);
+      margin-bottom: 8px;
+    }
+    .card-options ha-formfield {
+      --mdc-typography-body2-font-size: 0.9em;
+    }
     .add-row-section {
       padding: 8px 0;
     }
@@ -204,6 +212,16 @@ export class CalendarStatsCardEditor extends LitElement {
     }));
   }
 
+  /** Only the non-default (false) is written, so the shown-by-default case stays implicit. */
+  private _handleThresholdTableToggle = (e: Event): void => {
+    const checked = (e.target as HTMLInputElement).checked;
+    const rest = { ...this._rest };
+    if (checked) delete rest['show_threshold_table'];
+    else rest['show_threshold_table'] = false;
+    this._rest = rest;
+    this._dispatchConfigChanged();
+  };
+
   _addEntityRow(entityId: string): void {
     const newIndex = this._entities.length;
     this._entities = [...this._entities, { entity: entityId } as EntityRowConfig];
@@ -286,6 +304,15 @@ export class CalendarStatsCardEditor extends LitElement {
     const empty = this._entities.length === 0;
 
     return html`
+      <div class="card-options">
+        <ha-formfield .label=${localize('editor.show_threshold_table', lang)}>
+          <ha-checkbox
+            data-field="show_threshold_table"
+            .checked=${this._rest['show_threshold_table'] !== false}
+            @change=${this._handleThresholdTableToggle}
+          ></ha-checkbox>
+        </ha-formfield>
+      </div>
       ${empty ? html`
         <div class="empty-state">
           ${localize('editor.no_rows', lang)}

@@ -1026,3 +1026,29 @@ describe('CalendarStatsCard — exceedance per-year columns', () => {
     expect(el.years).toEqual(rowYears);
   });
 });
+
+describe('CalendarStatsCard — exceedance table visibility option', () => {
+  const base = {
+    entity: 'sensor.temp',
+    name: 'Temperature',
+    thresholds: [{ operator: 'equals-above' as const, value: 25, name: 'Summer day', background_color: 'orange' }],
+  };
+
+  it('renders the table when show_threshold_table is omitted', async () => {
+    const card = await createCard({ type: 'custom:calendar-stats-card', entities: [base] }, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).not.toBeNull();
+  });
+
+  it('renders the table when show_threshold_table is true', async () => {
+    const card = await createCard({ type: 'custom:calendar-stats-card', entities: [base], show_threshold_table: true } as CardConfig, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).not.toBeNull();
+  });
+
+  it('hides the table when show_threshold_table is false', async () => {
+    const card = await createCard({ type: 'custom:calendar-stats-card', entities: [base], show_threshold_table: false } as CardConfig, makeHass());
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
+  });
+});

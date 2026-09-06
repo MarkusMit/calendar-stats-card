@@ -47,7 +47,7 @@ describe('ExceedanceTable — structure', () => {
   it('renders one row per rule, in the order given', async () => {
     const el = await renderTable([RAIN_GROUP]);
     const names = [...el.shadowRoot!.querySelectorAll('.rule-name')].map((n) => n.textContent!.trim());
-    expect(names).toEqual(['Wet day', 'Heavy day']);
+    expect(names).toEqual(['Wet day (≥ 10)', 'Heavy day (≥ 30)']);
   });
 
   it('shows the cumulative count for each rule', async () => {
@@ -214,5 +214,35 @@ describe('ExceedanceTable — visual weighting', () => {
     const el = await renderYears([2024, 2025]);
     const header = el.shadowRoot!.querySelector('.year-group.all-years');
     expect(header?.textContent!.trim()).toBe('All years');
+  });
+});
+
+describe('ExceedanceTable — threshold definition in the row label', () => {
+  function ruleRow(rule: ThresholdRule): ExceedanceGroup {
+    return { label: 'Rain [mm]', rows: [{ rule, band: 1, cumulative: 1, byYear: [] }] };
+  }
+
+  async function labelFor(rule: ThresholdRule, lang = 'en'): Promise<string> {
+    const el = await renderTable([ruleRow(rule)], lang);
+    return el.shadowRoot!.querySelector('.rule-name')!.textContent!.replace(/\s+/g, ' ').trim();
+  }
+
+  it('appends the operator symbol and the day value', async () => {
+    expect(await labelFor({ operator: 'equals-above', value: 25, name: 'Summer day', background_color: 'orange' }))
+      .toBe('Summer day (≥ 25)');
+  });
+
+  it('uses the matching symbol for each operator', async () => {
+    const base = { value: 10, name: 'R', background_color: 'blue' } as const;
+    expect(await labelFor({ ...base, operator: 'above' })).toContain('(> 10)');
+    expect(await labelFor({ ...base, operator: 'below' })).toContain('(< 10)');
+    expect(await labelFor({ ...base, operator: 'equals-below' })).toContain('(≤ 10)');
+    expect(await labelFor({ ...base, operator: 'not-below' })).toContain('(≥ 10)');
+    expect(await labelFor({ ...base, operator: 'not-above' })).toContain('(≤ 10)');
+  });
+
+  it('keeps a negative or fractional value readable', async () => {
+    expect(await labelFor({ operator: 'below', value: -2.5, name: 'Frost', background_color: 'cyan' }))
+      .toBe('Frost (< -2.5)');
   });
 });

@@ -88,7 +88,7 @@ It is a correctness guarantee on top of the two stories above rather than a sepa
 - **FR-010**: Incomplete days — today and future days — MUST NOT be counted.
 - **FR-011**: Counting MUST reflect what the tables show: values suppressed because zero values are hidden for a row MUST NOT be counted, and any configured scaling factor for the row MUST be applied before comparing against thresholds.
 - **FR-012**: The table MUST appear in the monthly view and in the yearly view, and MUST NOT appear in the month comparison view.
-- **FR-013**: The table MUST appear whenever at least one qualifying threshold rule exists, without any configuration option to enable it.
+- **FR-013**: The table MUST appear whenever at least one qualifying threshold rule exists and the card-level visibility option does not disable it.
 - **FR-014**: The counts for a given range MUST be identical in the monthly and the yearly view.
 - **FR-015**: All headings and column labels of the table MUST be available in English and German.
 - **FR-016**: Each threshold row MUST carry the visual marking of its rule, so a row can be matched to the colored cells it summarizes.
@@ -96,6 +96,9 @@ It is a correctness guarantee on top of the two stories above rather than a sepa
 - **FR-018**: A displayed year with no matching day MUST still get its own columns, showing zero.
 - **FR-019**: The per-year counts of a row MUST sum to that row's counts over the whole range.
 - **FR-020**: The monthly view MUST keep the range-wide counts without per-year columns, and a yearly view showing a single year MUST do the same.
+- **FR-021**: Each row label MUST state the rule threshold alongside its name, as an operator symbol and the day value.
+- **FR-022**: A card-level option MUST control whether the table is shown, defaulting to shown when the option is absent.
+- **FR-023**: The visual editor MUST expose that option as a checkbox, and MUST omit the key from the emitted configuration when the table is shown.
 
 ### Key Entities
 

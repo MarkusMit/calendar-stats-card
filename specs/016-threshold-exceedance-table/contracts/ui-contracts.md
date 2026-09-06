@@ -83,3 +83,23 @@ Additional translation key:
 | Key | English | German |
 |---|---|---|
 | `exceedance.all_years` | All years | Alle Jahre |
+
+## Card-level option
+
+```yaml
+type: custom:calendar-stats-card
+show_threshold_table: false   # optional; omitted or true shows the table
+entities: []
+```
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `show_threshold_table` | boolean | `true` | Hides the threshold days table when set to `false` (FR-022) |
+
+The visual editor shows it as a checkbox above the row list and writes the key only when unchecked, so the default stays implicit (FR-023).
+Additional translation key: `editor.show_threshold_table` — "Show threshold days table" / "Schwellwerttage-Tabelle anzeigen".
+
+## Row label
+
+Each rule row is labelled `<name> (<symbol> <day value>)`, e.g. `Summer day (≥ 25)` (FR-021).
+Symbols come from `threshold.symbols.*`: `>`, `≥`, `≤`, `<` — `not-below` renders as `≥` and `not-above` as `≤`, matching their semantics.
