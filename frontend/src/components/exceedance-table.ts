@@ -87,6 +87,15 @@ export class ExceedanceTable extends LitElement {
       min-width: 34px;
       border-right: 1px solid var(--divider-color, #ccc);
     }
+    /* Tint the running totals so they read as a column, not as more digits. */
+    td.total-cell {
+      background: var(--secondary-background-color, #f0f0f0);
+    }
+    /* The range-wide pair carries the answer most readers want first. */
+    td.count-cell.all-years,
+    thead th.year-group.all-years {
+      font-weight: 700;
+    }
   `;
 
   /** Per-year columns only pay off from two years on — one year duplicates the overall pair. */
@@ -109,7 +118,7 @@ export class ExceedanceTable extends LitElement {
       <tr>
         <th class="rule-column" rowspan="2">${localize('exceedance.title', this.lang)}</th>
         ${years.map((y) => html`<th class="year-group" colspan="2">${y}</th>`)}
-        <th class="year-group" colspan="2">${localize('exceedance.all_years', this.lang)}</th>
+        <th class="year-group all-years" colspan="2">${localize('exceedance.all_years', this.lang)}</th>
       </tr>
       <tr>
         ${[...years, null].map(() => html`
@@ -123,10 +132,16 @@ export class ExceedanceTable extends LitElement {
   private _renderCounts(row: ExceedanceRow) {
     const years = this._yearColumns;
     const perYear = years.map((y) => row.byYear.find((e) => e.year === y) ?? { year: y, band: 0, cumulative: 0 });
-    return [...perYear, { year: 0, band: row.band, cumulative: row.cumulative }].map((entry) => html`
-      <td class="count-cell band-cell">${entry.band}</td>
-      <td class="count-cell total-cell">${entry.cumulative}</td>
-    `);
+    const all = { year: 0, band: row.band, cumulative: row.cumulative };
+    // The range-wide pair is only worth emphasising when year columns sit beside it.
+    const emphasis = years.length > 0 ? ' all-years' : '';
+    return [...perYear, all].map((entry, i) => {
+      const mark = i === perYear.length ? emphasis : '';
+      return html`
+        <td class="count-cell band-cell${mark}">${entry.band}</td>
+        <td class="count-cell total-cell${mark}">${entry.cumulative}</td>
+      `;
+    });
   }
 
   override render() {

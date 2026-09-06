@@ -196,3 +196,23 @@ describe('ExceedanceTable — per-year columns', () => {
     expect(label.getAttribute('colspan')).toBe('7');
   });
 });
+
+describe('ExceedanceTable — visual weighting', () => {
+  it('marks the all-years pair so it can be emphasised', async () => {
+    const el = await renderYears([2024, 2025]);
+    const firstRule = el.shadowRoot!.querySelectorAll('tbody tr')[1]!;
+    const emphasised = [...firstRule.querySelectorAll('.all-years')].map((c) => c.textContent!.trim());
+    expect(emphasised).toEqual(['5', '8']);
+  });
+
+  it('does not mark an all-years pair when there are no year columns', async () => {
+    const el = await renderYears([]);
+    expect(el.shadowRoot!.querySelectorAll('.all-years')).toHaveLength(0);
+  });
+
+  it('marks the all-years header group too', async () => {
+    const el = await renderYears([2024, 2025]);
+    const header = el.shadowRoot!.querySelector('.year-group.all-years');
+    expect(header?.textContent!.trim()).toBe('All years');
+  });
+});
