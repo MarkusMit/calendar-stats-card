@@ -335,7 +335,14 @@ export class YearTable extends LitElement {
     });
   }
 
-  private renderEntityRows(cfg: EntityConfig, rowIndex: number, sec: MonthSegment, days: number, hasMeasurement: boolean, hasCumulative: boolean) {
+  /** Date keys of the section's 31 day columns, built once and shared by every row. */
+  private dayKeys(year: number, month: number): string[] {
+    const keys: string[] = [];
+    for (let d = 1; d <= TOTAL_DAYS; d++) keys.push(this.dateStr(year, month, d));
+    return keys;
+  }
+
+  private renderEntityRows(cfg: EntityConfig, rowIndex: number, sec: MonthSegment, days: number, hasMeasurement: boolean, hasCumulative: boolean, dayKeys: string[]) {
     const { year, month } = sec;
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
@@ -376,7 +383,7 @@ export class YearTable extends LitElement {
           maxCells.push(html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`);
           continue;
         }
-        const val = sec.dailyValues.get(`${key}::${this.dateStr(year, month, d)}`);
+        const val = sec.dailyValues.get(`${key}::${dayKeys[d - 1]}`);
         if (val?.kind === 'measurement') {
           const pc = val.partialCoverage ? '*' : '';
           const showZero = cfg.show_zero !== false;
@@ -472,7 +479,7 @@ export class YearTable extends LitElement {
         dayCells.push(html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`);
         continue;
       }
-      const val = sec.dailyValues.get(`${key}::${this.dateStr(year, month, d)}`);
+      const val = sec.dailyValues.get(`${key}::${dayKeys[d - 1]}`);
       let cellContent = '';
       let numericValue: number | undefined;
       if (hasError) {
@@ -549,6 +556,7 @@ export class YearTable extends LitElement {
         <table>
           ${sections.map((sec) => {
             const days = this.daysInMonth(sec.year, sec.month);
+            const dayKeys = this.dayKeys(sec.year, sec.month);
             // Weekday of the 1st, then count forward — one Date per month instead of one per day.
             const firstWeekday = new Date(sec.year, sec.month - 1, 1).getDay();
             const dayHeaders = [];
@@ -570,7 +578,7 @@ export class YearTable extends LitElement {
                 </tr>
               </thead>
               <tbody>
-                ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, sec, days, hasMeasurement, hasCumulative))}
+                ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, sec, days, hasMeasurement, hasCumulative, dayKeys))}
               </tbody>
             `;
           })}
