@@ -79,11 +79,14 @@
 
 ---
 
-## Decision 8: Legend — Both Colors Present
+## Decision 8: Legend — Swatch Rendering
 
-**Decision**: When a `ThresholdRule` has both `background_color` and `text_color`, the legend entry shows a filled swatch (using `background_color`) plus the name label rendered in `text_color`.
+**Decision**: The legend entry always shows a swatch containing a sample glyph, with the threshold name as a plain label beside it.
+The swatch mirrors the matched cell: `background_color` fills it, and the glyph takes `text_color` (or the auto-contrast color when only a background is set).
+A `text_color`-only rule keeps the swatch, unfilled, with the glyph in that color.
 
-**Rationale**: Swatch represents cell background (primary visual indicator); text color applied to the label mimics how text appears in a matched cell. Maximally informative with minimal space.
+**Rationale**: The swatch is the single place that reproduces the rule's effect, so background- and text-only rules stay visually comparable and legend rows keep their alignment.
+Superseded the original "name label rendered in text_color" form, which left text-only rules with an empty box and could render the label invisible against the popover background.
 
 **Alternatives considered**:
 - Two swatches (one for background, one for text color) — rejected; doubles width with marginal gain.

@@ -650,14 +650,12 @@ export class CalendarStatsCard extends LitElement {
                 <span class="legend-group-label">${g.label}:</span>
                 ${g.rules.map(r => html`
                   <span class="legend-entry">
-                    ${r.background_color ? html`
+                    ${r.background_color || r.text_color ? html`
                       <span class="legend-swatch" aria-hidden="true" style=${ifDefined(
                         buildCellStyle(undefined, undefined, r, this._contrast.textFor(r.background_color)),
                       )}>${localize('legend.swatch_sample', lang)}</span>
                     ` : ''}
-                    <span class="legend-name" style=${ifDefined(
-                      !r.background_color && r.text_color ? `color:${r.text_color}` : undefined,
-                    )}>${r.name}</span>
+                    <span class="legend-name">${r.name}</span>
                   </span>
                 `)}
               </div>

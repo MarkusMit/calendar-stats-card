@@ -597,14 +597,18 @@ describe('CalendarStatsCard — threshold legend (grouped, floating bar)', () =>
     expect(swatch!.style.color).toBe(expected);
   });
 
-  it('text_color only → no swatch, name label rendered in that color (FR-016)', async () => {
+  it('text_color only → swatch letter in that color, no background, name plain', async () => {
     const card = await createCard(CONFIG, makeHass());
     await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, text_color: 'blue', name: 'Mild day' })]);
     await openLegend(card);
-    expect(card.shadowRoot!.querySelector('.legend-swatch')).toBeNull();
+    const swatch = card.shadowRoot!.querySelector('.legend-swatch') as HTMLElement | null;
+    expect(swatch).not.toBeNull();
+    expect(swatch!.textContent!.trim()).toBe('A');
+    expect(swatch!.style.color).toBe('blue');
+    expect(swatch!.style.backgroundColor).toBe('');
     const name = card.shadowRoot!.querySelector('.legend-name') as HTMLElement | null;
     expect(name!.textContent!.trim()).toBe('Mild day');
-    expect(name!.style.color).toBe('blue');
+    expect(name!.style.color).toBe('');
   });
 
   it('rule with neither color → entry rendered without swatch or inline color', async () => {
