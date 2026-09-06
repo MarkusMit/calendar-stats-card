@@ -13,6 +13,7 @@ import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStar
 import { localize } from './localize/localize';
 import { buildCellStyle } from './services/threshold-resolver';
 import { ContrastResolver } from './services/readable-text';
+import { zonedDateFormatter, zonedDateString } from './services/formatters';
 import { countExceedances } from './services/threshold-exceedance';
 import type { ExceedanceGroup, MonthSpan } from './services/threshold-exceedance';
 import './components/loading-overlay';
@@ -302,7 +303,7 @@ export class CalendarStatsCard extends LitElement {
       const now = new Date();
       value = { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
     } else {
-      const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+      const parts = zonedDateFormatter(tz).format(new Date());
       const [y, m, d] = parts.split('-').map(Number);
       const fallback = new Date();
       value = {
@@ -428,9 +429,7 @@ export class CalendarStatsCard extends LitElement {
       );
 
       // Compute expression daily values from constituent entity daily values
-      const todayStr = new Intl.DateTimeFormat('en-CA', {
-        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
-      }).format(new Date(nowMs));
+      const todayStr = zonedDateString(nowMs, tz);
       for (const cfg of this._config.entities) {
         if (!('expression' in cfg)) continue;
         const exprEntityIds = extractEntityIds(cfg.expression);

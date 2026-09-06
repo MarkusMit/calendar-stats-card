@@ -11,14 +11,10 @@ import type {
 } from '../types/statistics';
 import type { EntityConfig } from '../types/card-config';
 import type { RawStats } from './statistics-service';
+import { zonedDateString } from './formatters';
 
 function dateStringInTz(timestampMs: number, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(timestampMs));
+  return zonedDateString(timestampMs, timeZone);
 }
 
 function todayStringInTz(timeZone: string, nowMs: number): string {
@@ -28,12 +24,7 @@ function todayStringInTz(timeZone: string, nowMs: number): string {
 type HourlyEntry = { start: number; end: number };
 
 function yearMonthInTz(timestampMs: number, timeZone: string): { year: number; month: number } {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-  }).format(new Date(timestampMs));
-  const [y, m] = parts.split('-').map(Number);
+  const [y, m] = zonedDateString(timestampMs, timeZone).split('-').map(Number);
   return { year: y!, month: m! };
 }
 
