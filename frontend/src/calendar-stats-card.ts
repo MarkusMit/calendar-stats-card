@@ -9,7 +9,7 @@ import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMo
 import { rowKey } from './types/card-config';
 import { resolvePredecessorData } from './services/predecessor-resolver';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
-import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor } from './services/date-range';
+import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor, msUntilNextMidnight } from './services/date-range';
 import { localize } from './localize/localize';
 import { buildCellStyle } from './services/threshold-resolver';
 import { ContrastResolver } from './services/readable-text';
@@ -50,6 +50,8 @@ export class CalendarStatsCard extends LitElement {
   };
 
   private _service = new StatisticsService();
+  /** Pending day-rollover refresh; see `_scheduleMidnightRefresh`. */
+  private _midnightTimer: ReturnType<typeof setTimeout> | null = null;
   private _fetchAbortFlag = 0;
   /** True once the earliest-data probe ran (whether or not it found data). */
   private _earliestProbed = false;
@@ -276,9 +278,12 @@ export class CalendarStatsCard extends LitElement {
 
   set hass(hass: HomeAssistant) {
     const firstSet = this._hass === null;
+    const previousTimeZone = this._timeZone;
     this._hass = hass;
     this._lang = hass.selectedLanguage ?? hass.language ?? 'en';
     this._timeZone = hass.config.time_zone;
+
+    if (this._timeZone !== previousTimeZone) this._scheduleMidnightRefresh();
 
     if (firstSet && this._config) {
       const range = presetToRange('this_year', this._currentYearMonth());
@@ -328,6 +333,35 @@ export class CalendarStatsCard extends LitElement {
     const value = { year: earliestDataYear, month: earliestDataMonth };
     this._earliestMemo = value;
     return value;
+  }
+
+  /**
+   * Statistics are cached per year and a day only becomes complete at midnight,
+   * so a dashboard left open would keep showing yesterday's last row. Refresh
+   * once the local day has rolled over, then schedule the next one.
+   */
+  private _scheduleMidnightRefresh(): void {
+    if (this._midnightTimer !== null) clearTimeout(this._midnightTimer);
+    const tz = this._timeZone;
+    if (tz === null) return;
+    // A minute of slack so the recorder has written the final hour of the day.
+    const delay = msUntilNextMidnight(tz, Date.now()) + 60_000;
+    this._midnightTimer = setTimeout(() => {
+      this._midnightTimer = null;
+      void this._refreshCompletedDay();
+    }, delay);
+  }
+
+  /** Drop the cached years the finished day can belong to and fetch them again. */
+  private async _refreshCompletedDay(): Promise<void> {
+    const { year } = this._currentYearMonth();
+    const statisticsByYear = new Map(this._viewState.statisticsByYear);
+    // On January 1st the day that just completed belongs to the previous year.
+    statisticsByYear.delete(year);
+    statisticsByYear.delete(year - 1);
+    this._viewState = { ...this._viewState, statisticsByYear };
+    this._scheduleMidnightRefresh();
+    await this._fetchRange(this._viewState.range);
   }
 
   /** Fetch every year the range spans that is not already cached, under one loading state. */
@@ -654,6 +688,10 @@ export class CalendarStatsCard extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     document.removeEventListener('click', this._onDocClick);
+    if (this._midnightTimer !== null) {
+      clearTimeout(this._midnightTimer);
+      this._midnightTimer = null;
+    }
     this._contrast.dispose();
   }
 

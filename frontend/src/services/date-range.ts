@@ -203,3 +203,21 @@ export function visibleMonthsForYear(
   for (let m = lo; m <= hi; m++) months.push(m);
   return months;
 }
+
+/**
+ * Milliseconds from `nowMs` until the next midnight in the given time zone.
+ * Used to refresh the day's statistics when the calendar day rolls over.
+ * Always in (0, 24h] — at exactly midnight a full day is returned.
+ */
+export function msUntilNextMidnight(timeZone: string, nowMs: number): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(nowMs));
+  const [h, m, s] = parts.split(':').map(Number);
+  const elapsed = ((h ?? 0) * 3600 + (m ?? 0) * 60 + (s ?? 0)) * 1000 + (nowMs % 1000);
+  return 24 * 3600_000 - elapsed;
+}
