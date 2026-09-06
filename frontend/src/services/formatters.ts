@@ -5,6 +5,8 @@
  */
 
 const numberFormatters = new Map<string, Intl.NumberFormat>();
+const signedNumberFormatters = new Map<string, Intl.NumberFormat>();
+const percentFormatters = new Map<string, Intl.NumberFormat>();
 const monthNameFormatters = new Map<string, Intl.DateTimeFormat>();
 const monthShortFormatters = new Map<string, Intl.DateTimeFormat>();
 const zonedDateFormatters = new Map<string, Intl.DateTimeFormat>();
@@ -33,6 +35,35 @@ export function monthNameFormatter(lang: string): Intl.DateTimeFormat {
   if (!formatter) {
     formatter = new Intl.DateTimeFormat(lang, { month: 'long' });
     monthNameFormatters.set(lang, formatter);
+  }
+  return formatter;
+}
+
+/** Number formatter that prefixes non-zero values with their sign. */
+export function signedNumberFormatter(lang: string, precision: number): Intl.NumberFormat {
+  const key = `${lang}:${precision}`;
+  let formatter = signedNumberFormatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(lang, {
+      maximumFractionDigits: precision,
+      minimumFractionDigits: precision,
+      signDisplay: 'exceptZero',
+    });
+    signedNumberFormatters.set(key, formatter);
+  }
+  return formatter;
+}
+
+/** Signed whole-number percentage formatter ("+25%"). */
+export function percentFormatter(lang: string): Intl.NumberFormat {
+  let formatter = percentFormatters.get(lang);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(lang, {
+      style: 'percent',
+      maximumFractionDigits: 0,
+      signDisplay: 'exceptZero',
+    });
+    percentFormatters.set(lang, formatter);
   }
   return formatter;
 }

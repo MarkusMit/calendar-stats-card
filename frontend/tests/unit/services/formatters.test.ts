@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { numberFormatter, monthNameFormatter, monthShortFormatter, zonedDateString } from '../../../src/services/formatters';
+import { numberFormatter, monthNameFormatter, monthShortFormatter, zonedDateString, signedNumberFormatter, percentFormatter } from '../../../src/services/formatters';
 
 describe('numberFormatter', () => {
   it('returns the same instance for the same language and precision', () => {
@@ -88,5 +88,32 @@ describe('zonedDateString', () => {
 
     expect(zonedDateString(stamp, 'Europe/Vienna')).toBe(first);
     expect(constructions).toBe(0);
+  });
+});
+
+describe('signedNumberFormatter', () => {
+  it('returns the same instance for the same language and precision', () => {
+    expect(signedNumberFormatter('de', 1)).toBe(signedNumberFormatter('de', 1));
+  });
+
+  it('shows a sign for non-zero values only', () => {
+    const f = signedNumberFormatter('en', 1);
+    expect(f.format(2)).toBe('+2.0');
+    expect(f.format(-2)).toBe('-2.0');
+    expect(f.format(0)).toBe('0.0');
+  });
+
+  it('is distinct from the plain number formatter', () => {
+    expect(signedNumberFormatter('en', 1)).not.toBe(numberFormatter('en', 1));
+  });
+});
+
+describe('percentFormatter', () => {
+  it('returns the same instance for the same language', () => {
+    expect(percentFormatter('de')).toBe(percentFormatter('de'));
+  });
+
+  it('formats a signed whole-number percentage', () => {
+    expect(percentFormatter('en').format(0.25)).toBe('+25%');
   });
 });

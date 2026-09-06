@@ -13,7 +13,7 @@ import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStar
 import { localize } from './localize/localize';
 import { buildCellStyle } from './services/threshold-resolver';
 import { ContrastResolver } from './services/readable-text';
-import { zonedDateFormatter, zonedDateString } from './services/formatters';
+import { zonedDateFormatter, zonedDateString, monthNameFormatter } from './services/formatters';
 import { countExceedances } from './services/threshold-exceedance';
 import type { ExceedanceGroup, MonthSpan } from './services/threshold-exceedance';
 import './components/loading-overlay';
@@ -817,7 +817,7 @@ export class CalendarStatsCard extends LitElement {
   /** Back + month prev/next controls shown in the bottom bar while the comparison is open. */
   private _renderComparisonNav(lang: string) {
     const month = this._viewState.comparisonMonth!;
-    const monthName = new Intl.DateTimeFormat(lang, { month: 'long' }).format(new Date(2020, month - 1, 1));
+    const monthName = monthNameFormatter(lang).format(new Date(2020, month - 1, 1));
     return html`
       <button class="comparison-back" @click=${this._closeComparison}>← ${localize('comparison.back', lang)}</button>
       <button class="comparison-prev" aria-label=${localize('comparison.prev_month', lang)}

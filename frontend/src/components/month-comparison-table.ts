@@ -9,6 +9,7 @@ import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver
 import { NBSP } from './year-table';
 import { ContrastResolver } from '../services/readable-text';
 import { FrameScheduler } from '../services/frame-scheduler';
+import { numberFormatter, signedNumberFormatter, percentFormatter, monthNameFormatter } from '../services/formatters';
 import { buildComparisonSeries } from '../services/data-transform';
 import { resolvePrecision } from './year-table';
 import type { YearSummarySegment } from './year-summary-table';
@@ -289,9 +290,9 @@ export class MonthComparisonTable extends LitElement {
   private renderEntityRows(cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean) {
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
-    const sf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision, signDisplay: 'exceptZero' });
-    const pf = new Intl.NumberFormat(this.lang, { style: 'percent', maximumFractionDigits: 0, signDisplay: 'exceptZero' });
+    const nf = numberFormatter(this.lang, precision);
+    const sf = signedNumberFormatter(this.lang, precision);
+    const pf = percentFormatter(this.lang);
     const meta = this._metaFor(key);
     const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
     const unitStr = ('unit' in cfg && cfg.unit) ? cfg.unit : meta?.unitOfMeasurement;
@@ -351,7 +352,7 @@ export class MonthComparisonTable extends LitElement {
   render() {
     this._triggeredGroups.clear();
     const hasMeasurement = this.hasMeasurement();
-    const monthName = new Intl.DateTimeFormat(this.lang, { month: 'long' }).format(new Date(2020, this.month - 1, 1));
+    const monthName = monthNameFormatter(this.lang).format(new Date(2020, this.month - 1, 1));
 
     return html`
       <div class="table-container">
