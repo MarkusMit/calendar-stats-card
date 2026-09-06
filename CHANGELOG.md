@@ -5,6 +5,35 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-09-06
+
+### Added
+
+- Threshold days table below the tables.
+  For every named threshold it shows how many days that rule coloured, and how many days it applied to at all, over the range on screen.
+  In the yearly view the counts are broken down per year.
+  Switch it off in the editor's Options section or with `show_threshold_table: false`.
+- The card picks up a finished day on its own at midnight.
+  A dashboard left open no longer keeps showing yesterday's data until someone reloads it.
+
+### Fixed
+
+- In the visual editor, "not below" and "not above" rules looked exactly like "at least" and "at most", so two rules on the same value could not be told apart.
+  They now read `↓≥` and `↑≤`.
+- The current month's Total for cumulative rows counted today's partial data while every other figure stopped at yesterday; it now covers completed days only.
+  On the 1st of a month nothing is complete yet, so the card shows a short note instead of an empty table.
+- Threshold rules that set only a text colour showed an empty box in the legend.
+  The swatch now shows a sample letter in that colour.
+
+### Changed
+
+- The card is considerably faster: it no longer redraws on every Home Assistant update, and loading a year of data takes a fraction of the time it used to.
+
+### Removed
+
+- The `*` marker for days with incomplete data.
+  It was documented but never actually appeared, in this release or earlier ones; displayed values are unchanged.
+
 ## [0.5.1] - 2026-07-12
 
 ### Fixed

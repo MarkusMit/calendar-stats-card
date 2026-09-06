@@ -340,7 +340,6 @@ entities:
   "Today" is determined in the HA server's timezone (`hass.config.time_zone`).
 - **On load** the card shows the current calendar year (January through the current month); the selected range and view are session-only and reset on reload.
 - **Backward navigation** stops at the period containing the earliest recorded data of any configured entity; no fully-empty earlier period is reachable, in either view.
-- **Coverage indicator** — a superscript `*` appended to a cell value flags incomplete data: for `measurement` entities, a day with less than 24 h of statistics; for cumulative entities, a day with missing data at its start or end (mid-day gaps render silently).
 - **Monthly totals** for cumulative entities are sourced from HA's authoritative monthly statistics (`sum[month] − sum[prev_month]`) and may not exactly equal the arithmetic sum of visible daily cells — this is expected and HA wins.
 - **Performance** — tested up to 10 entities; no hard cap is enforced.
 - **HA version** — requires 2026.5.0+.
@@ -361,8 +360,6 @@ To request a new locale, open an issue or PR with a translation file in `fronten
 - **Card doesn't appear in the card picker** → check the resource URL in **Settings → Dashboards → Resources** and hard-reload the browser.
 - **Entity row shows a warning icon** → the entity has no long-term statistics enabled in HA.
   Enable it via **Settings → System → Customize** for that entity, then wait at least one statistics cycle.
-- **Cell values have a `*`** → partial-data day.
-  See "coverage indicator" above.
 - **Monthly total ≠ sum of visible days** → expected.
   HA's monthly-period figure wins.
 
