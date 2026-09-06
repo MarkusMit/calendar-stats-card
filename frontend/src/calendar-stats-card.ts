@@ -27,7 +27,12 @@ import './components/calendar-stats-card-editor';
 @customElement('calendar-stats-card')
 export class CalendarStatsCard extends LitElement {
   @state() private _config: CardConfig | null = null;
-  @state() private _hass: HomeAssistant | null = null;
+  /** Not reactive: HA reassigns `hass` on every state push, and the card's own
+   *  output depends on it only through the language and time zone below. */
+  private _hass: HomeAssistant | null = null;
+  /** The parts of `hass` the template actually reads — these do trigger a render. */
+  @state() private _lang = 'en';
+  @state() private _timeZone: string | null = null;
   @state() private _thresholdGroups: ThresholdLegendGroup[] = [];
   @state() private _legendOpen = false;
   @state() private _inEditor = false;
@@ -270,6 +275,8 @@ export class CalendarStatsCard extends LitElement {
   set hass(hass: HomeAssistant) {
     const firstSet = this._hass === null;
     this._hass = hass;
+    this._lang = hass.selectedLanguage ?? hass.language ?? 'en';
+    this._timeZone = hass.config.time_zone;
 
     if (firstSet && this._config) {
       const range = presetToRange('this_year', this._currentYearMonth());
@@ -284,11 +291,11 @@ export class CalendarStatsCard extends LitElement {
 
   /** Today in the HA server timezone. `day` gates the current month's table (visible from the 2nd). */
   private _currentYearMonth(): { year: number; month: number; day: number } {
-    if (!this._hass) {
+    const tz = this._timeZone;
+    if (tz === null) {
       const now = new Date();
       return { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
     }
-    const tz = this._hass.config.time_zone;
     const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const [y, m, d] = parts.split('-').map(Number);
     const fallback = new Date();
@@ -766,8 +773,7 @@ export class CalendarStatsCard extends LitElement {
   render() {
     const { isLoading, range } = this._viewState;
     const config = this._config;
-    const hass = this._hass;
-    const lang = hass?.selectedLanguage ?? hass?.language ?? 'en';
+    const lang = this._lang;
 
     const now = this._currentYearMonth();
     const earliest = this._earliestAnchor();
