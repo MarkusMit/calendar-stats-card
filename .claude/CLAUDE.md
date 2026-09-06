@@ -45,7 +45,7 @@ Supported from day one: `en`, `de`.
 ## Build & Test Commands
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/015-threshold-scope/plan.md](../specs/015-threshold-scope/plan.md)
+Active feature plan: [specs/016-threshold-exceedance-table/plan.md](../specs/016-threshold-exceedance-table/plan.md)
 <!-- SPECKIT END -->
 
 All commands run in WSL2, from the `frontend/` directory:
