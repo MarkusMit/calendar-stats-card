@@ -130,15 +130,18 @@ export class ThresholdListEditor extends LitElement {
     this._dispatchChange(this.thresholds.filter((_, i) => i !== index));
   }
 
-  _handleRuleChange(index: number, field: string, value: unknown): void {
+  _handleRuleChange(index: number, field: keyof ThresholdRule, value: unknown): void {
     const updated = this.thresholds.map((r, i) => {
       if (i !== index) return r;
+      const next = { ...r };
       if (value === undefined) {
-        const rest = { ...(r as Record<string, unknown>) };
-        delete rest[field];
-        return rest as unknown as ThresholdRule;
+        // Clearing a field drops the key entirely; `operator` is the only
+        // required one and the editor never clears it.
+        if (field !== 'operator') delete next[field];
+      } else {
+        Object.assign(next, { [field]: value });
       }
-      return { ...r, [field]: value };
+      return next;
     });
     this._dispatchChange(updated);
   }
