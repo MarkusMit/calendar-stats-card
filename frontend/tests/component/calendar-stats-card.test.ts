@@ -922,3 +922,61 @@ describe('CalendarStatsCard — exceedance table', () => {
     expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
   });
 });
+
+describe('CalendarStatsCard — exceedance table across views', () => {
+  const withThreshold: CardConfig = {
+    type: 'custom:calendar-stats-card',
+    entities: [{
+      entity: 'sensor.temp',
+      name: 'Temperature',
+      thresholds: [{ operator: 'equals-above', value: 25, name: 'Summer day', background_color: 'orange' }],
+    }],
+  };
+
+  function counts(card: CalendarStatsCard): Array<[string, number, number]> {
+    const el = card.shadowRoot!.querySelector('calendar-stats-exceedance-table') as
+      (HTMLElement & { groups: Array<{ label: string; rows: Array<{ band: number; cumulative: number }> }> }) | null;
+    if (!el) return [];
+    return el.groups.flatMap((g) => g.rows.map((r) => [g.label, r.band, r.cumulative] as [string, number, number]));
+  }
+
+  it('renders in the yearly view', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    card.viewMode = 'yearly';
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      if (!card.shadowRoot!.querySelector('calendar-stats-year-summary-table')) throw new Error('not yearly yet');
+    }, { timeout: 3000 });
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).not.toBeNull();
+  });
+
+  it('is absent while the month comparison is open', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    card.viewMode = 'yearly';
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      if (!card.shadowRoot!.querySelector('calendar-stats-year-summary-table')) throw new Error('not yearly yet');
+    }, { timeout: 3000 });
+    card.shadowRoot!.querySelector('calendar-stats-year-summary-table')!.dispatchEvent(
+      new CustomEvent('calendar-stats-month-select', { detail: { month: 3 }, bubbles: true, composed: true }),
+    );
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      if (!card.shadowRoot!.querySelector('button.comparison-back')) throw new Error('no comparison');
+    }, { timeout: 3000 });
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
+  });
+
+  it('reports the same counts in the monthly and the yearly view', async () => {
+    const card = await createCard(withThreshold, makeHass());
+    await card.updateComplete;
+    const monthly = counts(card);
+    card.viewMode = 'yearly';
+    await vi.waitFor(async () => {
+      await card.updateComplete;
+      if (!card.shadowRoot!.querySelector('calendar-stats-year-summary-table')) throw new Error('not yearly yet');
+    }, { timeout: 3000 });
+    expect(counts(card)).toEqual(monthly);
+    expect(monthly.length).toBeGreaterThan(0);
+  });
+});

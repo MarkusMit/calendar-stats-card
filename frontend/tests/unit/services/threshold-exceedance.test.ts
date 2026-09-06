@@ -290,3 +290,60 @@ describe('countExceedances — measurement rows', () => {
     expect(countExceedances([tempRow([SUMMER])], JAN_2025, stats)[0]!.label).toBe('Temperature [°C]');
   });
 });
+
+describe('countExceedances — range coverage', () => {
+  /** sensor.rain sums for arbitrary dates, e.g. '2024-02-29'. */
+  function statsFor(byYear: Record<number, Record<string, number>>): Map<number, YearStatistics> {
+    const out = new Map<number, YearStatistics>();
+    for (const [year, days] of Object.entries(byYear)) {
+      const dailyValues = new Map<string, DailyValue>();
+      for (const [date, sum] of Object.entries(days)) {
+        dailyValues.set(`sensor.rain::${date}`, { kind: 'cumulative', entityId: 'sensor.rain', date, sum, partialCoverage: false });
+      }
+      out.set(Number(year), { dailyValues, monthlySummaries: new Map(), entityMetadata: new Map([['sensor.rain', RAIN_META]]) });
+    }
+    return out;
+  }
+
+  it('sums counts across years in the range', () => {
+    const stats = statsFor({
+      2024: { '2024-01-05': 12, '2024-01-06': 40 },
+      2025: { '2025-01-07': 15 },
+    });
+    const segments = [{ year: 2024, months: [1] }, { year: 2025, months: [1] }];
+    const rows = countExceedances([rainRow([WET])], segments, stats)[0]!.rows;
+    expect(rows[0]!.cumulative).toBe(3);
+  });
+
+  it('a year in the segments but missing from the statistics contributes zero', () => {
+    const stats = statsFor({ 2025: { '2025-01-07': 15 } });
+    const segments = [{ year: 2024, months: [1] }, { year: 2025, months: [1] }];
+    const rows = countExceedances([rainRow([WET])], segments, stats)[0]!.rows;
+    expect(rows[0]!.cumulative).toBe(1);
+  });
+
+  it('months outside the segments are not counted', () => {
+    const stats = statsFor({ 2025: { '2025-01-07': 15, '2025-02-07': 15, '2025-03-07': 15 } });
+    const rows = countExceedances([rainRow([WET])], [{ year: 2025, months: [1, 3] }], stats)[0]!.rows;
+    expect(rows[0]!.cumulative).toBe(2);
+  });
+
+  it('empty segments produce rows with zero counts, not an empty result', () => {
+    const stats = statsFor({ 2025: { '2025-01-07': 15 } });
+    const groups = countExceedances([rainRow([WET])], [], stats);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.rows[0]!.cumulative).toBe(0);
+  });
+
+  it('counts the 29th of a leap February', () => {
+    const stats = statsFor({ 2024: { '2024-02-29': 12 } });
+    const rows = countExceedances([rainRow([WET])], [{ year: 2024, months: [2] }], stats)[0]!.rows;
+    expect(rows[0]!.cumulative).toBe(1);
+  });
+
+  it('counts the 31st of a 31-day month', () => {
+    const stats = statsFor({ 2025: { '2025-01-31': 12 } });
+    const rows = countExceedances([rainRow([WET])], JAN_2025, stats)[0]!.rows;
+    expect(rows[0]!.cumulative).toBe(1);
+  });
+});

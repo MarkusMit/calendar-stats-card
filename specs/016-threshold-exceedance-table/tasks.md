@@ -86,10 +86,10 @@ All commands run from `frontend/`.
 
 **Independent test**: Note the counts in the monthly view for a multi-year range, switch to the yearly view without changing the range, and verify every number is unchanged.
 
-- [ ] T018 [P] [US3] Add failing tests in `frontend/tests/unit/services/threshold-exceedance.test.ts`: segments spanning two years sum their counts; a year present in `segments` but missing from `statisticsByYear` contributes zero instead of throwing; months excluded from a segment contribute nothing.
-- [ ] T019 [US3] Confirm or adjust `countExceedances` in `frontend/src/services/threshold-exceedance.ts` so the multi-year and missing-year cases pass without special-casing either view.
-- [ ] T020 [P] [US3] Add failing tests in `frontend/tests/component/calendar-stats-card.test.ts`: the table renders in the yearly view, is absent while the month comparison is open, and produces identical counts in the monthly and yearly views for the same range.
-- [ ] T021 [US3] Adjust the render condition in `frontend/src/calendar-stats-card.ts` so the element is emitted in the yearly view and suppressed while the comparison is open.
+- [X] T018 [P] [US3] Add failing tests in `frontend/tests/unit/services/threshold-exceedance.test.ts`: segments spanning two years sum their counts; a year present in `segments` but missing from `statisticsByYear` contributes zero instead of throwing; months excluded from a segment contribute nothing.
+- [X] T019 [US3] Confirm or adjust `countExceedances` in `frontend/src/services/threshold-exceedance.ts` so the multi-year and missing-year cases pass without special-casing either view.
+- [X] T020 [P] [US3] Add failing tests in `frontend/tests/component/calendar-stats-card.test.ts`: the table renders in the yearly view, is absent while the month comparison is open, and produces identical counts in the monthly and yearly views for the same range.
+- [X] T021 [US3] Adjust the render condition in `frontend/src/calendar-stats-card.ts` so the element is emitted in the yearly view and suppressed while the comparison is open.
 
 **Checkpoint**: All three stories complete; FR-014 and SC-004 demonstrably satisfied.
 
