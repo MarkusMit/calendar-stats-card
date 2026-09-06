@@ -51,7 +51,8 @@
     "no_data": "Keine Daten für diesen Monat in den verglichenen Jahren"
   },
   "legend": {
-    "title": "Legende"
+    "title": "Legende",
+    "swatch_sample": "A"
   },
   "editor": {
     "add_entity": "Entität",

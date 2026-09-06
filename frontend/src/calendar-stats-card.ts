@@ -11,6 +11,8 @@ import { resolvePredecessorData } from './services/predecessor-resolver';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
 import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor } from './services/date-range';
 import { localize } from './localize/localize';
+import { buildCellStyle } from './services/threshold-resolver';
+import { ContrastResolver } from './services/readable-text';
 import './components/loading-overlay';
 import './components/year-table';
 import type { MonthSegment } from './components/year-table';
@@ -19,17 +21,6 @@ import './components/month-comparison-table';
 import './components/view-mode-toggle';
 import './components/range-navigator';
 import './components/calendar-stats-card-editor';
-
-/** Glyph in the legend swatch, so text_color is visible and not only background_color. */
-const SWATCH_SAMPLE = 'A';
-
-/** Combined background/text colors for a legend swatch; undefined when the rule sets neither. */
-function swatchStyle(r: ThresholdRule): string | undefined {
-  const parts: string[] = [];
-  if (r.background_color) parts.push(`background-color:${r.background_color}`);
-  if (r.text_color) parts.push(`color:${r.text_color}`);
-  return parts.length > 0 ? parts.join(';') : undefined;
-}
 
 @customElement('calendar-stats-card')
 export class CalendarStatsCard extends LitElement {
@@ -54,6 +45,8 @@ export class CalendarStatsCard extends LitElement {
   /** True once the earliest-data probe ran (whether or not it found data). */
   private _earliestProbed = false;
   private _warnedPredecessors = new Set<string>();
+  /** Shared auto-contrast text-color resolver, so legend swatches match data cells. */
+  private _contrast = new ContrastResolver();
   private readonly _emptyDailyValues = new Map();
   private readonly _emptyMonthlySummaries = new Map();
   private readonly _emptyEntityMetadata = new Map();
@@ -189,12 +182,12 @@ export class CalendarStatsCard extends LitElement {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 14px;
-      height: 14px;
+      width: 12px;
+      height: 12px;
       border-radius: 2px;
       border: 1px solid rgba(0,0,0,0.15);
       flex-shrink: 0;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 600;
       line-height: 1;
     }
@@ -637,6 +630,7 @@ export class CalendarStatsCard extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     document.removeEventListener('click', this._onDocClick);
+    this._contrast.dispose();
   }
 
   /** Legend toggle button + popover, rendered inside the floating bottom bar. */
@@ -656,9 +650,14 @@ export class CalendarStatsCard extends LitElement {
                 <span class="legend-group-label">${g.label}:</span>
                 ${g.rules.map(r => html`
                   <span class="legend-entry">
-                    <span class="legend-swatch" style=${ifDefined(swatchStyle(r))}
-                      >${SWATCH_SAMPLE}</span>
-                    ${r.name}
+                    ${r.background_color ? html`
+                      <span class="legend-swatch" aria-hidden="true" style=${ifDefined(
+                        buildCellStyle(undefined, undefined, r, this._contrast.textFor(r.background_color)),
+                      )}>${localize('legend.swatch_sample', lang)}</span>
+                    ` : ''}
+                    <span class="legend-name" style=${ifDefined(
+                      !r.background_color && r.text_color ? `color:${r.text_color}` : undefined,
+                    )}>${r.name}</span>
                   </span>
                 `)}
               </div>

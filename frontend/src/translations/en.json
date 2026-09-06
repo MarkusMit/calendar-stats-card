@@ -51,7 +51,8 @@
     "no_data": "No data for this month in any compared year"
   },
   "legend": {
-    "title": "Legend"
+    "title": "Legend",
+    "swatch_sample": "A"
   },
   "editor": {
     "add_entity": "Entity",

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { CalendarStatsCard } from '../../src/calendar-stats-card';
 import type { HomeAssistant } from '../../src/types/ha-types';
+import { autoContrastText } from '../../src/services/readable-text';
 import type { CardConfig, ThresholdRule } from '../../src/types/card-config';
 
 afterEach(() => {
@@ -581,15 +582,39 @@ describe('CalendarStatsCard — threshold legend (grouped, floating bar)', () =>
     const swatch = card.shadowRoot!.querySelector('.legend-swatch') as HTMLElement | null;
     expect(swatch!.textContent!.trim()).toBe('A');
     expect(swatch!.style.color).toBe('blue');
+    expect(swatch!.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('legend entry swatch shows sample letter even without text_color', async () => {
+  it('background_color without text_color → swatch letter uses auto-contrast, same as a cell', async () => {
     const card = await createCard(CONFIG, makeHass());
-    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' })]);
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'darkred', name: 'Heat day' })]);
     await openLegend(card);
     const swatch = card.shadowRoot!.querySelector('.legend-swatch') as HTMLElement | null;
     expect(swatch!.textContent!.trim()).toBe('A');
-    expect(swatch!.style.color).toBe('');
+    // Must match what buildCellStyle produces for the same rule on a data cell.
+    const probe = document.createElement('span');
+    const expected = autoContrastText('darkred', probe)!;
+    expect(swatch!.style.color).toBe(expected);
+  });
+
+  it('text_color only → no swatch, name label rendered in that color (FR-016)', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, text_color: 'blue', name: 'Mild day' })]);
+    await openLegend(card);
+    expect(card.shadowRoot!.querySelector('.legend-swatch')).toBeNull();
+    const name = card.shadowRoot!.querySelector('.legend-name') as HTMLElement | null;
+    expect(name!.textContent!.trim()).toBe('Mild day');
+    expect(name!.style.color).toBe('blue');
+  });
+
+  it('rule with neither color → entry rendered without swatch or inline color', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, name: 'Plain day' })]);
+    await openLegend(card);
+    expect(card.shadowRoot!.querySelector('.legend-swatch')).toBeNull();
+    const name = card.shadowRoot!.querySelector('.legend-name') as HTMLElement | null;
+    expect(name!.textContent!.trim()).toBe('Plain day');
+    expect(name!.style.color).toBe('');
   });
 
   it('multiple named rules in one entity → one entry each, one group', async () => {
