@@ -14,6 +14,7 @@ import { localize } from './localize/localize';
 import { buildCellStyle } from './services/threshold-resolver';
 import { ContrastResolver } from './services/readable-text';
 import { countExceedances } from './services/threshold-exceedance';
+import type { ExceedanceGroup, MonthSpan } from './services/threshold-exceedance';
 import './components/loading-overlay';
 import './components/year-table';
 import type { MonthSegment } from './components/year-table';
@@ -289,27 +290,43 @@ export class CalendarStatsCard extends LitElement {
     return this._hass;
   }
 
+  /** Last today/earliest values, reused while equal so child props keep their identity. */
+  private _nowMemo: { year: number; month: number; day: number } | null = null;
+  private _earliestMemo: MonthAnchor | null = null;
+
   /** Today in the HA server timezone. `day` gates the current month's table (visible from the 2nd). */
   private _currentYearMonth(): { year: number; month: number; day: number } {
     const tz = this._timeZone;
+    let value: { year: number; month: number; day: number };
     if (tz === null) {
       const now = new Date();
-      return { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
+      value = { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
+    } else {
+      const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+      const [y, m, d] = parts.split('-').map(Number);
+      const fallback = new Date();
+      value = {
+        year: y ?? fallback.getFullYear(),
+        month: m ?? fallback.getMonth() + 1,
+        day: d ?? fallback.getDate(),
+      };
     }
-    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-    const [y, m, d] = parts.split('-').map(Number);
-    const fallback = new Date();
-    return {
-      year: y ?? fallback.getFullYear(),
-      month: m ?? fallback.getMonth() + 1,
-      day: d ?? fallback.getDate(),
-    };
+    const prev = this._nowMemo;
+    if (prev && prev.year === value.year && prev.month === value.month && prev.day === value.day) {
+      return prev;
+    }
+    this._nowMemo = value;
+    return value;
   }
 
   private _earliestAnchor(): MonthAnchor | null {
     const { earliestDataYear, earliestDataMonth } = this._viewState;
     if (earliestDataYear === null || earliestDataMonth === null) return null;
-    return { year: earliestDataYear, month: earliestDataMonth };
+    const prev = this._earliestMemo;
+    if (prev && prev.year === earliestDataYear && prev.month === earliestDataMonth) return prev;
+    const value = { year: earliestDataYear, month: earliestDataMonth };
+    this._earliestMemo = value;
+    return value;
   }
 
   /** Fetch every year the range spans that is not already cached, under one loading state. */
@@ -674,10 +691,52 @@ export class CalendarStatsCard extends LitElement {
     `;
   }
 
+  /** Last result per memo name, with the dependencies it was computed from. */
+  private _memos = new Map<string, { deps: readonly unknown[]; value: unknown }>();
+
+  /**
+   * Reuses the previous result while every dependency is identical. Child
+   * components diff their properties by identity, so a rebuilt-but-equal array
+   * would re-render a whole table; memoizing keeps those renders out.
+   */
+  private _memoize<T>(name: string, deps: readonly unknown[], compute: () => T): T {
+    const hit = this._memos.get(name);
+    if (hit && hit.deps.length === deps.length && hit.deps.every((d, i) => d === deps[i])) {
+      return hit.value as T;
+    }
+    const value = compute();
+    this._memos.set(name, { deps, value });
+    return value;
+  }
+
+  /**
+   * Exceedance counts for the visible range. Counting walks every day of every
+   * visible month, so the result is reused until the entities, the fetched
+   * statistics or the visible months actually change.
+   */
+  private _exceedanceGroups(entities: CardConfig['entities'], yearSegments: MonthSpan[]): ExceedanceGroup[] {
+    const stats = this._viewState.statisticsByYear;
+    return this._memoize('exceedance', [entities, stats, yearSegments], () =>
+      countExceedances(entities, yearSegments, stats));
+  }
+
+  /** Years with at least one visible month, in chronological order. */
+  private _yearSegments(
+    range: DateRange,
+    now: { year: number; month: number; day: number },
+    earliest: MonthAnchor | null,
+  ): Array<{ year: number; months: number[] }> {
+    return this._memoize('yearSegments', [range, now, earliest], () =>
+      rangeYears(range)
+        .map((year) => ({ year, months: visibleMonthsForYear(range, year, now, earliest, now.day) }))
+        .filter((seg) => seg.months.length > 0));
+  }
+
   /** Per-year data slices for the yearly view and the month comparison. */
   private _buildSegments(yearSegments: Array<{ year: number; months: number[] }>) {
-    return yearSegments.map((seg) => {
-      const yearStats = this._viewState.statisticsByYear.get(seg.year);
+    const stats = this._viewState.statisticsByYear;
+    return this._memoize('segments', [yearSegments, stats], () => yearSegments.map((seg) => {
+      const yearStats = stats.get(seg.year);
       return {
         year: seg.year,
         visibleMonths: seg.months,
@@ -685,12 +744,12 @@ export class CalendarStatsCard extends LitElement {
         dailyValues: yearStats?.dailyValues ?? this._emptyDailyValues,
         entityMetadata: yearStats?.entityMetadata ?? this._emptyEntityMetadata,
       };
-    });
+    }));
   }
 
   /** Flat month-section list for the monthly view over a multi-year range. */
   private _buildMonthSegments(yearSegments: Array<{ year: number; months: number[] }>): MonthSegment[] {
-    return yearSegments.flatMap((seg) => {
+    return this._memoize('monthSegments', [yearSegments, this._viewState.statisticsByYear], () => yearSegments.flatMap((seg) => {
       const yearStats = this._viewState.statisticsByYear.get(seg.year);
       return seg.months.map((month) => ({
         year: seg.year,
@@ -699,7 +758,7 @@ export class CalendarStatsCard extends LitElement {
         monthlySummaries: yearStats?.monthlySummaries ?? this._emptyMonthlySummaries,
         entityMetadata: yearStats?.entityMetadata ?? this._emptyEntityMetadata,
       }));
-    });
+    }));
   }
 
   /** True when any configured row has a summary for the month in this segment. */
@@ -722,7 +781,7 @@ export class CalendarStatsCard extends LitElement {
     // Daily section: one section per data-bearing year inside ONE year-table so
     // every section shares the same day-column widths; a year without data gets
     // no section (its absence is visible in the summary table above).
-    const dailySegments = segments
+    const dailySegments = this._memoize('comparisonDailySegments', [segments, month], () => segments
       .filter((seg) => this._segmentHasMonthData(seg, month))
       .map((seg) => ({
         year: seg.year,
@@ -730,7 +789,7 @@ export class CalendarStatsCard extends LitElement {
         dailyValues: seg.dailyValues,
         monthlySummaries: seg.monthlySummaries,
         entityMetadata: seg.entityMetadata,
-      }));
+      })));
 
     return html`
       ${hasAnyData
@@ -777,14 +836,11 @@ export class CalendarStatsCard extends LitElement {
 
     const now = this._currentYearMonth();
     const earliest = this._earliestAnchor();
-    // Years with at least one visible month, in chronological order.
-    const yearSegments = rangeYears(range)
-      .map((year) => ({ year, months: visibleMonthsForYear(range, year, now, earliest, now.day) }))
-      .filter((seg) => seg.months.length > 0);
+    const yearSegments = this._yearSegments(range, now, earliest);
     const showYear = yearSegments.length > 1;
     const comparisonOpen = this._viewState.viewMode === 'yearly' && this._viewState.comparisonMonth !== null;
     const exceedanceGroups = config && !comparisonOpen && config.show_threshold_table !== false
-      ? countExceedances(config.entities, yearSegments, this._viewState.statisticsByYear)
+      ? this._exceedanceGroups(config.entities, yearSegments)
       : [];
 
     return html`
