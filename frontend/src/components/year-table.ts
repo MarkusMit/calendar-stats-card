@@ -9,6 +9,7 @@ import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver
 import { ContrastResolver } from '../services/readable-text';
 import { rowSummaryKey } from '../services/data-transform';
 import { rowLabel } from '../services/row-label';
+import { numberFormatter, monthNameFormatter } from '../services/formatters';
 
 const TOTAL_DAYS = 31;
 
@@ -65,8 +66,8 @@ export class YearTable extends LitElement {
   }
 
   /** Metadata lookup across all sections (column structure must match everywhere). */
-  private _metaFor(key: string): EntityMetadata | undefined {
-    for (const sec of this._sections()) {
+  private _metaFor(sections: MonthSegment[], key: string): EntityMetadata | undefined {
+    for (const sec of sections) {
       const meta = sec.entityMetadata.get(key);
       if (meta) return meta;
     }
@@ -297,30 +298,28 @@ export class YearTable extends LitElement {
   }
 
   private monthName(month: number): string {
-    return new Intl.DateTimeFormat(this.lang, { month: 'long' }).format(
-      new Date(2020, month - 1, 1),
-    );
+    return monthNameFormatter(this.lang).format(new Date(2020, month - 1, 1));
   }
 
-  private hasCumulative(): boolean {
+  private hasCumulative(sections: MonthSegment[]): boolean {
     return this.entityConfigs.some((cfg) => {
-      const meta = this._metaFor(rowKey(cfg));
+      const meta = this._metaFor(sections, rowKey(cfg));
       return meta && meta.stateClass !== 'measurement';
     });
   }
 
-  private hasMeasurement(): boolean {
+  private hasMeasurement(sections: MonthSegment[]): boolean {
     return this.entityConfigs.some((cfg) => {
-      const meta = this._metaFor(rowKey(cfg));
+      const meta = this._metaFor(sections, rowKey(cfg));
       return meta?.stateClass === 'measurement';
     });
   }
 
-  private renderEntityRows(cfg: EntityConfig, rowIndex: number, sec: MonthSegment, days: number, hasMeasurement: boolean) {
+  private renderEntityRows(cfg: EntityConfig, rowIndex: number, sec: MonthSegment, days: number, hasMeasurement: boolean, hasCumulative: boolean) {
     const { year, month } = sec;
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
+    const nf = numberFormatter(this.lang, precision);
     const meta = sec.entityMetadata.get(key);
     const groupLabel = rowLabel(cfg, meta);
     const f = ('factor' in cfg && cfg.factor != null) ? cfg.factor : 1;
@@ -435,7 +434,6 @@ export class YearTable extends LitElement {
         }
       }
 
-      const hasCumulative = this.hasCumulative();
       return html`${visibleRows.map((row, idx) => html`
         <tr class="${idx < visibleRows.length - 1 ? 'sub-row' : ''}">
           ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${groupLabel}</td>` : ''}
@@ -518,22 +516,27 @@ export class YearTable extends LitElement {
 
   render() {
     this._triggeredGroups.clear();
-    const hasCumulative = this.hasCumulative();
-    const hasMeasurement = this.hasMeasurement();
+    // One scan of the sections feeds every column decision below; recomputing
+    // it per row would rescan every section for every row.
+    const sections = this._sections();
+    const hasCumulative = this.hasCumulative(sections);
+    const hasMeasurement = this.hasMeasurement(sections);
     // Cross-year section mode always shows the year in the month header.
     const withYear = this.showYear || (this.monthSegments?.length ?? 0) > 0;
 
     return html`
       <div class="table-container" @scroll=${this._onContainerScroll}>
         <table>
-          ${this._sections().map((sec) => {
+          ${sections.map((sec) => {
             const days = this.daysInMonth(sec.year, sec.month);
+            // Weekday of the 1st, then count forward — one Date per month instead of one per day.
+            const firstWeekday = new Date(sec.year, sec.month - 1, 1).getDay();
             const dayHeaders = [];
             for (let d = 1; d <= TOTAL_DAYS; d++) {
               if (d > days) {
                 dayHeaders.push(html`<th class="pad-cell"></th>`);
               } else {
-                const isSunday = new Date(sec.year, sec.month - 1, d).getDay() === 0;
+                const isSunday = (firstWeekday + d - 1) % 7 === 0;
                 dayHeaders.push(html`<th class="${isSunday ? 'sunday' : ''}">${d}</th>`);
               }
             }
@@ -547,7 +550,7 @@ export class YearTable extends LitElement {
                 </tr>
               </thead>
               <tbody>
-                ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, sec, days, hasMeasurement))}
+                ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, sec, days, hasMeasurement, hasCumulative))}
               </tbody>
             `;
           })}

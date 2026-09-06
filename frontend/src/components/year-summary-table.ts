@@ -10,6 +10,7 @@ import { NBSP } from './year-table';
 import { ContrastResolver } from '../services/readable-text';
 import { rowSummaryKey, computeMeasurementYearRollup, computeCumulativeYearRollup } from '../services/data-transform';
 import { resolvePrecision } from './year-table';
+import { numberFormatter, monthShortFormatter } from '../services/formatters';
 
 const ALL_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -216,9 +217,7 @@ export class YearSummaryTable extends LitElement {
   }
 
   private monthName(month: number): string {
-    return new Intl.DateTimeFormat(this.lang, { month: 'short' }).format(
-      new Date(2020, month - 1, 1),
-    );
+    return monthShortFormatter(this.lang).format(new Date(2020, month - 1, 1));
   }
 
   /** Row-type flags from the union of all segments' metadata — the column
@@ -281,7 +280,7 @@ export class YearSummaryTable extends LitElement {
   private renderEntityRows(seg: YearSummarySegment, cfg: EntityConfig, rowIndex: number, hasMeasurement: boolean, hasCumulative: boolean) {
     const key = rowKey(cfg);
     const precision = resolvePrecision(cfg);
-    const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
+    const nf = numberFormatter(this.lang, precision);
     const meta = seg.entityMetadata.get(key) ?? this._metaFor(key);
     const visible = (m: number) => seg.visibleMonths.includes(m);
     const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
