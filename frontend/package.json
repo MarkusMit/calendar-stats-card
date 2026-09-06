@@ -9,7 +9,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src tests"
+    "lint": "eslint src tests",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint && npm run typecheck && npm test"
   },
   "devDependencies": {
     "@rollup/plugin-json": "^6.1.0",
