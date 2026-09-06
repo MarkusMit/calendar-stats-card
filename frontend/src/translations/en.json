@@ -54,6 +54,11 @@
     "title": "Legend",
     "swatch_sample": "A"
   },
+  "exceedance": {
+    "title": "Threshold days",
+    "band": "Band",
+    "total": "Total"
+  },
   "editor": {
     "add_entity": "Entity",
     "add_expression": "Expression",

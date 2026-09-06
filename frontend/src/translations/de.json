@@ -54,6 +54,11 @@
     "title": "Legende",
     "swatch_sample": "A"
   },
+  "exceedance": {
+    "title": "Schwellwerttage",
+    "band": "Bereich",
+    "total": "Gesamt"
+  },
   "editor": {
     "add_entity": "Entität",
     "add_expression": "Ausdruck",

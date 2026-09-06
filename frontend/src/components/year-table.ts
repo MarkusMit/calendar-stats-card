@@ -8,6 +8,7 @@ import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
 import { ContrastResolver } from '../services/readable-text';
 import { rowSummaryKey } from '../services/data-transform';
+import { rowLabel } from '../services/row-label';
 
 const TOTAL_DAYS = 31;
 
@@ -321,10 +322,7 @@ export class YearTable extends LitElement {
     const precision = resolvePrecision(cfg);
     const nf = new Intl.NumberFormat(this.lang, { maximumFractionDigits: precision, minimumFractionDigits: precision });
     const meta = sec.entityMetadata.get(key);
-    const label = cfg.name ?? meta?.friendlyName ?? ('entity' in cfg ? cfg.entity : '');
-    const unitStr = ('unit' in cfg && cfg.unit) ? cfg.unit : meta?.unitOfMeasurement;
-    const unit = unitStr ? ` [${unitStr}]` : '';
-    const groupLabel = `${label}${unit}`;
+    const groupLabel = rowLabel(cfg, meta);
     const f = ('factor' in cfg && cfg.factor != null) ? cfg.factor : 1;
     const hasStats = meta?.hasStatistics ?? true;
     const hasError = this.entityErrors.has(key);
@@ -403,7 +401,7 @@ export class YearTable extends LitElement {
       if (visibleRows.length === 0) {
         return html`
           <tr>
-            <td class="label-column" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>
+            <td class="label-column" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${groupLabel}</td>
           </tr>
         `;
       }
@@ -440,7 +438,7 @@ export class YearTable extends LitElement {
       const hasCumulative = this.hasCumulative();
       return html`${visibleRows.map((row, idx) => html`
         <tr class="${idx < visibleRows.length - 1 ? 'sub-row' : ''}">
-          ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>` : ''}
+          ${idx === 0 ? html`<td class="label-column" rowspan="${rowspan}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${groupLabel}</td>` : ''}
           <td class="sub-label" style=${ifDefined(staticStyle)}>${localize(row === 'min' ? 'summary.min' : row === 'avg' ? 'summary.avg' : 'summary.max', this.lang)}</td>
           ${cells[row]}
           <td class="summary-column" style=${ifDefined(summaryStyles[row])}>${summaryVals[row]}</td>
@@ -510,7 +508,7 @@ export class YearTable extends LitElement {
 
     return html`
       <tr>
-        <td class="label-column" colspan="${hasMeasurement ? 2 : 1}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${label}${unit}</td>
+        <td class="label-column" colspan="${hasMeasurement ? 2 : 1}" style=${ifDefined(staticStyle)}>${hasStats ? '' : '⚠ '}${groupLabel}</td>
         ${dayCells}
         <td class="summary-column" style=${ifDefined(cumulSummaryStyle)}>${summaryContent}</td>
         <td class="summary-column" style=${ifDefined(cumulTotalStyle)}>${totalContent}</td>

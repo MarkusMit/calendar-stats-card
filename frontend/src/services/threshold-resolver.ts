@@ -23,19 +23,39 @@ function matchesOperator(cellValue: number, operator: ThresholdRule['operator'],
   }
 }
 
-export function resolveThreshold(
+/** Every rule that applies to the cell, in config order — the candidates a winner is picked from. */
+function applicableRules(
   cellValue: number,
   thresholds: ThresholdRule[],
   cellRole: CellRole,
-  cellScope: ThresholdScope = 'day',
-): ThresholdRule | undefined {
-  const withValue = thresholds
+  cellScope: ThresholdScope,
+): Array<{ rule: ThresholdRule; value: number }> {
+  return thresholds
     .map((t) => ({ rule: t, value: thresholdFor(t, cellScope) }))
     .filter((e): e is { rule: ThresholdRule; value: number } =>
       e.value != null
       && Boolean(e.rule.text_color || e.rule.background_color)
       && matchesOperator(cellValue, e.rule.operator, e.value, cellRole),
     );
+}
+
+/** All applicable rules, not just the winning one — used for cumulative exceedance counts. */
+export function matchingThresholds(
+  cellValue: number,
+  thresholds: ThresholdRule[],
+  cellRole: CellRole,
+  cellScope: ThresholdScope = 'day',
+): ThresholdRule[] {
+  return applicableRules(cellValue, thresholds, cellRole, cellScope).map((e) => e.rule);
+}
+
+export function resolveThreshold(
+  cellValue: number,
+  thresholds: ThresholdRule[],
+  cellRole: CellRole,
+  cellScope: ThresholdScope = 'day',
+): ThresholdRule | undefined {
+  const withValue = applicableRules(cellValue, thresholds, cellRole, cellScope);
 
   if (withValue.length === 0) return undefined;
 

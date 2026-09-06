@@ -29,7 +29,7 @@ All commands run from `frontend/`.
 
 **Purpose**: Confirm a green baseline before any new work.
 
-- [ ] T001 Run `npm test` and `npm run lint` from `frontend/` and confirm the baseline: 37 files / 646 tests passing, lint exit 0. Do not start T002 on a red baseline.
+- [X] T001 Run `npm test` and `npm run lint` from `frontend/` and confirm the baseline: 37 files / 646 tests passing, lint exit 0. Do not start T002 on a red baseline.
 
 ---
 
@@ -37,11 +37,11 @@ All commands run from `frontend/`.
 
 **Purpose**: Shared pieces every user story depends on. No user story can start until this phase is complete.
 
-- [ ] T002 [P] Add failing tests for `matchingThresholds` in `frontend/tests/unit/services/threshold-resolver.test.ts`: returns every applicable rule (not just the winner), excludes rules without a period value, excludes rules with neither `text_color` nor `background_color`, honours the `not-below`/`not-above` cell-role exclusions, and filters by `cellScope` (a `value_month`-only rule is inert for `'day'`).
-- [ ] T003 Export `matchingThresholds(cellValue, thresholds, cellRole, cellScope?)` from `frontend/src/services/threshold-resolver.ts` and rebuild `resolveThreshold` on top of it, keeping its signature and its closest-wins / highest-value / first-defined tie-break. All pre-existing assertions in `threshold-resolver.test.ts` must still pass unmodified.
-- [ ] T004 [P] Add failing tests for `rowLabel` in `frontend/tests/unit/services/row-label.test.ts`: `cfg.name` wins over the metadata friendly name, friendly name wins over the raw entity id, `cfg.unit` wins over the metadata unit, the unit is appended as ` [unit]`, and no bracket is emitted when neither source has a unit.
-- [ ] T005 Create `frontend/src/services/row-label.ts` exporting `rowLabel(cfg, meta)`, then replace the inline label composition in `frontend/src/components/year-table.ts` (the legend group label) with a call to it. Existing legend tests must pass unmodified.
-- [ ] T006 [P] Add the `exceedance` translation group to `frontend/src/translations/en.json` and `frontend/src/translations/de.json` with keys `title`, `band` and `total`, using the values in [contracts/ui-contracts.md](contracts/ui-contracts.md) and matching the existing flat two-level structure and key ordering.
+- [X] T002 [P] Add failing tests for `matchingThresholds` in `frontend/tests/unit/services/threshold-resolver.test.ts`: returns every applicable rule (not just the winner), excludes rules without a period value, excludes rules with neither `text_color` nor `background_color`, honours the `not-below`/`not-above` cell-role exclusions, and filters by `cellScope` (a `value_month`-only rule is inert for `'day'`).
+- [X] T003 Export `matchingThresholds(cellValue, thresholds, cellRole, cellScope?)` from `frontend/src/services/threshold-resolver.ts` and rebuild `resolveThreshold` on top of it, keeping its signature and its closest-wins / highest-value / first-defined tie-break. All pre-existing assertions in `threshold-resolver.test.ts` must still pass unmodified.
+- [X] T004 [P] Add failing tests for `rowLabel` in `frontend/tests/unit/services/row-label.test.ts`: `cfg.name` wins over the metadata friendly name, friendly name wins over the raw entity id, `cfg.unit` wins over the metadata unit, the unit is appended as ` [unit]`, and no bracket is emitted when neither source has a unit.
+- [X] T005 Create `frontend/src/services/row-label.ts` exporting `rowLabel(cfg, meta)`, then replace the inline label composition in `frontend/src/components/year-table.ts` (the legend group label) with a call to it. Existing legend tests must pass unmodified.
+- [X] T006 [P] Add the `exceedance` translation group to `frontend/src/translations/en.json` and `frontend/src/translations/de.json` with keys `title`, `band` and `total`, using the values in [contracts/ui-contracts.md](contracts/ui-contracts.md) and matching the existing flat two-level structure and key ordering.
 
 **Checkpoint**: `npm test` green, `matchingThresholds` and `rowLabel` available, translation keys in place.
 
