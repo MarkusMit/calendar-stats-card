@@ -237,8 +237,10 @@ describe('ExceedanceTable — threshold definition in the row label', () => {
     expect(await labelFor({ ...base, operator: 'above' })).toContain('(> 10)');
     expect(await labelFor({ ...base, operator: 'below' })).toContain('(< 10)');
     expect(await labelFor({ ...base, operator: 'equals-below' })).toContain('(≤ 10)');
-    expect(await labelFor({ ...base, operator: 'not-below' })).toContain('(≥ 10)');
-    expect(await labelFor({ ...base, operator: 'not-above' })).toContain('(≤ 10)');
+    // not-below/not-above only target the min resp. max cell, so their symbol
+    // carries the ↓/↑ marker and stays distinct from equals-above/equals-below.
+    expect(await labelFor({ ...base, operator: 'not-below' })).toContain('(↓≥ 10)');
+    expect(await labelFor({ ...base, operator: 'not-above' })).toContain('(↑≤ 10)');
   });
 
   it('keeps a negative or fractional value readable', async () => {

@@ -2,6 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { ThresholdRule, ThresholdOperator } from '../types/card-config';
 import { localize } from '../localize/localize';
+import { operatorSymbol, operatorLabel } from '../services/threshold-operator';
 
 const OPERATORS: ThresholdOperator[] = ['above', 'equals-above', 'equals-below', 'below', 'not-below', 'not-above'];
 
@@ -11,15 +12,6 @@ const PERIOD_FIELDS = [
   { field: 'value_month', labelKey: 'threshold_value_month' },
   { field: 'value_year', labelKey: 'threshold_value_year' },
 ] as const;
-
-const OPERATOR_SYMBOL: Record<ThresholdOperator, string> = {
-  'above': '>',
-  'equals-above': '≥',
-  'equals-below': '≤',
-  'below': '<',
-  'not-below': '≥',
-  'not-above': '≤',
-};
 
 @customElement('calendar-stats-threshold-list-editor')
 export class ThresholdListEditor extends LitElement {
@@ -147,12 +139,11 @@ export class ThresholdListEditor extends LitElement {
   }
 
   private _operatorLabel(op: ThresholdOperator): string {
-    const key = op.replace(/-/g, '_');
-    return localize(`threshold.operators.${key}`, this.lang);
+    return operatorLabel(op, this.lang);
   }
 
   private _panelHeader(rule: ThresholdRule): string {
-    const symbol = OPERATOR_SYMBOL[rule.operator] ?? rule.operator;
+    const symbol = operatorSymbol(rule.operator, this.lang);
     const vals = [rule.value, rule.value_month, rule.value_year]
       .filter((v): v is number => v != null)
       .join('/');

@@ -109,16 +109,16 @@
       "equals_above": "≥",
       "equals_below": "≤",
       "below": "<",
-      "not_below": "≥",
-      "not_above": "≤"
+      "not_below": "↓≥",
+      "not_above": "↑≤"
     },
     "operators": {
       "above": "Darüber (>)",
       "equals_above": "Mindestens (≥)",
       "equals_below": "Höchstens (≤)",
       "below": "Darunter (<)",
-      "not_below": "Nicht darunter (≥)",
-      "not_above": "Nicht darüber (≤)"
+      "not_below": "Nicht darunter (↓≥)",
+      "not_above": "Nicht darüber (↑≤)"
     }
   }
 }
