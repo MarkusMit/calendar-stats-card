@@ -86,3 +86,24 @@ describe('ExceedanceTable — i18n', () => {
     expect(text).not.toContain('Total');
   });
 });
+
+describe('ExceedanceTable — band column', () => {
+  it('shows the band count for each rule', async () => {
+    const el = await renderTable([RAIN_GROUP]);
+    const bands = [...el.shadowRoot!.querySelectorAll('.band-cell')].map((c) => c.textContent!.trim());
+    expect(bands).toEqual(['5', '3']);
+  });
+
+  it('renders band before total in each row', async () => {
+    const el = await renderTable([RAIN_GROUP]);
+    const cells = [...el.shadowRoot!.querySelectorAll('tbody tr')[1]!.querySelectorAll('td')];
+    expect(cells.map((c) => c.className.split(' ').pop())).toEqual(['rule-name', 'band-cell', 'total-cell']);
+    expect(cells[1]!.textContent!.trim()).toBe('5');
+    expect(cells[2]!.textContent!.trim()).toBe('8');
+  });
+
+  it('labels the band column in German', async () => {
+    const el = await renderTable([RAIN_GROUP], 'de');
+    expect(el.shadowRoot!.textContent).toContain('Bereich');
+  });
+});

@@ -91,19 +91,21 @@ export class ExceedanceTable extends LitElement {
           <thead>
             <tr>
               <th class="rule-column">${localize('exceedance.title', this.lang)}</th>
+              <th>${localize('exceedance.band', this.lang)}</th>
               <th>${localize('exceedance.total', this.lang)}</th>
             </tr>
           </thead>
           <tbody>
             ${this.groups.map((g) => html`
               <tr>
-                <td class="group-label" colspan="2">${g.label}</td>
+                <td class="group-label" colspan="3">${g.label}</td>
               </tr>
               ${g.rows.map((row) => html`
                 <tr>
                   <td class="rule-name" style=${ifDefined(buildCellStyle(
                     undefined, undefined, row.rule, this._contrast.textFor(row.rule.background_color),
                   ))}>${row.rule.name}</td>
+                  <td class="count-cell band-cell">${row.band}</td>
                   <td class="count-cell total-cell">${row.cumulative}</td>
                 </tr>
               `)}
