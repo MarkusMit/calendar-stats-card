@@ -292,7 +292,7 @@ describe('transformMonthlyStats', () => {
   it('total_increasing + counter-reset day (negative delta clamped to 0) + show_zero: false → that day excluded uniformly with naturally-zero day (clarification 2026-05-30)', () => {
     // transformDailyStats clamps negative deltas to 0 for total_increasing entities.
     // After clamp the day is indistinguishable from a naturally-zero day; both must be excluded
-    // together when show_zero: false. No origin metadata preserved (YAGNI per Constitution V).
+    // together when show_zero: false. No origin metadata preserved (YAGNI).
     const d1 = new Date('2025-01-01T00:00:00Z').getTime();
     const d2 = new Date('2025-01-02T00:00:00Z').getTime();
     const d3 = new Date('2025-01-03T00:00:00Z').getTime();

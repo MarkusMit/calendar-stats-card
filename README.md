@@ -1,136 +1,377 @@
-# tabularizer
+# Calendar Stats Card
 
-Source repository for **Calendar Stats Card** — a Home Assistant Lovelace custom card that renders dense monthly statistics tables for any HA entity.
+A Home Assistant custom Lovelace card that renders dense **monthly statistics tables** for any entity with long-term statistics — temperatures, precipitation, energy meters, custom sensors, or arithmetic expressions over several of them.
 
-For end-user documentation (what the card does, installation, configuration reference), see [`docs/README.md`](docs/README.md).
-This file is for contributors.
+One page shows every past month of a year, day-by-day, with min/avg/max and totals.
+Future months and today's still-running day are hidden.
 
-> ⚠️ **Disclaimer** — this project is developed using Spec-Driven Development (SDD) and "vibe coding" with AI assistance (Claude Code + Speckit).
-> Expect specs-first workflows, AI-generated diffs, and rapid iteration.
-> Review changes critically before merging; treat the codebase accordingly when contributing.
+![Calendar Stats Card screenshot](docs/Screenshot_en.png)
+
+> [!WARNING]
+> **Vibe-coded project.** This card was developed with AI assistance (Claude Code).
+> Expect AI-generated code and rapid iteration. Review before relying on it in production-critical setups.
 
 ---
 
-## Project layout
+## Features
 
-```
-.
-├── frontend/              Lit + TypeScript card source
-│   ├── src/               Card, components, services, translations
-│   ├── tests/             Vitest unit + component tests
-│   └── dist/              Build output (calendar-stats-card.js) — gitignored
-├── docs/                  User-facing docs and screenshots
-├── specs/                 Speckit feature specs (NNN-feature-name/)
-├── scripts/               Dev tooling (deploy.sh — gitignored)
-├── .specify/              Speckit templates, constitution, hooks
-└── .claude/               Claude Code project config
-```
+- **Flexible time ranges** — pick a preset (this month, this quarter, this year, last 3 months, last 12 months) or any custom month-to-month span from the range selector in the floating bottom bar; arrow buttons step the current range backwards and forwards (down to the earliest period with recorded data).
+- **Monthly and yearly views** — a Monthly | Yearly toggle in the bottom bar switches between the day-by-day monthly tables and a compact yearly grid.
+  The yearly view shows one table per calendar year with one column per month; each cell holds that month's summary (min/avg/max for measurement rows, the monthly total for cumulative rows), plus a per-row yearly Summary and Total.
+  In the yearly view the range selector operates on whole calendar years (this year, last year, last 3/5 years, or a custom year span).
+- **Per-entity-type rendering** — automatically picks the right display for each entity:
+  - `measurement` entities (temperature, humidity, …) → combined min/avg/max in one row per day
+  - `total_increasing` / `total` entities (rainfall, electricity meter, …) → daily delta plus monthly total
+- **Smart monthly summary** — for `measurement` entities, monthly extremes are computed from the per-day extremes (not from the per-day means as HA does natively).
+  For cumulative and expression rows, you decide per row whether zero-value days count toward min/avg/max via the `show_zero` option (default: included).
+- **Expression rows** — define a row as an arithmetic formula over several entities, evaluated per day.
+- **Threshold colouring** — flag days that go above/below configurable values with per-rule text and background colours; matched rules show in a legend, and a table at the end of the page counts the days each threshold was reached.
+- **Predecessor entities** — stitch together history from a sensor that was replaced, with an optional unit-conversion factor.
+- **Dense layout** — maximum 4 px cell padding, no decorative whitespace, sticky entity-label column, horizontal scroll per table.
+- **Visual editor** — full GUI configuration; no YAML required.
+- **i18n** — English and German out of the box.
+  Locale follows the HA UI setting automatically.
+- **HA-native styling** — uses HA design tokens and Lovelace components; matches your theme.
 
-## Tech stack
+---
 
-- **Card runtime**: [Lit 3](https://lit.dev/) web components, TypeScript 6
-- **Bundler**: Rollup 4 (single-file ES module → `frontend/dist/calendar-stats-card.js`)
-- **Test runner**: Vitest 4 + happy-dom (no browser required)
-- **Target HA version**: 2026.5.0+
+## Installation
 
-## Prerequisites
+### HACS (recommended)
 
-- Node.js **24.15**
-- Python **3.14** — used for tooling and Speckit scripts only; not shipped
-- Git with UTF-8 / LF line endings (enforced via `.gitattributes`)
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=MarkusMit&repository=calendar-stats-card&category=plugin)
 
-## Setup
+1. Click the button above, or add the repository by hand: HACS → ⋮ (top right) → **Custom repositories** → Repository `https://github.com/MarkusMit/calendar-stats-card`, Type **Dashboard** → **Add**.
+2. Search for **Calendar Stats Card** in HACS and click **Download**.
+3. HACS registers the Lovelace resource automatically; hard-reload the browser once (Ctrl-Shift-R).
+4. Updates arrive through HACS like for any other card.
 
-All `npm` / `python` commands run from the `frontend/` directory:
+<details>
+<summary><strong>Manual install</strong></summary>
 
-```bash
-cd frontend
-npm install
-```
+1. Download the latest `calendar-stats-card.js` from the [Releases](https://github.com/MarkusMit/calendar-stats-card/releases) page, or build it yourself as described in [CONTRIBUTING.md](CONTRIBUTING.md).
+2. Copy the file into your HA config directory, e.g. `<config>/www/calendar-stats/calendar-stats-card.js`.
+3. In HA: **Settings → Dashboards → Resources → ＋ Add resource**
+   - URL: `/local/calendar-stats/calendar-stats-card.js`
+   - Resource type: **JavaScript module**
+4. Hard-reload your browser (Ctrl-Shift-R).
 
-## Build & test
+</details>
 
-```bash
-npm run build          # bundle → frontend/dist/calendar-stats-card.js
-npm test               # Vitest single run
-npm run test:watch     # watch mode
-npm run test:coverage  # coverage report
-npm run lint           # ESLint over src/ and tests/
-```
+### Add the card to a dashboard
 
-### TDD is non-negotiable
+The card is designed for a full-width panel view:
 
-Constitution Principle II: write the failing test first, then the implementation.
-See [`.specify/memory/constitution.md`](.specify/memory/constitution.md) for the full ruleset.
+1. Create a new dashboard view, set its **type** to **Panel (1 card)**.
+2. Edit the view → **＋ Add card** → search for **Calendar Stats**.
+3. The visual editor opens automatically.
+   Add at least one entity and you're done.
 
-## Deploy to a real HA instance
+For YAML users:
 
-A helper script (`scripts/deploy.sh`, gitignored) builds the bundle and `scp`s it to a configured HA host's `/config/www/calendar-stats/` directory.
-Each contributor maintains their own copy.
-The script is not checked in because the host/user values are personal.
-
-Manual equivalent:
-
-```bash
-cd frontend
-npm run build
-scp dist/calendar-stats-card.js user@homeassistant.local:/config/www/calendar-stats/
+```yaml
+type: custom:calendar-stats-card
+entities:
+  - entity: sensor.outdoor_temperature
+  - entity: sensor.daily_rainfall
+  - entity: sensor.electricity_meter_total
 ```
 
-Then reload the browser (Ctrl-Shift-R) or bump the resource URL's `?v=` parameter.
+---
 
-## Workflow: Speckit
+## Configuration
 
-The repository uses [Speckit](https://github.com/githubnext/speckit) for specification-driven development.
-Every feature lives under `specs/<NNN>-<name>/` and goes through the following stages:
+### Card-level options
 
-| Step | Slash command | Output |
+| Option   | Type    | Required | Default | Description |
+|----------|---------|----------|---------|-------------|
+| `type`     | string  | yes | — | Must be `custom:calendar-stats-card`. |
+| `entities` | list    | yes | — | Ordered list of entity rows and/or expression rows. |
+| `show_threshold_table` | boolean | no  | `true` | Show the [threshold days table](#threshold-days-table) below the tables. |
+
+### Entity row
+
+A single HA entity is rendered as one row.
+Display behaviour is derived automatically from the entity's `state_class` and `device_class` — no manual type configuration.
+
+| Option             | Type       | Default            | Description |
+|--------------------|------------|--------------------|-------------|
+| `entity`             | string     | **required**       | HA entity ID (e.g. `sensor.outdoor_temperature`). Duplicates allowed — each entry produces its own row. |
+| `name`               | string     | HA friendly name   | Override the label shown in the first column. |
+| `precision`          | integer    | `1`                | Decimal digits shown in day cells and summary columns. Omit to use the default of 1. |
+| `factor`             | number     | `1`                | Multiplier applied to every displayed value (raw HA values are kept untouched). Useful for unit scaling (e.g. `0.001` to display Wh as kWh). |
+| `unit`               | string     | HA unit            | Override the unit-of-measurement shown beside the label. |
+| `show_zero`          | boolean    | `true`             | If `false`, day cells whose computed value is exactly `0` render as blank AND the monthly summary min/avg/max exclude those zero-value days. The monthly `total` is unaffected (zero days contribute zero anyway). Applies uniformly: a counter-reset day clamped to `0` is treated the same as a naturally-zero day. Set explicitly to `false` for precipitation entities if you want the old "exclude no-rain days from the rainfall average" behaviour. |
+| `show_min`           | boolean    | `true`             | (Measurement entities) show the min sub-row per day. |
+| `show_avg`           | boolean    | `true`             | (Measurement entities) show the avg sub-row per day. |
+| `show_max`           | boolean    | `true`             | (Measurement entities) show the max sub-row per day. |
+| `text_color`         | string     | theme              | Row-wide text colour. Accepted formats: see [Color values](#color-values). |
+| `background_color`   | string     | theme              | Row-wide background colour. Accepted formats: see [Color values](#color-values). |
+| `thresholds`         | list       | —                  | Conditional colour rules — see [Threshold rule](#threshold-rule). |
+| `predecessors`       | list       | —                  | Historical entities to stitch in — see [Predecessor entry](#predecessor-entry). |
+
+### Expression row
+
+Computes a single per-day value from an arithmetic formula over one or more entity IDs.
+Treated as a cumulative row for monthly-summary purposes (sum, then min/avg/max over the daily values).
+
+| Option             | Type       | Default      | Description |
+|--------------------|------------|--------------|-------------|
+| `expression`         | string     | **required** | Arithmetic formula — entity IDs, numeric literals, `+ - * /` and parentheses. Optionally wrapped in `{{ ... }}`. Example: `{{ sensor.solar_export - sensor.solar_import }}`. |
+| `name`               | string     | —            | Label shown in the first column. |
+| `unit`               | string     | —            | Unit-of-measurement shown beside the label. |
+| `precision`          | integer    | `1`          | Decimal digits in displayed values. Omit to use the default of 1. |
+| `show_zero`          | boolean    | `true`       | If `false`, day cells whose computed value is exactly `0` render as blank AND the monthly summary min/avg/max exclude those zero-value days. The monthly `total` is unaffected. |
+| `text_color`         | string     | theme        | Row-wide text colour. Accepted formats: see [Color values](#color-values). |
+| `background_color`   | string     | theme        | Row-wide background colour. Accepted formats: see [Color values](#color-values). |
+| `thresholds`         | list       | —            | Conditional colour rules — see [Threshold rule](#threshold-rule). |
+
+Expression rows do **not** support `factor` (fold it into the expression directly) or `predecessors`.
+
+### Threshold rule
+
+Each entry in a row's `thresholds:` list applies a colour override to cells whose value satisfies the rule.
+Multiple rules can stack; the editor displays a legend for every named rule.
+
+| Option             | Type    | Default         | Description |
+|--------------------|---------|-----------------|-------------|
+| `operator`           | enum    | **required**    | One of `above`, `equals-above`, `equals-below`, `below`, `not-below`, `not-above`. Shared by all period values of the rule. |
+| `value`              | number  | —               | Day threshold — gates daily values and statistics over them; see [Threshold periods](#threshold-periods). |
+| `value_month`        | number  | —               | Month threshold — gates monthly sums and statistics over them. |
+| `value_year`         | number  | —               | Year threshold — gates yearly sums. |
+| `name`               | string  | —               | Optional label shown in the legend at the bottom of the card (once per rule). |
+| `text_color`         | string  | row default     | Text colour applied to matching cells. Accepted formats: see [Color values](#color-values). |
+| `background_color`   | string  | row default     | Background colour applied to matching cells. Accepted formats: see [Color values](#color-values). |
+
+At least one of `value`, `value_month`, `value_year` must be set; a rule with none is ignored.
+A rule is inert for periods it defines no threshold for.
+
+Operator semantics:
+
+| Operator         | Cell value passes when |
+|------------------|------------------------|
+| `above`            | `value > threshold` |
+| `equals-above`     | `value ≥ threshold` |
+| `equals-below`     | `value ≤ threshold` |
+| `below`            | `value < threshold` |
+| `not-below`        | `value ≥ threshold` |
+| `not-above`        | `value ≤ threshold` |
+
+### Threshold periods
+
+For each cell, a rule is evaluated only when it defines a threshold for the cell's aggregation period, using that period's value.
+Sums define the period; statistics inherit the period of the values they summarize.
+
+| Period   | Threshold field | Cells it can colour |
+|----------|-----------------|---------------------|
+| Day    | `value`       | Daily values and statistics over daily values: all measurement cells in every view (including monthly/yearly min/avg/max), cumulative daily values, and their monthly summary min/avg/max. |
+| Month  | `value_month` | Monthly sums and statistics over them: cumulative month cells in the yearly view, the comparison view's values and cross-year average, the yearly view's per-row summary over monthly totals, and the monthly view's Total column. |
+| Year   | `value_year`  | Yearly sums: the yearly view's Total column. |
+
+This keeps daily-intent thresholds (e.g. "more than 10 mm rain in a day") from firing on monthly totals, while one rule can carry all three magnitudes of the same phenomenon — one colour, one legend entry:
+
+```yaml
+entities:
+  - entity: sensor.precipitation
+    thresholds:
+      - operator: above
+        value: 10            # day: wet day
+        value_month: 150     # month: wet month
+        value_year: 1200     # year: wet year
+        name: Wet
+        background_color: "#0277bd"
+      - operator: above
+        value_month: 300     # month-only rule; inert on daily and yearly cells
+        name: Extreme month
+        background_color: "#01579b"
+```
+
+### Threshold days table
+
+Below every table, the card counts how often each named day threshold was reached over the viewed range.
+Each row shows two numbers:
+
+| Column | Meaning |
+|--------|---------|
+| Band   | Days where this rule is the one that colours the cell — days between this threshold and the next. |
+| Total  | Days where this rule applies at all, whether or not another rule takes precedence for the colour. |
+
+With thresholds at 25 and 30 on a temperature row, a day at 28 counts in the 25 band and a day at 32 in the 30 band, while both days count toward the 25 total:
+
+```yaml
+entities:
+  - entity: sensor.outdoor_temperature
+    name: Temperature
+    thresholds:
+      - operator: equals-above
+        value: 25
+        name: Summer day
+        background_color: orange
+      - operator: equals-above
+        value: 30
+        name: Hot day
+        background_color: red
+```
+
+| Temperature [°C] | Band | Total |
 |---|---|---|
-| 1 | `/speckit.specify "feature description"` | `spec.md` — WHAT/WHY only |
-| 2 | `/speckit.clarify` | Resolves up to 3 ambiguities; appends to `spec.md` |
-| 3 | `/speckit.plan` | `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` |
-| 4 | `/speckit.tasks` | `tasks.md` — actionable, dependency-ordered |
-| 5 | `/speckit.implement` | Executes tasks |
-| 6 | `/speckit.checklist` | Verification checklist |
-| 7 | `/speckit.analyze` | Cross-artifact consistency check |
+| Summer day (≥ 25) | 5 | 8 |
+| Hot day (≥ 30) | 3 | 3 |
 
-**Automatic git hooks commit before/after each Speckit step** — never run `git commit` manually during a Speckit workflow, or you will produce duplicate or out-of-order commits.
+The table appears in the monthly and yearly views whenever at least one rule qualifies, unless `show_threshold_table: false` is set on the card.
+A rule qualifies when it has a `name`, a day `value` and at least one colour — rules that only set `value_month` or `value_year` describe sums rather than days and are left out.
+Each row is labelled with the rule name and its threshold, e.g. `Summer day (≥ 25)`.
+Counts follow what is visible: today and future days are excluded, values hidden by `show_zero: false` are not counted, and a day with several values (min/avg/max) counts once per rule.
 
-Feature branch names are auto-generated during `/speckit.specify`; override with `GIT_BRANCH_NAME=...` in the environment if needed.
-The spec directory name and the branch name are independent.
+In the yearly view over more than one year, each year gets its own Band and Total columns, followed by an "All years" pair for the whole range:
 
-## Commit conventions
+| Rain [mm] | 2024 Band | 2024 Total | 2025 Band | 2025 Total | All years Band | All years Total |
+|---|---|---|---|---|---|---|
+| Wet day (≥ 10) | 2 | 3 | 3 | 5 | 5 | 8 |
 
-[Conventional Commits](https://www.conventionalcommits.org/) — enforced by hooks and PR review:
+A displayed year with no matching day still gets its columns, showing 0.
+The monthly view, and a yearly view showing a single year, keep the plain two-column layout.
 
+### Predecessor entry
+
+Each entry in an entity row's `predecessors:` list points to an earlier HA entity whose statistics should be used for dates strictly before `replaced_on`.
+Useful when a sensor was replaced or renamed.
+
+| Option         | Type   | Default      | Description |
+|----------------|--------|--------------|-------------|
+| `entity`         | string | **required** | HA entity ID of the predecessor sensor. |
+| `replaced_on`    | string | —            | ISO date `YYYY-MM-DD`. The predecessor covers dates strictly before this date. Omit to use the predecessor for all dates with no main-entity data. |
+| `factor`         | number | `1`          | Multiplier applied to predecessor values (e.g. `1000` if the old sensor reported kWh and the new one reports Wh). Also bypasses the unit-compatibility check. |
+
+### Color values
+
+Every `text_color` and `background_color` option (on rows and on threshold rules) accepts any CSS colour string.
+The value is applied as-is to the cell's inline style, so anything the browser understands works:
+
+| Format | Example | Notes |
+|---|---|---|
+| Named colour | `red`, `white`, `transparent` | The full [CSS named colour](https://developer.mozilla.org/en-US/docs/Web/CSS/named-color) set. |
+| Hex (3/4/6/8 digit) | `#f44`, `#ff5252`, `#ff525280` | 8-digit form includes alpha. |
+| `rgb()` / `rgba()` | `rgb(255 82 82)`, `rgba(255, 82, 82, 0.5)` | Comma or space syntax. |
+| `hsl()` / `hsla()` | `hsl(0 70% 65%)` | Same alpha rules as `rgba()`. |
+| HA / theme variable | `var(--error-color)`, `var(--primary-color)` | Pulls the current theme's colour. Common HA tokens: `--primary-color`, `--accent-color`, `--error-color`, `--warning-color`, `--success-color`, `--info-color`, `--primary-text-color`, `--secondary-text-color`, `--card-background-color`, `--divider-color`. |
+
+Tip: prefer HA theme variables when you want the card to follow theme switching (light/dark).
+Prefer hex/rgba when you need a specific brand colour regardless of theme.
+
+---
+
+## Examples
+
+### Minimal
+
+```yaml
+type: custom:calendar-stats-card
+entities:
+  - entity: sensor.outdoor_temperature
 ```
-type(scope): subject
 
-[optional body]
+### Temperature + precipitation + energy
 
-[optional footer(s)]
+```yaml
+type: custom:calendar-stats-card
+entities:
+  - entity: sensor.outdoor_temperature
+    name: Outdoor
+    precision: 1
+  - entity: sensor.daily_rainfall
+    name: Rain
+    show_zero: false
+  - entity: sensor.electricity_meter
+    name: Electricity
+    factor: 0.001
+    unit: kWh
+    precision: 2
 ```
 
-- **Allowed types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
-- **Subject**: ≤ 72 chars, imperative mood, no trailing period
-- **Breaking changes**: `!` after type/scope (`feat(editor)!: ...`) or a `BREAKING CHANGE:` footer
+### Threshold colouring (hot/cold days)
 
-## Branches
+```yaml
+type: custom:calendar-stats-card
+entities:
+  - entity: sensor.outdoor_temperature
+    name: Outdoor
+    precision: 1
+    thresholds:
+      - operator: above
+        value: 30
+        name: Hot
+        background_color: "#ff5252"
+        text_color: white
+      - operator: below
+        value: 0
+        name: Frost
+        background_color: "#2196f3"
+        text_color: white
+```
 
-- `main` — released code
-- `dev` — integration branch; features land here first via PR
-- `NNN-feature-name` — per-feature branches, merged into `dev`
+### Expression row — net solar export
 
-## Coding rules (short version)
+```yaml
+type: custom:calendar-stats-card
+entities:
+  - entity: sensor.solar_export
+  - entity: sensor.solar_import
+  - expression: "{{ sensor.solar_export - sensor.solar_import }}"
+    name: Net solar
+    unit: kWh
+    precision: 2
+```
 
-- HA-native design — use HA design tokens and Lovelace components; no custom theming
-- i18n from day one — every user-visible string goes through `localize()`; both `en.json` and `de.json` must be updated in the same commit
-- No decorative whitespace — the card is a dense data display
-- YAGNI — no abstractions without a concrete current need
-- Out-of-scope features (color coding alternates, separate min/max rows, manual data entry, yearly summary tab, cross-year comparison) must not be implemented even opportunistically
+### Predecessor — sensor was replaced on 2024-06-01
 
-Full ruleset: [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
+```yaml
+type: custom:calendar-stats-card
+entities:
+  - entity: sensor.electricity_meter_v2
+    name: Electricity
+    factor: 0.001
+    unit: kWh
+    predecessors:
+      - entity: sensor.electricity_meter_v1
+        replaced_on: "2024-06-01"
+```
+
+---
+
+## Behaviour & limits
+
+- **Today and future days** are always rendered as empty cells, even when HA has partial data for today.
+  "Today" is determined in the HA server's timezone (`hass.config.time_zone`).
+- **On load** the card shows the current calendar year (January through the current month); the selected range and view are session-only and reset on reload.
+- **Backward navigation** stops at the period containing the earliest recorded data of any configured entity; no fully-empty earlier period is reachable, in either view.
+- **Monthly totals** for cumulative entities are sourced from HA's authoritative monthly statistics (`sum[month] − sum[prev_month]`) and may not exactly equal the arithmetic sum of visible daily cells — this is expected and HA wins.
+- **Performance** — tested up to 10 entities; no hard cap is enforced.
+- **HA version** — requires 2026.5.0+.
+  The card reads both the `has_mean` and the `mean_type` statistics metadata fields.
+
+## Localization
+
+The card automatically uses the language configured in your HA UI.
+Supported locales:
+
+- 🇬🇧 English (`en`)
+- 🇩🇪 German (`de`)
+
+To request a new locale, open an issue or PR with a translation file in `frontend/src/translations/`.
+
+## Troubleshooting
+
+- **Card doesn't appear in the card picker** → check the resource URL in **Settings → Dashboards → Resources** and hard-reload the browser.
+- **Entity row shows a warning icon** → the entity has no long-term statistics enabled in HA.
+  Enable it via **Settings → System → Customize** for that entity, then wait at least one statistics cycle.
+- **Monthly total ≠ sum of visible days** → expected.
+  HA's monthly-period figure wins.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for build, test, and release workflow.
 
 ## License
 
-TBD.
+[MIT](LICENSE).
