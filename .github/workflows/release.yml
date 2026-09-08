@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish, e.g. v0.6.0"
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Validate tag
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Tag '$RELEASE_TAG' is not of the form vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          echo "VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
+
+      - name: Check out tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts
+
+      - name: Check package version matches tag
+        working-directory: frontend
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [[ "$PKG_VERSION" != "$VERSION" ]]; then
+            echo "::error::package.json version $PKG_VERSION does not match tag $RELEASE_TAG"
+            exit 1
+          fi
+
+      - name: Lint, typecheck, test
+        working-directory: frontend
+        run: npm run check
+
+      - name: Build bundle
+        working-directory: frontend
+        run: npm run build
+
+      - name: Compose release notes
+        run: |
+          awk -v ver="$VERSION" '
+            index($0, "## [" ver "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > changelog-section.md
+          if [[ ! -s changelog-section.md ]]; then
+            echo "::error::CHANGELOG.md has no section for version $VERSION"
+            exit 1
+          fi
+          {
+            printf '> [!WARNING]\n'
+            printf '> **Vibe-coded project.** This card was developed with AI assistance (Claude Code).\n'
+            printf '> Expect AI-generated code and rapid iteration. Review before relying on it in production-critical setups.\n\n'
+            cat changelog-section.md
+          } > release-notes.md
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
+          body_path: release-notes.md
+          files: frontend/dist/calendar-stats-card.js
+          fail_on_unmatched_files: true
