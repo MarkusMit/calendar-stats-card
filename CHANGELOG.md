@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-09
+
 ### Added
 
 - Installation through HACS as a custom repository.
@@ -160,7 +162,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Threshold coloring is no longer applied to a cumulative row's total column; the total uses the static color only.
 - Table text can now be selected (for copying) in the macOS Home Assistant app by adding `-webkit-user-select` for WKWebView.
 
-[Unreleased]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.4.1...v0.5.0
