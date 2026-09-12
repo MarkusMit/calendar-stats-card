@@ -97,3 +97,60 @@ describe('StatisticsService — WS failure', () => {
     await expect(svc.fetchDailyStats(hass, ENTITY_IDS, START, END)).rejects.toThrow('WS error');
   });
 });
+
+describe('StatisticsService.fetchStatisticsMetadata', () => {
+  const META = [
+    { statistic_id: 'sensor.temp', statistics_unit_of_measurement: '°C', unit_class: 'temperature', has_sum: false, mean_type: 1, name: null, source: 'recorder' },
+    { statistic_id: 'tibber:consumption', statistics_unit_of_measurement: 'kWh', unit_class: 'energy', has_sum: true, mean_type: 0, name: 'Tibber', source: 'tibber' },
+  ];
+
+  it('sends recorder/get_statistics_metadata with statistic_ids and returns a map keyed by statistic_id', async () => {
+    const send = vi.fn().mockResolvedValue(META);
+    const hass = makeHass('2026.5.0', send);
+    const svc = new StatisticsService();
+    const result = await svc.fetchStatisticsMetadata(hass, ['sensor.temp', 'tibber:consumption']);
+    expect(send).toHaveBeenCalledWith({
+      type: 'recorder/get_statistics_metadata',
+      statistic_ids: ['sensor.temp', 'tibber:consumption'],
+    });
+    expect(result.get('tibber:consumption')?.name).toBe('Tibber');
+    expect(result.get('sensor.temp')?.mean_type).toBe(1);
+    expect(result.size).toBe(2);
+  });
+
+  it('returns an empty map for a non-array response', async () => {
+    const send = vi.fn().mockResolvedValue({});
+    const hass = makeHass('2026.5.0', send);
+    const svc = new StatisticsService();
+    const result = await svc.fetchStatisticsMetadata(hass, ENTITY_IDS);
+    expect(result.size).toBe(0);
+  });
+
+  it('reuses the cached response for the same id set regardless of order or duplicates', async () => {
+    const send = vi.fn().mockResolvedValue(META);
+    const hass = makeHass('2026.5.0', send);
+    const svc = new StatisticsService();
+    await svc.fetchStatisticsMetadata(hass, ['sensor.temp', 'tibber:consumption']);
+    await svc.fetchStatisticsMetadata(hass, ['tibber:consumption', 'sensor.temp', 'sensor.temp']);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('fetches again for a different id set', async () => {
+    const send = vi.fn().mockResolvedValue(META);
+    const hass = makeHass('2026.5.0', send);
+    const svc = new StatisticsService();
+    await svc.fetchStatisticsMetadata(hass, ['sensor.temp']);
+    await svc.fetchStatisticsMetadata(hass, ['sensor.temp', 'tibber:consumption']);
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries after a rejected call instead of caching the failure', async () => {
+    const send = vi.fn().mockRejectedValueOnce(new Error('WS error')).mockResolvedValue(META);
+    const hass = makeHass('2026.5.0', send);
+    const svc = new StatisticsService();
+    await expect(svc.fetchStatisticsMetadata(hass, ENTITY_IDS)).rejects.toThrow('WS error');
+    const result = await svc.fetchStatisticsMetadata(hass, ENTITY_IDS);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(result.size).toBe(2);
+  });
+});
