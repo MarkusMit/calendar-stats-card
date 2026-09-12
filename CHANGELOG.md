@@ -24,8 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Yearly view showed empty months wherever the main entity had no HA monthly bucket, even when a predecessor supplied the daily values.
+- Yearly view showed empty months, and empty whole years, wherever the main entity had no HA monthly bucket, even when a predecessor supplied the daily values.
   Every month with daily values now gets a summary; the cumulative total stays empty without an HA bucket.
+- An external predecessor of a `total_increasing` entity was skipped as a kind mismatch.
+  A predecessor without a state object now inherits the main row's cumulative kind.
 - README no longer claims the card reads `has_mean` and `mean_type` from the statistics response.
 
 ## [0.7.0] - 2026-09-09

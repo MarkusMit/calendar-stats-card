@@ -160,6 +160,47 @@ describe('CalendarStatsCard — external statistics rows', () => {
     expect((metaCalls[0]![0] as Record<string, unknown>)['statistic_ids']).toEqual(['tibber:consumption']);
   });
 
+  it('lets an external predecessor inherit the main entity\'s resolved kind when the row sets none', async () => {
+    const config: CardConfig = {
+      type: 'custom:calendar-stats-card',
+      entities: [{
+        entity: 'sensor.rain',
+        predecessors: [{ entity: 'wetter_xls:niederschlag', replaced_on: `${year}-01-03` }],
+      }],
+    };
+    const states: HomeAssistant['states'] = {
+      'sensor.rain': {
+        entity_id: 'sensor.rain',
+        state: '0',
+        attributes: { state_class: 'total_increasing', unit_of_measurement: 'mm', friendly_name: 'Rain' },
+      },
+    };
+    const predMeta: StatisticMetaEntry = {
+      statistic_id: 'wetter_xls:niederschlag',
+      statistics_unit_of_measurement: 'mm',
+      unit_class: 'precipitation',
+      has_sum: true,
+      mean_type: 0,
+      name: 'Niederschlag',
+      source: 'wetter_xls',
+    };
+    const rainMeta: StatisticMetaEntry = { ...predMeta, statistic_id: 'sensor.rain', name: null, source: 'recorder' };
+    const daily = {
+      'wetter_xls:niederschlag': [
+        { start: dec31prev, end: jan1, sum: 0 },
+        { start: jan1, end: jan2, sum: 10 },
+        { start: jan2, end: jan3, sum: 7 },
+      ],
+      'sensor.rain': [{ start: jan3, end: jan3 + 1, sum: 0 }],
+    };
+    const el = await createCard(config, makeHass(daily, [predMeta, rainMeta], states));
+    const root = await getFirstTableRoot(el);
+    const cells = findRow(root, 'Rain [mm]')!.querySelectorAll('.data-cell');
+    expect(cells[0]?.textContent?.trim()).toBe('10.0');
+    // Inherited total_increasing clamps the predecessor's negative delta.
+    expect(cells[1]?.textContent?.trim()).toBe('0.0');
+  });
+
   it('applies the row state_class to an external predecessor', async () => {
     const config: CardConfig = {
       type: 'custom:calendar-stats-card',

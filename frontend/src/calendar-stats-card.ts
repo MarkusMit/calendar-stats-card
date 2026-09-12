@@ -427,24 +427,31 @@ export class CalendarStatsCard extends LitElement {
 
       if (token !== this._fetchAbortFlag) return false;
 
-      // Config state_class overrides, keyed by id; a row's override also covers its
-      // predecessors. First row wins when the same id appears in several rows.
-      const cfgStateClassById: Record<string, CumulativeStateClass | undefined> = {};
+      const metadataMap: Record<string, import('./types/statistics').EntityMetadata> = {};
+      const resolve = (id: string, cfgStateClass: CumulativeStateClass | undefined) =>
+        resolveEntityMetadata(id, this._hass!.states[id]?.attributes, statMeta.get(id), cfgStateClass);
+
+      // Main rows first (first row wins for duplicate ids): their resolved kind is what
+      // a stateless predecessor inherits below.
+      for (const cfg of this._config.entities) {
+        if ('entity' in cfg) metadataMap[cfg.entity] ??= resolve(cfg.entity, cfg.state_class);
+      }
+      // Predecessors: the row's state_class override wins. Without one, a predecessor
+      // that has no state object (external statistic, deleted entity) inherits the main
+      // row's cumulative kind — statistics metadata alone cannot tell total from
+      // total_increasing, and a mismatch would get the predecessor skipped.
       for (const cfg of this._config.entities) {
         if (!('entity' in cfg)) continue;
-        cfgStateClassById[cfg.entity] ??= cfg.state_class;
-        for (const p of cfg.predecessors ?? []) cfgStateClassById[p.entity] ??= cfg.state_class;
+        const mainClass = metadataMap[cfg.entity]!.stateClass;
+        const inheritable = mainClass === 'total' || mainClass === 'total_increasing' ? mainClass : undefined;
+        for (const p of cfg.predecessors ?? []) {
+          if (metadataMap[p.entity]) continue;
+          const inherited = this._hass.states[p.entity] ? undefined : inheritable;
+          metadataMap[p.entity] = resolve(p.entity, cfg.state_class ?? inherited);
+        }
       }
-
-      const metadataMap: Record<string, import('./types/statistics').EntityMetadata> = {};
-      for (const id of entityIds) {
-        metadataMap[id] = resolveEntityMetadata(
-          id,
-          this._hass.states[id]?.attributes,
-          statMeta.get(id),
-          cfgStateClassById[id],
-        );
-      }
+      // Expression operands that are not rows or predecessors.
+      for (const id of entityIds) metadataMap[id] ??= resolve(id, undefined);
 
       // Add synthetic metadata for expression rows
       for (const cfg of this._config.entities) {

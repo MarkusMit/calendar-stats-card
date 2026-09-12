@@ -100,7 +100,7 @@ The optional `state_class` row option overrides the derived kind.
 |--------------------|------------|--------------------|-------------|
 | `entity`             | string     | **required**       | HA entity ID (e.g. `sensor.outdoor_temperature`) or external statistic ID (e.g. `tibber:energy_consumption`). Duplicates allowed — each entry produces its own row. |
 | `name`               | string     | HA friendly name   | Override the label shown in the first column. External statistics default to the metadata `name`. |
-| `state_class`        | `total` \| `total_increasing` | derived | Forces the cumulative kind. `total_increasing` clamps negative daily and monthly deltas to `0`; `total` keeps them. Needed for external statistics with counter resets, since HA's statistics metadata cannot distinguish the two. Overrides an entity's own `state_class` and also applies to the row's predecessors. |
+| `state_class`        | `total` \| `total_increasing` | derived | Forces the cumulative kind. `total_increasing` clamps negative daily and monthly deltas to `0`; `total` keeps them. Needed for external statistics with counter resets, since HA's statistics metadata cannot distinguish the two. Overrides an entity's own `state_class` and also applies to the row's predecessors; without it, an external predecessor inherits the main entity's kind. |
 | `precision`          | integer    | `1`                | Decimal digits shown in day cells and summary columns. Omit to use the default of 1. |
 | `factor`             | number     | `1`                | Multiplier applied to every displayed value (raw HA values are kept untouched). Useful for unit scaling (e.g. `0.001` to display Wh as kWh). |
 | `unit`               | string     | HA unit            | Override the unit-of-measurement shown beside the label. |
@@ -371,7 +371,8 @@ To request a new locale, open an issue or PR with a translation file in `fronten
   For an entity, enable statistics via **Settings → System → Customize**, then wait at least one statistics cycle.
   For an external statistic, check that the importing integration has run and that the ID is spelled `domain:object_id`.
 - **External cumulative statistic shows negative days** → set `state_class: total_increasing` on the row.
-- **External predecessor is skipped (console warning)** → its derived kind differs from the main entity's; set `state_class` on the row so both resolve alike.
+- **External predecessor is skipped (console warning)** → its unit differs from the main entity's; set `factor` on the predecessor entry to bypass the unit check.
+  A predecessor without a state object inherits the main row's cumulative kind, so kind mismatches only arise between two real entities.
 - **Monthly total ≠ sum of visible days** → expected.
   HA's monthly-period figure wins.
 
