@@ -666,8 +666,12 @@ export class CalendarStatsCard extends LitElement {
   }
 
   private _onDocClick = (e: MouseEvent): void => {
-    const bar = this.shadowRoot?.querySelector('.bottom-bar');
-    if (bar && e.composedPath().includes(bar)) return;
+    // Only the legend's own toggle and popover keep it open; any other
+    // bottom-bar button counts as an outside click.
+    const path = e.composedPath();
+    const toggle = this.shadowRoot?.querySelector('.legend-toggle');
+    const popover = this.shadowRoot?.querySelector('.legend-popover');
+    if ((toggle && path.includes(toggle)) || (popover && path.includes(popover))) return;
     this._setLegendOpen(false);
   };
 
