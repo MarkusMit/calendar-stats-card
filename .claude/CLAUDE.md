@@ -56,7 +56,8 @@ Computation rules per row type are normative; any deviation is a defect.
 
 **Cumulative entity rows (`total_increasing` / `total`)**:
 
-- Day cells: single daily value (delta from previous day's HA `sum`).
+- Day cells: single daily value, HA's `change` (delta of `sum` against the previous recorded row, even one before the fetch window).
+  In-window `sum` difference only when the response carries no `change`.
 - Monthly min/avg/max: card-computed from daily values; zero-value days excluded when the row's `show_zero` is `false`, included otherwise (default).
 - Monthly **total**: `HA monthly sum[month] − HA monthly sum[prev_month]` from HA's `period: 'month'` statistics.
   First tracked month or after a monthly-statistics gap: `total = HA monthly sum[month]`.

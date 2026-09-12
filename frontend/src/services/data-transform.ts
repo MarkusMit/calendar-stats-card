@@ -71,11 +71,13 @@ export function transformDailyStats(
         };
         result.set(key, dayVal);
       } else {
-        // Cumulative
+        // Cumulative. HA's `change` is the delta against the previous row even when
+        // that row lies before the fetch window (sparse imported statistics); the
+        // in-window sum difference is only a fallback for responses without `change`.
         const prevEntry = sorted[i - 1];
         const prevSum = prevEntry != null ? (prevEntry.sum ?? 0) : null;
         const currentSum = entry.sum ?? 0;
-        let delta = prevSum === null ? currentSum : currentSum - prevSum;
+        let delta = entry.change ?? (prevSum === null ? currentSum : currentSum - prevSum);
 
         if (isTotalIncreasing && delta < 0) delta = 0;
 

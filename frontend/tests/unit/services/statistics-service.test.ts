@@ -83,7 +83,7 @@ describe('StatisticsService — fetchDailyStats request shape', () => {
     const svc = new StatisticsService();
     await svc.fetchDailyStats(hass, ENTITY_IDS, START, END);
     const call = send.mock.calls[0]?.[0] as Record<string, unknown>;
-    expect(call['types']).toEqual(['mean', 'min', 'max', 'sum']);
+    expect(call['types']).toEqual(['mean', 'min', 'max', 'sum', 'change']);
     expect(Object.prototype.hasOwnProperty.call(call, 'has_mean')).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(call, 'mean_type')).toBe(false);
   });
