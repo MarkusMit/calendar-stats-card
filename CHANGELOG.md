@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-12
+
+### Fixed
+
+- Yearly view: months covered only by a predecessor take their total from the predecessor's HA monthly statistics instead of staying empty.
+- The month a predecessor is replaced in sums both sources' day values instead of only the main entity's part.
+
 ## [0.8.0] - 2026-09-12
 
 ### Added
@@ -193,6 +200,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Table text can now be selected (for copying) in the macOS Home Assistant app by adding `-webkit-user-select` for WKWebView.
 
 [Unreleased]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.8.0...HEAD
+[0.8.1]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.5.1...v0.6.0
