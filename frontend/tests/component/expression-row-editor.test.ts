@@ -110,56 +110,84 @@ describe('ExpressionRowEditor — basic rendering (T011)', () => {
 
 // T016: US4 — formula validation
 describe('ExpressionRowEditor — formula validation (T016)', () => {
-  it('invalid syntax sets error, does NOT dispatch row-changed', async () => {
+  it('invalid syntax renders a blocking error and does NOT dispatch row-changed', async () => {
     const el = await createExpressionRowEditor({ expression: '' });
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
     fireFormChange(el, { expression: '{{ invalid ## syntax }}' });
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
     expect(dispatched).toHaveLength(0);
-    const internal = el as unknown as { _formulaError: string | null };
-    expect(internal._formulaError).toBeTruthy();
+    const error = el.shadowRoot!.querySelector('[data-error]');
+    expect(error).toBeTruthy();
+    expect(error!.textContent).toContain('Invalid expression syntax');
+    expect(el.shadowRoot!.querySelector('[data-warning]')).toBeNull();
   });
 
-  it('formula with an id unknown to the recorder sets an error, does NOT dispatch', async () => {
+  it('an id unknown to the recorder renders a warning but still dispatches row-changed', async () => {
     const el = await createExpressionRowEditor({ expression: '' }, 0, makeHass({}), new Set(['sensor.other']));
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
     fireFormChange(el, { expression: '{{ sensor.missing }}' });
-    expect(dispatched).toHaveLength(0);
-    const internal = el as unknown as { _formulaError: string | null };
-    expect(internal._formulaError).toContain('sensor.missing');
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]!.detail.config.expression).toBe('{{ sensor.missing }}');
+    // The parent writes the config back; the warning follows the stored expression.
+    (el as unknown as { config: ExpressionRowConfig }).config = dispatched[0]!.detail.config as ExpressionRowConfig;
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    const warning = el.shadowRoot!.querySelector('[data-warning]');
+    expect(warning).toBeTruthy();
+    expect(warning!.textContent).toContain('sensor.missing');
+    expect(el.shadowRoot!.querySelector('[data-error]')).toBeNull();
   });
 
   it('does not flag ids while the known statistic ids are not loaded (null)', async () => {
-    const el = await createExpressionRowEditor({ expression: '' }, 0, makeHass({}), null);
-    const dispatched: CustomEvent[] = [];
-    el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    fireFormChange(el, { expression: '{{ sensor.missing }}' });
-    expect(dispatched).toHaveLength(1);
+    const el = await createExpressionRowEditor({ expression: '{{ sensor.missing }}' }, 0, makeHass({}), null);
+    expect(el.shadowRoot!.querySelector('[data-warning]')).toBeNull();
   });
 
   it('accepts an external statistic id known to the recorder but absent from hass.states', async () => {
-    const el = await createExpressionRowEditor({ expression: '' }, 0, makeHass({}), new Set(['tibber:consumption']));
-    const dispatched: CustomEvent[] = [];
-    el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    fireFormChange(el, { expression: '{{ tibber:consumption * 2 }}' });
-    const internal = el as unknown as { _formulaError: string | null };
-    expect(internal._formulaError).toBeNull();
-    expect(dispatched).toHaveLength(1);
+    const el = await createExpressionRowEditor({ expression: '{{ tibber:consumption * 2 }}' }, 0, makeHass({}), new Set(['tibber:consumption']));
+    expect(el.shadowRoot!.querySelector('[data-warning], [data-error]')).toBeNull();
   });
 
-  it('valid formula clears error and dispatches row-changed', async () => {
-    const hass = makeHass({
-      'sensor.a': { entity_id: 'sensor.a', state: '1', attributes: {} },
-    });
+  it('shows the syntax error for a stored invalid formula on first render', async () => {
+    const el = await createExpressionRowEditor({ expression: '{{ 1 ## 2 }}' });
+    expect(el.shadowRoot!.querySelector('[data-error]')).toBeTruthy();
+  });
+
+  it('shows the warning for a stored formula with an unknown id on first render', async () => {
+    const el = await createExpressionRowEditor({ expression: '{{ sensor.gone }}' }, 0, makeHass({}), new Set(['sensor.other']));
+    expect(el.shadowRoot!.querySelector('[data-warning]')!.textContent).toContain('sensor.gone');
+  });
+
+  it('drops the warning once the known ids arrive and contain the id', async () => {
+    const el = await createExpressionRowEditor({ expression: '{{ sensor.late }}' }, 0, makeHass({}), new Set(['sensor.other']));
+    expect(el.shadowRoot!.querySelector('[data-warning]')).toBeTruthy();
+    (el as unknown as { knownStatisticIds: Set<string> | null }).knownStatisticIds = new Set(['sensor.late']);
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect(el.shadowRoot!.querySelector('[data-warning]')).toBeNull();
+  });
+
+  it('a valid formula after a syntax error clears the error and dispatches', async () => {
+    const hass = makeHass({ 'sensor.a': { entity_id: 'sensor.a', state: '1', attributes: {} } });
     const el = await createExpressionRowEditor({ expression: '' }, 0, hass);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
+    fireFormChange(el, { expression: '{{ 1 ## 2 }}' });
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect(el.shadowRoot!.querySelector('[data-error]')).toBeTruthy();
     fireFormChange(el, { expression: '{{ sensor.a }}' });
-    const internal = el as unknown as { _formulaError: string | null };
-    expect(internal._formulaError).toBeNull();
     expect(dispatched).toHaveLength(1);
-    expect(dispatched[0]!.detail.config.expression).toBe('{{ sensor.a }}');
+    (el as unknown as { config: ExpressionRowConfig }).config = dispatched[0]!.detail.config as ExpressionRowConfig;
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect(el.shadowRoot!.querySelector('[data-error]')).toBeNull();
+  });
+
+  it('explains the formula syntax as helper text on the expression field', async () => {
+    const el = await createExpressionRowEditor({ expression: '' });
+    const form = el.shadowRoot!.querySelector('ha-form') as HTMLElement & { computeHelper?: (s: { name: string }) => string | undefined };
+    expect(form.computeHelper).toBeTypeOf('function');
+    expect(form.computeHelper!({ name: 'expression' })).toBe('Statistic IDs, numbers, + - * / and parentheses, e.g. sensor.export - sensor.import');
+    expect(form.computeHelper!({ name: 'name' })).toBeUndefined();
   });
 });
 

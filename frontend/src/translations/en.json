@@ -83,6 +83,7 @@
     "text_color": "Text color",
     "background_color": "Background color",
     "formula": "Formula",
+    "formula_help": "Statistic IDs, numbers, + - * / and parentheses, e.g. sensor.export - sensor.import",
     "thresholds": "Thresholds",
     "add_threshold": "Add threshold",
     "remove_threshold": "Remove threshold",

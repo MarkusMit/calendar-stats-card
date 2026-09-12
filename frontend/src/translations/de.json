@@ -83,6 +83,7 @@
     "text_color": "Textfarbe",
     "background_color": "Hintergrundfarbe",
     "formula": "Formel",
+    "formula_help": "Statistik-IDs, Zahlen, + - * / und Klammern, z. B. sensor.export - sensor.import",
     "thresholds": "Schwellwerte",
     "add_threshold": "Schwellwert hinzufügen",
     "remove_threshold": "Schwellwert entfernen",
