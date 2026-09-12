@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- External long-term statistics (`domain:object_id`) as entity rows, predecessors and expression operands.
+  Kind, unit and name come from HA's statistics metadata (`recorder/get_statistics_metadata`).
+- `state_class` row option to force `total` or `total_increasing` where the metadata cannot tell them apart.
+- The editor picks from all statistics (entities and external) and flags IDs without long-term statistics.
+
+### Changed
+
+- Rows whose ID has no long-term statistics show the `⚠` label prefix and empty cells, as documented.
+
+### Fixed
+
+- README no longer claims the card reads `has_mean` and `mean_type` from the statistics response.
+
 ## [0.7.0] - 2026-09-09
 
 ### Added

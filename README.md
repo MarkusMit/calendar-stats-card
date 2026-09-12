@@ -91,13 +91,16 @@ entities:
 
 ### Entity row
 
-A single HA entity is rendered as one row.
-Display behaviour is derived automatically from the entity's `state_class` and `device_class` — no manual type configuration.
+A single HA statistic is rendered as one row: an entity with long-term statistics, or an external statistic (`domain:object_id`) imported by an integration.
+Display behaviour is derived from the entity's `state_class`.
+External statistics have no entity, so their kind, unit and name come from HA's statistics metadata (`has_sum`, `mean_type`, `statistics_unit_of_measurement`, `name`).
+The optional `state_class` row option overrides the derived kind.
 
 | Option             | Type       | Default            | Description |
 |--------------------|------------|--------------------|-------------|
-| `entity`             | string     | **required**       | HA entity ID (e.g. `sensor.outdoor_temperature`). Duplicates allowed — each entry produces its own row. |
-| `name`               | string     | HA friendly name   | Override the label shown in the first column. |
+| `entity`             | string     | **required**       | HA entity ID (e.g. `sensor.outdoor_temperature`) or external statistic ID (e.g. `tibber:energy_consumption`). Duplicates allowed — each entry produces its own row. |
+| `name`               | string     | HA friendly name   | Override the label shown in the first column. External statistics default to the metadata `name`. |
+| `state_class`        | `total` \| `total_increasing` | derived | Forces the cumulative kind. `total_increasing` clamps negative daily and monthly deltas to `0`; `total` keeps them. Needed for external statistics with counter resets, since HA's statistics metadata cannot distinguish the two. Overrides an entity's own `state_class` and also applies to the row's predecessors. |
 | `precision`          | integer    | `1`                | Decimal digits shown in day cells and summary columns. Omit to use the default of 1. |
 | `factor`             | number     | `1`                | Multiplier applied to every displayed value (raw HA values are kept untouched). Useful for unit scaling (e.g. `0.001` to display Wh as kWh). |
 | `unit`               | string     | HA unit            | Override the unit-of-measurement shown beside the label. |
@@ -117,7 +120,7 @@ Treated as a cumulative row for monthly-summary purposes (sum, then min/avg/max 
 
 | Option             | Type       | Default      | Description |
 |--------------------|------------|--------------|-------------|
-| `expression`         | string     | **required** | Arithmetic formula — entity IDs, numeric literals, `+ - * /` and parentheses. Optionally wrapped in `{{ ... }}`. Example: `{{ sensor.solar_export - sensor.solar_import }}`. |
+| `expression`         | string     | **required** | Arithmetic formula — statistic IDs (entity or external `domain:object_id`), numeric literals, `+ - * /` and parentheses. Optionally wrapped in `{{ ... }}`. Example: `{{ sensor.solar_export - sensor.solar_import }}`. |
 | `name`               | string     | —            | Label shown in the first column. |
 | `unit`               | string     | —            | Unit-of-measurement shown beside the label. |
 | `precision`          | integer    | `1`          | Decimal digits in displayed values. Omit to use the default of 1. |
@@ -234,12 +237,12 @@ The monthly view, and a yearly view showing a single year, keep the plain two-co
 
 ### Predecessor entry
 
-Each entry in an entity row's `predecessors:` list points to an earlier HA entity whose statistics should be used for dates strictly before `replaced_on`.
+Each entry in an entity row's `predecessors:` list points to an earlier statistic (entity or external) whose data should be used for dates strictly before `replaced_on`.
 Useful when a sensor was replaced or renamed.
 
 | Option         | Type   | Default      | Description |
 |----------------|--------|--------------|-------------|
-| `entity`         | string | **required** | HA entity ID of the predecessor sensor. |
+| `entity`         | string | **required** | Entity ID or external statistic ID of the predecessor. |
 | `replaced_on`    | string | —            | ISO date `YYYY-MM-DD`. The predecessor covers dates strictly before this date. Omit to use the predecessor for all dates with no main-entity data. |
 | `factor`         | number | `1`          | Multiplier applied to predecessor values (e.g. `1000` if the old sensor reported kWh and the new one reports Wh). Also bypasses the unit-compatibility check. |
 
@@ -348,7 +351,8 @@ entities:
 - **Monthly totals** for cumulative entities are sourced from HA's authoritative monthly statistics (`sum[month] − sum[prev_month]`) and may not exactly equal the arithmetic sum of visible daily cells — this is expected and HA wins.
 - **Performance** — tested up to 10 entities; no hard cap is enforced.
 - **HA version** — requires 2026.5.0+.
-  The card reads both the `has_mean` and the `mean_type` statistics metadata fields.
+- **Statistics metadata** — the card fetches `recorder/get_statistics_metadata` for every configured ID.
+  Where `hass.states` has no entity (external statistics, deleted entities), the metadata supplies the kind (`has_sum`, `mean_type`), the unit (`statistics_unit_of_measurement`) and the name.
 
 ## Localization
 
@@ -363,8 +367,11 @@ To request a new locale, open an issue or PR with a translation file in `fronten
 ## Troubleshooting
 
 - **Card doesn't appear in the card picker** → check the resource URL in **Settings → Dashboards → Resources** and hard-reload the browser.
-- **Entity row shows a warning icon** → the entity has no long-term statistics enabled in HA.
-  Enable it via **Settings → System → Customize** for that entity, then wait at least one statistics cycle.
+- **Entity row shows a warning icon** → the ID has no long-term statistics in HA.
+  For an entity, enable statistics via **Settings → System → Customize**, then wait at least one statistics cycle.
+  For an external statistic, check that the importing integration has run and that the ID is spelled `domain:object_id`.
+- **External cumulative statistic shows negative days** → set `state_class: total_increasing` on the row.
+- **External predecessor is skipped (console warning)** → its derived kind differs from the main entity's; set `state_class` on the row so both resolve alike.
 - **Monthly total ≠ sum of visible days** → expected.
   HA's monthly-period figure wins.
 
