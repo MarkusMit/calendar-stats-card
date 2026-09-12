@@ -25,6 +25,8 @@ export class ExpressionRowEditor extends LitElement {
   @property({ attribute: false }) config!: ExpressionRowConfig;
   @property({ type: Number }) index = 0;
   @property() lang = 'en';
+  /** Statistic ids known to the recorder; null while not loaded (ids are not checked). */
+  @property({ attribute: false }) knownStatisticIds: Set<string> | null = null;
 
   @state() _formulaError: string | null = null;
 
@@ -83,8 +85,8 @@ export class ExpressionRowEditor extends LitElement {
         const entityIds = extractEntityIds(expression);
         this._formulaError = null;
         for (const id of entityIds) {
-          if (this.hass && !this.hass.states[id]) {
-            this._formulaError = localize('editor.entity_not_found_in_expression', this.lang).replace('{entity}', id);
+          if (this.knownStatisticIds !== null && !this.knownStatisticIds.has(id)) {
+            this._formulaError = localize('editor.statistic_not_found_in_expression', this.lang).replace('{entity}', id);
             break;
           }
         }

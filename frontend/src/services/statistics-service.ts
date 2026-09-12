@@ -12,13 +12,18 @@ export type RawStatEntry = {
 
 export type RawStats = Record<string, RawStatEntry[]>;
 
+/** One entry of `recorder/get_statistics_metadata` / `recorder/list_statistic_ids`.
+ *  `mean_type`: 0 none, 1 arithmetic, 2 circular. Values from
+ *  `statistics_during_period` arrive in `statistics_unit_of_measurement`. */
 export type StatisticMetaEntry = {
   statistic_id: string;
-  statistics_unit?: string;
-  start?: number;
-  has_mean?: boolean;
-  mean_type?: number;
-  [key: string]: unknown;
+  statistics_unit_of_measurement: string | null;
+  display_unit_of_measurement?: string | null;
+  unit_class: string | null;
+  has_sum: boolean;
+  mean_type: number;
+  name?: string | null;
+  source: string;
 };
 
 export type StatisticsMetadataResult = {
@@ -28,6 +33,9 @@ export type StatisticsMetadataResult = {
 
 
 export class StatisticsService {
+  /** Metadata responses keyed by sorted, deduplicated id list. */
+  private readonly _metadataCache = new Map<string, Promise<Map<string, StatisticMetaEntry>>>();
+
   async fetchDailyStats(
     hass: HomeAssistant,
     entityIds: string[],
@@ -59,6 +67,37 @@ export class StatisticsService {
       types: ['mean', 'min', 'max', 'sum'],
     };
     return hass.connection.sendMessagePromise<RawStats>(msg);
+  }
+
+  /**
+   * Fetch statistics metadata for the given ids, keyed by `statistic_id`.
+   * Cached per id set for the service's lifetime; a rejected call is evicted
+   * so the next request retries.
+   */
+  fetchStatisticsMetadata(
+    hass: HomeAssistant,
+    ids: string[],
+  ): Promise<Map<string, StatisticMetaEntry>> {
+    const unique = [...new Set(ids)].sort();
+    const key = unique.join('\n');
+    const cached = this._metadataCache.get(key);
+    if (cached) return cached;
+
+    const pending = hass.connection
+      .sendMessagePromise<unknown>({ type: 'recorder/get_statistics_metadata', statistic_ids: unique })
+      .then((res) => {
+        const map = new Map<string, StatisticMetaEntry>();
+        if (Array.isArray(res)) {
+          for (const entry of res as StatisticMetaEntry[]) map.set(entry.statistic_id, entry);
+        }
+        return map;
+      })
+      .catch((err: unknown) => {
+        this._metadataCache.delete(key);
+        throw err;
+      });
+    this._metadataCache.set(key, pending);
+    return pending;
   }
 
   async listStatisticIds(hass: HomeAssistant): Promise<StatisticMetaEntry[]> {

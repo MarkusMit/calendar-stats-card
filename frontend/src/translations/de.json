@@ -97,11 +97,14 @@
     "predecessor_entity": "Entitäts-ID",
     "predecessor_replaced_on": "Ersetzt am",
     "predecessor_factor": "Faktor (optional)",
-    "entity_not_found": "Entität nicht gefunden",
     "invalid_expression_syntax": "Ungültige Ausdruckssyntax",
-    "entity_not_found_in_expression": "Entität nicht gefunden: {entity}",
     "show_threshold_table": "Schwellwerttage-Tabelle anzeigen",
-    "options": "Optionen"
+    "options": "Optionen",
+    "state_class": "Kumulative Art (Überschreibung)",
+    "state_class_total": "Total (negative Differenzen bleiben)",
+    "state_class_total_increasing": "Total increasing (negative Differenzen auf 0 gesetzt)",
+    "statistic_not_found": "Keine Langzeitstatistik für diese ID gefunden",
+    "statistic_not_found_in_expression": "Keine Langzeitstatistik gefunden: {entity}"
   },
   "threshold": {
     "symbols": {

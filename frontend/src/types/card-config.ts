@@ -33,9 +33,14 @@ export interface PredecessorConfig {
   factor?: number;      // multiplied onto all values; also bypasses unit compatibility check
 }
 
+/** Cumulative kind override; HA statistics metadata cannot distinguish the two. */
+export type CumulativeStateClass = 'total' | 'total_increasing';
+
 export interface EntityRowConfig {
   entity: string;
   name?: string;
+  /** Forces the cumulative kind; also applies to the row's predecessors. */
+  state_class?: CumulativeStateClass;
   precision?: number;
   factor?: number;
   unit?: string;
