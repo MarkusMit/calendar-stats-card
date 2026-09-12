@@ -1,5 +1,21 @@
-import type { EntityConfig } from '../types/card-config';
+import type { EntityConfig, PredecessorConfig } from '../types/card-config';
 import type { DailyValue, EntityMetadata } from '../types/statistics';
+
+/**
+ * A predecessor is usable when its statistics kind matches the main row's and
+ * the units agree; a configured factor bypasses the unit check (FR-011 / FR-015).
+ * Absent metadata is never compatible (FR-008).
+ */
+export function isCompatiblePredecessor(
+  pred: PredecessorConfig,
+  mainMeta: EntityMetadata,
+  predMeta: EntityMetadata | undefined,
+): boolean {
+  if (!predMeta) return false;
+  const stateClassOk = predMeta.stateClass === mainMeta.stateClass;
+  const unitOk = pred.factor != null || predMeta.unitOfMeasurement === mainMeta.unitOfMeasurement;
+  return stateClassOk && unitOk;
+}
 
 export function resolvePredecessorData(
   entityConfigs: EntityConfig[],
@@ -20,10 +36,7 @@ export function resolvePredecessorData(
     const compatible = cfg.predecessors.filter((pred) => {
       const predMeta = metadataMap[pred.entity];
       if (!predMeta) return false;
-      const stateClassOk = predMeta.stateClass === mainMeta.stateClass;
-      // unit check bypassed when factor is configured (FR-011 / FR-015)
-      const unitOk = pred.factor != null || predMeta.unitOfMeasurement === mainMeta.unitOfMeasurement;
-      const ok = stateClassOk && unitOk;
+      const ok = isCompatiblePredecessor(pred, mainMeta, predMeta);
       if (!ok && !warnedPredecessors.has(pred.entity)) {
         console.warn(
           `[calendar-stats] predecessor ${pred.entity}: state_class or unit_of_measurement mismatch, skipping`,

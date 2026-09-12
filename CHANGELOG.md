@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Yearly view: months covered only by a predecessor take their total from the predecessor's HA monthly statistics instead of staying empty.
+
 ## [0.8.0] - 2026-09-12
 
 ### Added

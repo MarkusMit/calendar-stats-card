@@ -832,3 +832,74 @@ describe('transformMonthlyStats - year without any HA monthly bucket for the mai
     expect(result.size).toBe(1);
   });
 });
+
+describe('transformMonthlyStats - cumulative total for months covered by a predecessor', () => {
+  const ts = (iso: string) => new Date(iso).getTime();
+  const MONTH_MS = 2678400_000;
+  const predMeta: EntityMetadata = { ...energyMeta, entityId: 'sensor.old_energy' };
+  const metadataMap = { 'sensor.energy': energyMeta, 'sensor.old_energy': predMeta };
+  const dailyValues = new Map<string, DailyValue>([
+    ['sensor.energy::2025-01-01', { kind: 'cumulative', entityId: 'sensor.energy', date: '2025-01-01', sum: 4 }],
+    ['sensor.energy::2025-02-01', { kind: 'cumulative', entityId: 'sensor.energy', date: '2025-02-01', sum: 6 }],
+  ]);
+  // Main sensor starts in March; the predecessor carries Dec 2024 – Feb 2025.
+  const raw = {
+    'sensor.energy': [{ start: ts('2025-03-01T00:00:00Z'), end: ts('2025-03-01T00:00:00Z') + MONTH_MS, sum: 10 }],
+    'sensor.old_energy': [
+      { start: ts('2024-12-01T00:00:00Z'), end: ts('2025-01-01T00:00:00Z'), sum: 500 },
+      { start: ts('2025-01-01T00:00:00Z'), end: ts('2025-02-01T00:00:00Z'), sum: 530 },
+      { start: ts('2025-02-01T00:00:00Z'), end: ts('2025-03-01T00:00:00Z'), sum: 545 },
+    ],
+  };
+
+  it('dated predecessor covering the whole month → total = predecessor HA monthly sum delta', () => {
+    const cfg: EntityConfig[] = [{ entity: 'sensor.energy', predecessors: [{ entity: 'sensor.old_energy', replaced_on: '2025-03-01' }] }];
+    const result = transformMonthlyStats(raw, metadataMap, dailyValues, cfg, 2025, TZ, TODAY_MS);
+    expect(result.get('0::sensor.energy::2025-1')?.total).toBe(30);
+    expect(result.get('0::sensor.energy::2025-2')?.total).toBe(15);
+    // March is the main entity's first bucket: FR-006 first-month fallback, untouched.
+    expect(result.get('0::sensor.energy::2025-3')?.total).toBe(10);
+  });
+
+  it('predecessor factor is applied to the monthly delta', () => {
+    const cfg: EntityConfig[] = [{ entity: 'sensor.energy', predecessors: [{ entity: 'sensor.old_energy', replaced_on: '2025-03-01', factor: 0.5 }] }];
+    const result = transformMonthlyStats(raw, metadataMap, dailyValues, cfg, 2025, TZ, TODAY_MS);
+    expect(result.get('0::sensor.energy::2025-1')?.total).toBe(15);
+  });
+
+  it('undated predecessor fills a month without a main-entity bucket', () => {
+    const cfg: EntityConfig[] = [{ entity: 'sensor.energy', predecessors: [{ entity: 'sensor.old_energy' }] }];
+    const result = transformMonthlyStats(raw, metadataMap, dailyValues, cfg, 2025, TZ, TODAY_MS);
+    expect(result.get('0::sensor.energy::2025-2')?.total).toBe(15);
+    expect(result.get('0::sensor.energy::2025-3')?.total).toBe(10);
+  });
+
+  it('incompatible predecessor (unit mismatch without factor) leaves the total empty', () => {
+    const mismatched = { ...metadataMap, 'sensor.old_energy': { ...predMeta, unitOfMeasurement: 'Wh' } };
+    const cfg: EntityConfig[] = [{ entity: 'sensor.energy', predecessors: [{ entity: 'sensor.old_energy', replaced_on: '2025-03-01' }] }];
+    const result = transformMonthlyStats(raw, mismatched, dailyValues, cfg, 2025, TZ, TODAY_MS);
+    expect(result.get('0::sensor.energy::2025-1')?.total).toBeNull();
+  });
+
+  it('month straddling replaced_on without a main-entity bucket stays empty', () => {
+    const cfg: EntityConfig[] = [{ entity: 'sensor.energy', predecessors: [{ entity: 'sensor.old_energy', replaced_on: '2025-02-15' }] }];
+    const result = transformMonthlyStats(raw, metadataMap, dailyValues, cfg, 2025, TZ, TODAY_MS);
+    expect(result.get('0::sensor.energy::2025-1')?.total).toBe(30);
+    expect(result.get('0::sensor.energy::2025-2')?.total).toBeNull();
+  });
+
+  it('predecessor first bucket without a preceding month → total = its HA sum (FR-006)', () => {
+    const cfg: EntityConfig[] = [{ entity: 'sensor.energy', predecessors: [{ entity: 'sensor.old_energy', replaced_on: '2025-03-01' }] }];
+    const sparse = { ...raw, 'sensor.old_energy': [raw['sensor.old_energy'][2]!] };
+    const result = transformMonthlyStats(sparse, metadataMap, dailyValues, cfg, 2025, TZ, TODAY_MS);
+    expect(result.get('0::sensor.energy::2025-2')?.total).toBe(545);
+    expect(result.get('0::sensor.energy::2025-1')?.total).toBeNull();
+  });
+
+  it('negative predecessor delta is clamped to 0 for total_increasing rows', () => {
+    const cfg: EntityConfig[] = [{ entity: 'sensor.energy', predecessors: [{ entity: 'sensor.old_energy', replaced_on: '2025-03-01' }] }];
+    const reset = { ...raw, 'sensor.old_energy': [raw['sensor.old_energy'][0]!, { ...raw['sensor.old_energy'][1]!, sum: 20 }] };
+    const result = transformMonthlyStats(reset, metadataMap, dailyValues, cfg, 2025, TZ, TODAY_MS);
+    expect(result.get('0::sensor.energy::2025-1')?.total).toBe(0);
+  });
+});

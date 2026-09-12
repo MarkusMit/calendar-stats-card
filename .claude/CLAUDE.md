@@ -63,6 +63,7 @@ Computation rules per row type are normative; any deviation is a defect.
   First tracked month or after a monthly-statistics gap: `total = HA monthly sum[month]`.
   Negative monthly delta: clamp to `0` for `total_increasing`; pass through for `total` (e.g. net export).
 - Daily-sum arithmetic is never a fallback when HA's monthly `sum` is present; missing `sum` renders an empty total cell.
+- Month without a main-entity bucket: total from the covering predecessor's HA monthly `sum` (same delta rule, factor applied); dated predecessor must cover the whole month, else empty.
 
 **Expression rows**:
 
