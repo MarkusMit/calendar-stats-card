@@ -34,6 +34,7 @@ describe('ThresholdListEditor — (T020)', () => {
     const btn = el.shadowRoot!.querySelector('ha-button[data-action="add-threshold"]');
     expect(btn).toBeTruthy();
     expect(btn!.textContent!.trim()).toBe('Add threshold');
+    expect(btn!.getAttribute('appearance')).toBe('plain');
   });
 
   it('renders no section title and no chip button (the parent panel carries the heading)', async () => {
@@ -107,7 +108,7 @@ describe('ThresholdListEditor — (T020)', () => {
   });
 });
 
-type SchemaEntry = { name?: string; type?: string; selector?: unknown; schema?: SchemaEntry[] };
+type SchemaEntry = { name?: string; type?: string; required?: boolean; selector?: unknown; schema?: SchemaEntry[] };
 
 function ruleSchema(el: HTMLElement): SchemaEntry[] {
   return (el.shadowRoot!.querySelector('ha-form') as HTMLElement & { schema: SchemaEntry[] }).schema;
@@ -119,6 +120,7 @@ describe('ThresholdListEditor — rule form schema', () => {
     const op = ruleSchema(el).find((s) => s.name === 'operator')!;
     const select = (op.selector as { select: { mode: string; options: { value: string; label: string }[] } }).select;
     expect(select.mode).toBe('dropdown');
+    expect(op.required).toBe(true);
     expect(select.options.map((o) => o.value)).toEqual([
       'above', 'equals-above', 'equals-below', 'below', 'not-below', 'not-above',
     ]);
@@ -128,6 +130,8 @@ describe('ThresholdListEditor — rule form schema', () => {
   it('places the three period values in one grid row of number selectors', async () => {
     const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
     const grid = ruleSchema(el).find((s) => s.type === 'grid')!;
+    // ha-form hands a named grid item data[name]; only an unnamed grid receives the whole rule.
+    expect(grid.name).toBe('');
     expect(grid.schema!.map((s) => s.name)).toEqual(['value', 'value_month', 'value_year']);
     for (const entry of grid.schema!) {
       expect(entry.selector).toMatchObject({ number: { mode: 'box' } });

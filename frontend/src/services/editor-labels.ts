@@ -2,7 +2,7 @@ import { localize } from '../localize/localize';
 
 /** Field name → `editor.*` translation key for the label. */
 const LABEL_KEYS: Record<string, string> = {
-  entity: 'entity_row',
+  entity: 'statistic_id',
   expression: 'formula',
   name: 'name',
   unit: 'unit',

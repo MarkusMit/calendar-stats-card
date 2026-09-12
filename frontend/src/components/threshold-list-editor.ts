@@ -18,6 +18,7 @@ function ruleSchema(lang: string) {
   return [
     {
       name: 'operator',
+      required: true,
       selector: {
         select: {
           mode: 'dropdown',
@@ -26,7 +27,8 @@ function ruleSchema(lang: string) {
       },
     },
     {
-      name: 'values',
+      // Unnamed on purpose: ha-form hands a named grid item data[name], an unnamed one the whole rule.
+      name: '',
       type: 'grid',
       schema: PERIOD_FIELDS.map(({ field }) => ({
         name: field,
@@ -146,7 +148,7 @@ export class ThresholdListEditor extends LitElement {
           </div>
         </ha-expansion-panel>
       `)}
-      <ha-button data-action="add-threshold" @click=${() => this._addThreshold()}>
+      <ha-button appearance="plain" data-action="add-threshold" @click=${() => this._addThreshold()}>
         <ha-icon slot="start" icon="mdi:plus"></ha-icon>
         ${localize('editor.add_threshold', lang)}
       </ha-button>

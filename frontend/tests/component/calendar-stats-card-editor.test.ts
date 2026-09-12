@@ -45,11 +45,12 @@ describe('CalendarStatsCardEditor — US1: empty state and entity-row addition (
   it('renders a permanent empty statistic selector for adding an entity row', async () => {
     const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
     const picker = el.shadowRoot!.querySelector('.add-row ha-selector[data-action="add-entity-row"]') as
-      (HTMLElement & { selector?: unknown; value?: string; label?: string }) | null;
+      (HTMLElement & { selector?: unknown; value?: string; label?: string; required?: boolean }) | null;
     expect(picker).toBeTruthy();
     expect(picker!.selector).toEqual({ statistic: {} });
     expect(picker!.value ?? '').toBe('');
     expect(picker!.label).toBe('Add entity');
+    expect(picker!.required).toBe(false);
   });
 
   it('renders an ha-button for adding an expression row next to the selector', async () => {
@@ -57,6 +58,7 @@ describe('CalendarStatsCardEditor — US1: empty state and entity-row addition (
     const btn = el.shadowRoot!.querySelector('.add-row ha-button[data-action="add-expression-row"]');
     expect(btn).toBeTruthy();
     expect(btn!.textContent!.trim()).toBe('Add expression');
+    expect(btn!.getAttribute('appearance')).toBe('plain');
   });
 
   it('picking a statistic in the add selector appends a row and opens its detail view', async () => {

@@ -103,7 +103,7 @@
     "predecessors": "Vorgänger",
     "add_predecessor": "Vorgänger hinzufügen",
     "remove_predecessor": "Vorgänger entfernen",
-    "predecessor_entity": "Statistik-ID",
+    "statistic_id": "Statistik-ID",
     "predecessor_replaced_on": "Ersetzt am",
     "predecessor_factor": "Faktor (optional)",
     "invalid_expression_syntax": "Ungültige Ausdruckssyntax",

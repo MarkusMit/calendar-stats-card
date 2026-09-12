@@ -73,7 +73,7 @@ export class PredecessorListEditor extends LitElement {
 
   private _computeLabel = (schema: { name: string }): string => {
     const labels: Record<string, string> = {
-      entity: localize('editor.predecessor_entity', this.lang),
+      entity: localize('editor.statistic_id', this.lang),
       replaced_on: localize('editor.predecessor_replaced_on', this.lang),
       factor: localize('editor.predecessor_factor', this.lang),
     };
@@ -124,7 +124,7 @@ export class PredecessorListEditor extends LitElement {
           </div>
         </ha-expansion-panel>
       `)}
-      <ha-button data-action="add-predecessor" @click=${() => this._addPredecessor()}>
+      <ha-button appearance="plain" data-action="add-predecessor" @click=${() => this._addPredecessor()}>
         <ha-icon slot="start" icon="mdi:plus"></ha-icon>
         ${localize('editor.add_predecessor', lang)}
       </ha-button>

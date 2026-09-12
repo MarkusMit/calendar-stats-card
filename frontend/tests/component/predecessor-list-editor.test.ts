@@ -50,6 +50,7 @@ describe('PredecessorListEditor — (T024)', () => {
     const btn = el.shadowRoot!.querySelector('ha-button[data-action="add-predecessor"]');
     expect(btn).toBeTruthy();
     expect(btn!.textContent!.trim()).toBe('Add predecessor');
+    expect(btn!.getAttribute('appearance')).toBe('plain');
   });
 
   it('renders no section title and no chip button (the parent panel carries the heading)', async () => {

@@ -103,7 +103,7 @@
     "predecessors": "Predecessors",
     "add_predecessor": "Add predecessor",
     "remove_predecessor": "Remove predecessor",
-    "predecessor_entity": "Statistic ID",
+    "statistic_id": "Statistic ID",
     "predecessor_replaced_on": "Replaced on",
     "predecessor_factor": "Factor (optional)",
     "invalid_expression_syntax": "Invalid expression syntax",

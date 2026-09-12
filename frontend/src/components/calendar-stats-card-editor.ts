@@ -334,13 +334,14 @@ export class CalendarStatsCardEditor extends LitElement {
           .hass=${this.hass}
           .selector=${STATISTIC_SELECTOR}
           .value=${''}
+          .required=${false}
           .label=${localize('editor.add_entity', lang)}
           @value-changed=${(e: CustomEvent) => {
             const v = e.detail.value as string | undefined;
             if (v) this._addEntityRow(v);
           }}
         ></ha-selector>
-        <ha-button data-action="add-expression-row" @click=${() => { this._addExpressionRow(); }}>
+        <ha-button appearance="plain" data-action="add-expression-row" @click=${() => { this._addExpressionRow(); }}>
           <ha-icon slot="start" icon="mdi:plus"></ha-icon>
           ${localize('editor.add_expression', lang)}
         </ha-button>

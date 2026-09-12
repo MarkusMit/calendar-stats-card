@@ -6,7 +6,8 @@ describe('editorLabel', () => {
     expect(editorLabel('precision', 'en')).toBe('Precision (decimal places)');
     expect(editorLabel('name', 'en')).toBe('Display name');
     expect(editorLabel('expression', 'en')).toBe('Formula');
-    expect(editorLabel('entity', 'en')).toBe('Entity row');
+    expect(editorLabel('entity', 'en')).toBe('Statistic ID');
+    expect(editorLabel('entity', 'de')).toBe('Statistik-ID');
   });
 
   it('follows the language', () => {
