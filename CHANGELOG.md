@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An external predecessor of a `total_increasing` entity was skipped as a kind mismatch.
   A predecessor without a state object now inherits the main row's cumulative kind.
 - README no longer claims the card reads `has_mean` and `mean_type` from the statistics response.
+- The first recorded day of a year in a sparse statistic (imported data with rows only on days with a value) showed the all-time cumulative `sum` instead of the day's delta.
+  Day cells now use HA's `change`, which is computed against the last row even when it lies before the fetch window.
 
 ## [0.7.0] - 2026-09-09
 

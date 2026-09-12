@@ -52,6 +52,45 @@ const totalMeta: EntityMetadata = {
 };
 
 describe('transformDailyStats — cumulative delta', () => {
+  it('uses HA change for the first entry instead of its cumulative sum (sparse imported statistic)', () => {
+    // Imported precipitation: last row before the fetch window is outside it, HA sum is
+    // the all-time cumulative value. HA computes change against that earlier row.
+    const start = new Date('2015-01-01T00:00:00Z').getTime();
+    const raw = { 'sensor.rain': [{ start, end: start + 86400_000, sum: 1045, change: 2 }] };
+    const result = transformDailyStats(raw, { 'sensor.rain': precipMeta }, TZ, TODAY_MS);
+    const day = result.get('sensor.rain::2015-01-01');
+    expect(day?.kind).toBe('cumulative');
+    if (day?.kind === 'cumulative') expect(day.sum).toBe(2);
+  });
+
+  it('prefers HA change over the sum difference of consecutive entries', () => {
+    const s1 = new Date('2025-01-01T00:00:00Z').getTime();
+    const s2 = new Date('2025-01-03T00:00:00Z').getTime();
+    const raw = {
+      'sensor.energy': [
+        { start: s1, end: s1 + 86400_000, sum: 10, change: 3 },
+        { start: s2, end: s2 + 86400_000, sum: 15, change: 5 },
+      ],
+    };
+    const result = transformDailyStats(raw, { 'sensor.energy': energyMeta }, TZ, TODAY_MS);
+    const day1 = result.get('sensor.energy::2025-01-01');
+    const day2 = result.get('sensor.energy::2025-01-03');
+    if (day1?.kind === 'cumulative') expect(day1.sum).toBe(3);
+    if (day2?.kind === 'cumulative') expect(day2.sum).toBe(5);
+  });
+
+  it('negative HA change → 0 for total_increasing, kept for total', () => {
+    const start = new Date('2025-01-02T00:00:00Z').getTime();
+    const rawInc = { 'sensor.energy': [{ start, end: start + 86400_000, sum: 8, change: -2 }] };
+    const inc = transformDailyStats(rawInc, { 'sensor.energy': energyMeta }, TZ, TODAY_MS).get('sensor.energy::2025-01-02');
+    expect(inc?.kind).toBe('cumulative');
+    if (inc?.kind === 'cumulative') expect(inc.sum).toBe(0);
+    const rawNet = { 'sensor.net': [{ start, end: start + 86400_000, sum: 7, change: -3 }] };
+    const net = transformDailyStats(rawNet, { 'sensor.net': totalMeta }, TZ, TODAY_MS).get('sensor.net::2025-01-02');
+    expect(net?.kind).toBe('cumulative');
+    if (net?.kind === 'cumulative') expect(net.sum).toBe(-3);
+  });
+
   it('computes daily delta from consecutive sum values', () => {
     const start1 = new Date('2025-01-01T00:00:00Z').getTime();
     const start2 = new Date('2025-01-02T00:00:00Z').getTime();

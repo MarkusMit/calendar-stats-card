@@ -7,6 +7,8 @@ export type RawStatEntry = {
   min?: number;
   max?: number;
   sum?: number;
+  /** HA-computed `sum` delta against the previous row, including a row before `start_time`. */
+  change?: number;
   state?: number;
 };
 
@@ -48,7 +50,7 @@ export class StatisticsService {
       end_time: endTime,
       statistic_ids: entityIds,
       period: 'day',
-      types: ['mean', 'min', 'max', 'sum'],
+      types: ['mean', 'min', 'max', 'sum', 'change'],
     });
   }
 
