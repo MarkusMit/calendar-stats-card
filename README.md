@@ -1,9 +1,8 @@
 # Calendar Stats Card
 
-A Home Assistant custom Lovelace card that renders dense **monthly statistics tables** for any entity with long-term statistics — temperatures, precipitation, energy meters, custom sensors, or arithmetic expressions over several of them.
-
-One page shows every past month of a year, day-by-day, with min/avg/max and totals.
-Future months and today's still-running day are hidden.
+Home Assistant Lovelace card that renders **monthly statistics tables** for entities with long-term statistics: temperatures, precipitation, energy meters, external statistics, or arithmetic expressions over several of them.
+Each table shows one month day-by-day with min/avg/max and totals.
+Future months and today are hidden.
 
 ![Calendar Stats Card screenshot](docs/Screenshot_en.png)
 
@@ -15,23 +14,16 @@ Future months and today's still-running day are hidden.
 
 ## Features
 
-- **Flexible time ranges** — pick a preset (this month, this quarter, this year, last 3 months, last 12 months) or any custom month-to-month span from the range selector in the floating bottom bar; arrow buttons step the current range backwards and forwards (down to the earliest period with recorded data).
-- **Monthly and yearly views** — a Monthly | Yearly toggle in the bottom bar switches between the day-by-day monthly tables and a compact yearly grid.
-  The yearly view shows one table per calendar year with one column per month; each cell holds that month's summary (min/avg/max for measurement rows, the monthly total for cumulative rows), plus a per-row yearly Summary and Total.
-  In the yearly view the range selector operates on whole calendar years (this year, last year, last 3/5 years, or a custom year span).
-- **Per-entity-type rendering** — automatically picks the right display for each entity:
-  - `measurement` entities (temperature, humidity, …) → combined min/avg/max in one row per day
-  - `total_increasing` / `total` entities (rainfall, electricity meter, …) → daily delta plus monthly total
-- **Smart monthly summary** — for `measurement` entities, monthly extremes are computed from the per-day extremes (not from the per-day means as HA does natively).
-  For cumulative and expression rows, you decide per row whether zero-value days count toward min/avg/max via the `show_zero` option (default: included).
-- **Expression rows** — define a row as an arithmetic formula over several entities, evaluated per day.
-- **Threshold colouring** — flag days that go above/below configurable values with per-rule text and background colours; matched rules show in a legend, and a table at the end of the page counts the days each threshold was reached.
-- **Predecessor entities** — stitch together history from a sensor that was replaced, with an optional unit-conversion factor.
-- **Dense layout** — maximum 4 px cell padding, no decorative whitespace, sticky entity-label column, horizontal scroll per table.
-- **Visual editor** — full GUI configuration; no YAML required.
-- **i18n** — English and German out of the box.
-  Locale follows the HA UI setting automatically.
-- **HA-native styling** — uses HA design tokens and Lovelace components; matches your theme.
+- **Time ranges** — presets (this month, this quarter, this year, last 3 months, last 12 months) or a custom month span; arrow buttons step the range back to the earliest recorded data.
+- **Monthly and yearly views** — monthly: one table per month, one column per day.
+  Yearly: one table per year, one column per month holding that month's summary, plus a yearly Summary and Total per row; range presets switch to whole years.
+- **Rendering by `state_class`** — `measurement` entities show min/avg/max per day; `total_increasing` / `total` entities show the daily delta plus a monthly total.
+- **Monthly summary** — measurement extremes are computed from daily extremes, not from daily means as HA does natively.
+  For cumulative and expression rows, `show_zero` decides whether zero-value days count toward min/avg/max.
+- **Expression rows** — an arithmetic formula over several statistics, evaluated per day.
+- **Thresholds** — colour cells above/below configurable day, month and year values, with a legend and a table counting the days each threshold was reached.
+- **Predecessors** — stitch in a replaced sensor's history, with an optional unit factor.
+- **Visual editor**; English and German, following the HA UI language.
 
 ---
 
@@ -58,16 +50,11 @@ Future months and today's still-running day are hidden.
 
 </details>
 
-### Add the card to a dashboard
+### Add the card
 
 The card is designed for a full-width panel view:
 
-1. Create a new dashboard view, set its **type** to **Panel (1 card)**.
-2. Edit the view → **＋ Add card** → search for **Calendar Stats**.
-3. The visual editor opens automatically.
-   Add at least one entity and you're done.
-
-For YAML users:
+Use a view of type **Panel (1 card)**, add the **Calendar Stats** card and configure it in the visual editor, or in YAML:
 
 ```yaml
 type: custom:calendar-stats-card
@@ -87,192 +74,125 @@ entities:
 |----------|---------|----------|---------|-------------|
 | `type`     | string  | yes | — | Must be `custom:calendar-stats-card`. |
 | `entities` | list    | yes | — | Ordered list of entity rows and/or expression rows. |
-| `show_threshold_table` | boolean | no  | `true` | Show the [threshold days table](#threshold-days-table) below the tables. |
+| `show_threshold_table` | boolean | no  | `true` | Show the [threshold days table](#threshold-days-table). |
 
 ### Entity row
 
-A single HA statistic is rendered as one row: an entity with long-term statistics, or an external statistic (`domain:object_id`) imported by an integration.
-Display behaviour is derived from the entity's `state_class`.
-External statistics have no entity, so their kind, unit and name come from HA's statistics metadata (`has_sum`, `mean_type`, `statistics_unit_of_measurement`, `name`).
-The optional `state_class` row option overrides the derived kind.
+One row per HA statistic: an entity with long-term statistics, or an external statistic (`domain:object_id`) imported by an integration.
+Rendering follows the entity's `state_class`.
+External statistics have no entity, so kind, unit and name come from HA's statistics metadata.
 
 | Option             | Type       | Default            | Description |
 |--------------------|------------|--------------------|-------------|
-| `entity`             | string     | **required**       | HA entity ID (e.g. `sensor.outdoor_temperature`) or external statistic ID (e.g. `tibber:energy_consumption`). Duplicates allowed — each entry produces its own row. |
-| `name`               | string     | HA friendly name   | Override the label shown in the first column. External statistics default to the metadata `name`. |
-| `state_class`        | `total` \| `total_increasing` | derived | Forces the cumulative kind. `total_increasing` clamps negative daily and monthly deltas to `0`; `total` keeps them. Needed for external statistics with counter resets, since HA's statistics metadata cannot distinguish the two. Overrides an entity's own `state_class` and also applies to the row's predecessors; without it, an external predecessor inherits the main entity's kind. |
-| `precision`          | integer    | `1`                | Decimal digits shown in day cells and summary columns. Omit to use the default of 1. |
-| `factor`             | number     | `1`                | Multiplier applied to every displayed value (raw HA values are kept untouched). Useful for unit scaling (e.g. `0.001` to display Wh as kWh). |
-| `unit`               | string     | HA unit            | Override the unit-of-measurement shown beside the label. |
-| `show_zero`          | boolean    | `true`             | If `false`, day cells whose computed value is exactly `0` render as blank AND the monthly summary min/avg/max exclude those zero-value days. The monthly `total` is unaffected (zero days contribute zero anyway). Applies uniformly: a counter-reset day clamped to `0` is treated the same as a naturally-zero day. Set explicitly to `false` for precipitation entities if you want the old "exclude no-rain days from the rainfall average" behaviour. |
-| `show_min`           | boolean    | `true`             | (Measurement entities) show the min sub-row per day. |
-| `show_avg`           | boolean    | `true`             | (Measurement entities) show the avg sub-row per day. |
-| `show_max`           | boolean    | `true`             | (Measurement entities) show the max sub-row per day. |
-| `text_color`         | string     | theme              | Row-wide text colour. Accepted formats: see [Color values](#color-values). |
-| `background_color`   | string     | theme              | Row-wide background colour. Accepted formats: see [Color values](#color-values). |
-| `thresholds`         | list       | —                  | Conditional colour rules — see [Threshold rule](#threshold-rule). |
-| `predecessors`       | list       | —                  | Historical entities to stitch in — see [Predecessor entry](#predecessor-entry). |
+| `entity`             | string     | **required**       | Entity ID (`sensor.outdoor_temperature`) or external statistic ID (`tibber:energy_consumption`). Duplicates allowed. |
+| `name`               | string     | HA friendly name   | Label in the first column. |
+| `state_class`        | `total` \| `total_increasing` | derived | Forces the cumulative kind: `total_increasing` clamps negative daily and monthly deltas to `0`, `total` keeps them. Needed for external statistics with counter resets. Also applies to the row's predecessors. |
+| `precision`          | integer    | `1`                | Decimal digits in day cells and summary columns. |
+| `factor`             | number     | `1`                | Multiplier on displayed values, e.g. `0.001` to show Wh as kWh. |
+| `unit`               | string     | HA unit            | Unit shown beside the label. |
+| `show_zero`          | boolean    | `true`             | If `false`, zero-value day cells render blank and are excluded from the monthly min/avg/max; the monthly total is unaffected. A counter-reset day clamped to `0` counts as zero. |
+| `show_min`           | boolean    | `true`             | Measurement entities: show the min sub-row. |
+| `show_avg`           | boolean    | `true`             | Measurement entities: show the avg sub-row. |
+| `show_max`           | boolean    | `true`             | Measurement entities: show the max sub-row. |
+| `text_color`         | string     | theme              | Row text colour, see [Color values](#color-values). |
+| `background_color`   | string     | theme              | Row background colour. |
+| `thresholds`         | list       | —                  | [Threshold rules](#threshold-rule). |
+| `predecessors`       | list       | —                  | [Predecessor entries](#predecessor-entry). |
 
 ### Expression row
 
-Computes a single per-day value from an arithmetic formula over one or more entity IDs.
-Treated as a cumulative row for monthly-summary purposes (sum, then min/avg/max over the daily values).
+One per-day value computed from an arithmetic formula; summarised like a cumulative row.
 
 | Option             | Type       | Default      | Description |
 |--------------------|------------|--------------|-------------|
-| `expression`         | string     | **required** | Arithmetic formula — statistic IDs (entity or external `domain:object_id`), numeric literals, `+ - * /` and parentheses. Optionally wrapped in `{{ ... }}`. Example: `{{ sensor.solar_export - sensor.solar_import }}`. |
-| `name`               | string     | —            | Label shown in the first column. |
-| `unit`               | string     | —            | Unit-of-measurement shown beside the label. |
-| `precision`          | integer    | `1`          | Decimal digits in displayed values. Omit to use the default of 1. |
-| `show_zero`          | boolean    | `true`       | If `false`, day cells whose computed value is exactly `0` render as blank AND the monthly summary min/avg/max exclude those zero-value days. The monthly `total` is unaffected. |
-| `text_color`         | string     | theme        | Row-wide text colour. Accepted formats: see [Color values](#color-values). |
-| `background_color`   | string     | theme        | Row-wide background colour. Accepted formats: see [Color values](#color-values). |
-| `thresholds`         | list       | —            | Conditional colour rules — see [Threshold rule](#threshold-rule). |
+| `expression`         | string     | **required** | Statistic IDs (entity or external), numeric literals, `+ - * /` and parentheses, optionally wrapped in `{{ ... }}`. Example: `{{ sensor.solar_export - sensor.solar_import }}`. |
+| `name`               | string     | —            | Label in the first column. |
+| `unit`               | string     | —            | Unit shown beside the label. |
+| `precision`          | integer    | `1`          | Decimal digits. |
+| `show_zero`          | boolean    | `true`       | As for entity rows. |
+| `text_color`         | string     | theme        | Row text colour, see [Color values](#color-values). |
+| `background_color`   | string     | theme        | Row background colour. |
+| `thresholds`         | list       | —            | [Threshold rules](#threshold-rule). |
 
-Expression rows do **not** support `factor` (fold it into the expression directly) or `predecessors`.
+No `factor` (fold it into the formula) and no `predecessors`.
 
 ### Threshold rule
 
-Each entry in a row's `thresholds:` list applies a colour override to cells whose value satisfies the rule.
-Multiple rules can stack; the editor displays a legend for every named rule.
+Each entry in a row's `thresholds:` list colours cells whose value satisfies the rule.
+Rules stack; named rules appear in a legend below the card.
 
 | Option             | Type    | Default         | Description |
 |--------------------|---------|-----------------|-------------|
-| `operator`           | enum    | **required**    | One of `above`, `equals-above`, `equals-below`, `below`, `not-below`, `not-above`. Shared by all period values of the rule. |
-| `value`              | number  | —               | Day threshold — gates daily values and statistics over them; see [Threshold periods](#threshold-periods). |
-| `value_month`        | number  | —               | Month threshold — gates monthly sums and statistics over them. |
-| `value_year`         | number  | —               | Year threshold — gates yearly sums. |
-| `name`               | string  | —               | Optional label shown in the legend at the bottom of the card (once per rule). |
-| `text_color`         | string  | row default     | Text colour applied to matching cells. Accepted formats: see [Color values](#color-values). |
-| `background_color`   | string  | row default     | Background colour applied to matching cells. Accepted formats: see [Color values](#color-values). |
+| `operator`           | enum    | **required**    | `above` (>), `equals-above` or `not-below` (≥), `equals-below` or `not-above` (≤), `below` (<). |
+| `value`              | number  | —               | Day threshold. |
+| `value_month`        | number  | —               | Month threshold. |
+| `value_year`         | number  | —               | Year threshold. |
+| `name`               | string  | —               | Legend label. |
+| `text_color`         | string  | row default     | Text colour of matching cells, see [Color values](#color-values). |
+| `background_color`   | string  | row default     | Background colour of matching cells. |
 
-At least one of `value`, `value_month`, `value_year` must be set; a rule with none is ignored.
-A rule is inert for periods it defines no threshold for.
+At least one of `value`, `value_month`, `value_year` must be set.
+A rule is evaluated only for periods it defines a threshold for; statistics inherit the period of the values they summarise.
 
-Operator semantics:
+| Period   | Field | Cells it colours |
+|----------|-------|------------------|
+| Day    | `value`       | All measurement cells, cumulative daily values, and their monthly min/avg/max. |
+| Month  | `value_month` | Monthly sums: month cells in the yearly view, the yearly per-row summary, the monthly view's Total column. |
+| Year   | `value_year`  | The yearly view's Total column. |
 
-| Operator         | Cell value passes when |
-|------------------|------------------------|
-| `above`            | `value > threshold` |
-| `equals-above`     | `value ≥ threshold` |
-| `equals-below`     | `value ≤ threshold` |
-| `below`            | `value < threshold` |
-| `not-below`        | `value ≥ threshold` |
-| `not-above`        | `value ≤ threshold` |
-
-### Threshold periods
-
-For each cell, a rule is evaluated only when it defines a threshold for the cell's aggregation period, using that period's value.
-Sums define the period; statistics inherit the period of the values they summarize.
-
-| Period   | Threshold field | Cells it can colour |
-|----------|-----------------|---------------------|
-| Day    | `value`       | Daily values and statistics over daily values: all measurement cells in every view (including monthly/yearly min/avg/max), cumulative daily values, and their monthly summary min/avg/max. |
-| Month  | `value_month` | Monthly sums and statistics over them: cumulative month cells in the yearly view, the comparison view's values and cross-year average, the yearly view's per-row summary over monthly totals, and the monthly view's Total column. |
-| Year   | `value_year`  | Yearly sums: the yearly view's Total column. |
-
-This keeps daily-intent thresholds (e.g. "more than 10 mm rain in a day") from firing on monthly totals, while one rule can carry all three magnitudes of the same phenomenon — one colour, one legend entry:
+One rule can carry all three magnitudes of the same phenomenon with one colour and one legend entry:
 
 ```yaml
 entities:
   - entity: sensor.precipitation
     thresholds:
       - operator: above
-        value: 10            # day: wet day
-        value_month: 150     # month: wet month
-        value_year: 1200     # year: wet year
+        value: 10            # wet day
+        value_month: 150     # wet month
+        value_year: 1200     # wet year
         name: Wet
         background_color: "#0277bd"
-      - operator: above
-        value_month: 300     # month-only rule; inert on daily and yearly cells
-        name: Extreme month
-        background_color: "#01579b"
 ```
 
 ### Threshold days table
 
-Below every table, the card counts how often each named day threshold was reached over the viewed range.
-Each row shows two numbers:
+Below the tables, the card counts how often each named day threshold was reached over the viewed range.
 
 | Column | Meaning |
 |--------|---------|
-| Band   | Days where this rule is the one that colours the cell — days between this threshold and the next. |
-| Total  | Days where this rule applies at all, whether or not another rule takes precedence for the colour. |
+| Band   | Days where this rule colours the cell, i.e. between this threshold and the next. |
+| Total  | Days where this rule applies at all. |
 
-With thresholds at 25 and 30 on a temperature row, a day at 28 counts in the 25 band and a day at 32 in the 30 band, while both days count toward the 25 total:
-
-```yaml
-entities:
-  - entity: sensor.outdoor_temperature
-    name: Temperature
-    thresholds:
-      - operator: equals-above
-        value: 25
-        name: Summer day
-        background_color: orange
-      - operator: equals-above
-        value: 30
-        name: Hot day
-        background_color: red
-```
+With `equals-above` rules at 25 (Summer day) and 30 (Hot day) on a temperature row, a day at 28 counts in the 25 band, a day at 32 in the 30 band, and both count toward the 25 total:
 
 | Temperature [°C] | Band | Total |
 |---|---|---|
 | Summer day (≥ 25) | 5 | 8 |
 | Hot day (≥ 30) | 3 | 3 |
 
-The table appears in the monthly and yearly views whenever at least one rule qualifies, unless `show_threshold_table: false` is set on the card.
-A rule qualifies when it has a `name`, a day `value` and at least one colour — rules that only set `value_month` or `value_year` describe sums rather than days and are left out.
-Each row is labelled with the rule name and its threshold, e.g. `Summer day (≥ 25)`.
-Counts follow what is visible: today and future days are excluded, values hidden by `show_zero: false` are not counted, and a day with several values (min/avg/max) counts once per rule.
-
-In the yearly view over more than one year, each year gets its own Band and Total columns, followed by an "All years" pair for the whole range:
-
-| Rain [mm] | 2024 Band | 2024 Total | 2025 Band | 2025 Total | All years Band | All years Total |
-|---|---|---|---|---|---|---|
-| Wet day (≥ 10) | 2 | 3 | 3 | 5 | 5 | 8 |
-
-A displayed year with no matching day still gets its columns, showing 0.
-The monthly view, and a yearly view showing a single year, keep the plain two-column layout.
+A rule qualifies when it has a `name`, a day `value` and at least one colour; month-only and year-only rules are left out.
+Counts follow what is visible: today and future days are excluded, cells hidden by `show_zero: false` are not counted, and a day with min/avg/max counts once per rule.
+A yearly view over several years gets Band and Total columns per year plus an "All years" pair.
+Disable the table with `show_threshold_table: false`.
 
 ### Predecessor entry
 
-Each entry in an entity row's `predecessors:` list points to an earlier statistic (entity or external) whose data should be used for dates strictly before `replaced_on`.
-Useful when a sensor was replaced or renamed.
+Each entry in a row's `predecessors:` list points to an earlier statistic used for dates before `replaced_on`.
 
 | Option         | Type   | Default      | Description |
 |----------------|--------|--------------|-------------|
 | `entity`         | string | **required** | Entity ID or external statistic ID of the predecessor. |
-| `replaced_on`    | string | —            | ISO date `YYYY-MM-DD`. The predecessor covers dates strictly before this date. Omit to use the predecessor for all dates with no main-entity data. |
-| `factor`         | number | `1`          | Multiplier applied to predecessor values (e.g. `1000` if the old sensor reported kWh and the new one reports Wh). Also bypasses the unit-compatibility check. |
+| `replaced_on`    | string | —            | ISO date `YYYY-MM-DD`; the predecessor covers dates strictly before it. Omit to use it for all dates without main-entity data. |
+| `factor`         | number | `1`          | Multiplier on predecessor values (e.g. `1000` for kWh → Wh). Also bypasses the unit-compatibility check. |
 
 ### Color values
 
-Every `text_color` and `background_color` option (on rows and on threshold rules) accepts any CSS colour string.
-The value is applied as-is to the cell's inline style, so anything the browser understands works:
-
-| Format | Example | Notes |
-|---|---|---|
-| Named colour | `red`, `white`, `transparent` | The full [CSS named colour](https://developer.mozilla.org/en-US/docs/Web/CSS/named-color) set. |
-| Hex (3/4/6/8 digit) | `#f44`, `#ff5252`, `#ff525280` | 8-digit form includes alpha. |
-| `rgb()` / `rgba()` | `rgb(255 82 82)`, `rgba(255, 82, 82, 0.5)` | Comma or space syntax. |
-| `hsl()` / `hsla()` | `hsl(0 70% 65%)` | Same alpha rules as `rgba()`. |
-| HA / theme variable | `var(--error-color)`, `var(--primary-color)` | Pulls the current theme's colour. Common HA tokens: `--primary-color`, `--accent-color`, `--error-color`, `--warning-color`, `--success-color`, `--info-color`, `--primary-text-color`, `--secondary-text-color`, `--card-background-color`, `--divider-color`. |
-
-Tip: prefer HA theme variables when you want the card to follow theme switching (light/dark).
-Prefer hex/rgba when you need a specific brand colour regardless of theme.
+Every `text_color` and `background_color` accepts any CSS colour string, applied as-is: named colours, hex (`#f44`, `#ff525280` with alpha), `rgb()` / `rgba()`, `hsl()` / `hsla()`, or theme variables such as `var(--error-color)`.
+Theme variables follow light/dark switching; hex stays fixed.
 
 ---
 
 ## Examples
-
-### Minimal
-
-```yaml
-type: custom:calendar-stats-card
-entities:
-  - entity: sensor.outdoor_temperature
-```
 
 ### Temperature + precipitation + energy
 
@@ -281,7 +201,6 @@ type: custom:calendar-stats-card
 entities:
   - entity: sensor.outdoor_temperature
     name: Outdoor
-    precision: 1
   - entity: sensor.daily_rainfall
     name: Rain
     show_zero: false
@@ -292,14 +211,12 @@ entities:
     precision: 2
 ```
 
-### Threshold colouring (hot/cold days)
+### Threshold colouring
 
 ```yaml
 type: custom:calendar-stats-card
 entities:
   - entity: sensor.outdoor_temperature
-    name: Outdoor
-    precision: 1
     thresholds:
       - operator: above
         value: 30
@@ -313,7 +230,7 @@ entities:
         text_color: white
 ```
 
-### Expression row — net solar export
+### Expression row
 
 ```yaml
 type: custom:calendar-stats-card
@@ -326,7 +243,7 @@ entities:
     precision: 2
 ```
 
-### Predecessor — sensor was replaced on 2024-06-01
+### Predecessor
 
 ```yaml
 type: custom:calendar-stats-card
@@ -344,42 +261,27 @@ entities:
 
 ## Behaviour & limits
 
-- **Today and future days** are always rendered as empty cells, even when HA has partial data for today.
-  "Today" is determined in the HA server's timezone (`hass.config.time_zone`).
-- **On load** the card shows the current calendar year (January through the current month); the selected range and view are session-only and reset on reload.
-- **Backward navigation** stops at the period containing the earliest recorded data of any configured entity; no fully-empty earlier period is reachable, in either view.
-- **Monthly totals** for cumulative entities are sourced from HA's authoritative monthly statistics (`sum[month] − sum[prev_month]`) and may not exactly equal the arithmetic sum of visible daily cells — this is expected and HA wins.
-- **Performance** — tested up to 10 entities; no hard cap is enforced.
-- **HA version** — requires 2026.5.0+.
-- **Statistics metadata** — the card fetches `recorder/get_statistics_metadata` for every configured ID.
-  Where `hass.states` has no entity (external statistics, deleted entities), the metadata supplies the kind (`has_sum`, `mean_type`), the unit (`statistics_unit_of_measurement`) and the name.
-
-## Localization
-
-The card automatically uses the language configured in your HA UI.
-Supported locales:
-
-- 🇬🇧 English (`en`)
-- 🇩🇪 German (`de`)
-
-To request a new locale, open an issue or PR with a translation file in `frontend/src/translations/`.
+- **Today and future days** render empty; "today" is determined in the HA server's timezone.
+- **On load** the card shows the current calendar year; range and view reset on reload.
+- **Backward navigation** stops at the period containing the earliest recorded data of any configured entity.
+- **Monthly totals** for cumulative entities come from HA's monthly statistics (`sum[month] − sum[prev_month]`) and may differ from the sum of the visible day cells; HA wins.
+- **Statistics metadata** is fetched for every configured ID and supplies kind, unit and name where `hass.states` has no entity.
+- Tested up to 10 entities; requires HA 2026.5.0+.
 
 ## Troubleshooting
 
-- **Card doesn't appear in the card picker** → check the resource URL in **Settings → Dashboards → Resources** and hard-reload the browser.
-- **Entity row shows a warning icon** → the ID has no long-term statistics in HA.
-  For an entity, enable statistics via **Settings → System → Customize**, then wait at least one statistics cycle.
-  For an external statistic, check that the importing integration has run and that the ID is spelled `domain:object_id`.
-- **External cumulative statistic shows negative days** → set `state_class: total_increasing` on the row.
-- **External predecessor is skipped (console warning)** → its unit differs from the main entity's; set `factor` on the predecessor entry to bypass the unit check.
-  A predecessor without a state object inherits the main row's cumulative kind, so kind mismatches only arise between two real entities.
-- **Monthly total ≠ sum of visible days** → expected.
-  HA's monthly-period figure wins.
+- **Card missing from the picker** → check the resource URL under **Settings → Dashboards → Resources** and hard-reload.
+- **Warning icon on a row** → the ID has no long-term statistics.
+  Enable statistics for the entity under **Settings → System → Customize** and wait one statistics cycle, or check that the external statistic is spelled `domain:object_id`.
+- **External cumulative statistic shows negative days** → set `state_class: total_increasing`.
+- **Predecessor skipped (console warning)** → its unit differs from the main entity's; set `factor` on the predecessor entry.
+- **Monthly total ≠ sum of visible days** → expected, see above.
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for build, test, and release workflow.
+New locales need only a translation file in `frontend/src/translations/`.
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE)
