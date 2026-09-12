@@ -740,3 +740,56 @@ describe('transformMonthlyStats — current month total excludes today', () => {
     expect(result.get('0::sensor.temp::2025-6')?.total).toBeNull();
   });
 });
+
+describe('transformMonthlyStats - months covered only by predecessor daily values', () => {
+  it('measurement row gets a summary for a month without an HA monthly bucket of its own', () => {
+    // Main sensor only started in March; January carries predecessor-resolved daily values.
+    const tsMar2025 = new Date('2025-03-01T00:00:00Z').getTime();
+    const raw = {
+      'sensor.temp': [{ start: tsMar2025, end: tsMar2025 + 2678400_000, mean: 18, min: 5, max: 30 }],
+    };
+    const dailyValues = new Map<string, DailyValue>([
+      ['sensor.temp::2025-01-01', { kind: 'measurement', entityId: 'sensor.temp', date: '2025-01-01', min: -14, mean: -3, max: 10 }],
+      ['sensor.temp::2025-01-02', { kind: 'measurement', entityId: 'sensor.temp', date: '2025-01-02', min: -7, mean: 2, max: 8 }],
+      ['sensor.temp::2025-03-01', { kind: 'measurement', entityId: 'sensor.temp', date: '2025-03-01', min: 1, mean: 5, max: 9 }],
+    ]);
+    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, dailyValues, [{ entity: 'sensor.temp' }], 2025, TZ, TODAY_MS);
+    const jan = result.get('0::sensor.temp::2025-1');
+    expect(jan).toBeDefined();
+    expect(jan?.min).toBe(-14);
+    expect(jan?.max).toBe(10);
+    expect(jan?.total).toBeNull();
+    expect(result.get('0::sensor.temp::2025-2')).toBeUndefined();
+    expect(result.get('0::sensor.temp::2025-3')?.min).toBe(1);
+  });
+
+  it('cumulative row gets min/mean/max but an empty total for a month without an HA monthly bucket', () => {
+    const tsMar2025 = new Date('2025-03-01T00:00:00Z').getTime();
+    const raw = {
+      'sensor.energy': [{ start: tsMar2025, end: tsMar2025 + 2678400_000, sum: 100 }],
+    };
+    const dailyValues = new Map<string, DailyValue>([
+      ['sensor.energy::2025-01-01', { kind: 'cumulative', entityId: 'sensor.energy', date: '2025-01-01', sum: 4 }],
+      ['sensor.energy::2025-01-02', { kind: 'cumulative', entityId: 'sensor.energy', date: '2025-01-02', sum: 6 }],
+    ]);
+    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, dailyValues, [{ entity: 'sensor.energy' }], 2025, TZ, TODAY_MS);
+    const jan = result.get('0::sensor.energy::2025-1');
+    expect(jan?.min).toBe(4);
+    expect(jan?.max).toBe(6);
+    expect(jan?.mean).toBe(5);
+    expect(jan?.total).toBeNull();
+  });
+});
+
+describe('transformMonthlyStats - year without any HA monthly bucket for the main entity', () => {
+  it('still summarises months that carry predecessor-resolved daily values', () => {
+    const raw = {}; // main entity did not exist yet in the viewing year
+    const dailyValues = new Map<string, DailyValue>([
+      ['sensor.temp::2023-05-01', { kind: 'measurement', entityId: 'sensor.temp', date: '2023-05-01', min: 4, mean: 9, max: 15 }],
+    ]);
+    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, dailyValues, [{ entity: 'sensor.temp' }], 2023, TZ, TODAY_MS);
+    expect(result.get('0::sensor.temp::2023-5')?.min).toBe(4);
+    expect(result.get('0::sensor.temp::2023-5')?.max).toBe(15);
+    expect(result.size).toBe(1);
+  });
+});

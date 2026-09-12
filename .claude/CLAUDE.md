@@ -33,7 +33,6 @@ Supported: `en`, `de`.
 
 ### For Later Implementation
 
-- Separate min/max rows
 - Manual weather/snowfall input
 
 ## Project Principles
@@ -103,11 +102,6 @@ Features listed under "For Later Implementation" or explicitly out of scope are 
 - Node.js 24 (current LTS); source in `frontend/`, bundle to `frontend/dist/calendar-stats-card.js` (gitignored)
 - UTF-8, LF line endings only (enforced via `.gitattributes`); CRLF is a defect
 - New runtime dependencies need explicit justification; prefer HA-provided APIs and browser built-ins
-
-## Dev Environment (maintainer setup)
-
-- Node.js 24.15 runs in WSL2 on the maintainer's machine; any OS with Node 24 works
-- `scripts/deploy.sh` (gitignored, personal) builds and copies the bundle to a HA instance
 
 ## Build & Test Commands
 

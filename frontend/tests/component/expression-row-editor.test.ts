@@ -21,17 +21,20 @@ async function createExpressionRowEditor(
   config: ExpressionRowConfig,
   index = 0,
   hass: HomeAssistant = makeHass(),
+  knownStatisticIds: Set<string> | null = null,
 ): Promise<HTMLElement> {
   const el = document.createElement('calendar-stats-expression-row-editor') as HTMLElement & {
     config: ExpressionRowConfig;
     index: number;
     hass: HomeAssistant;
     lang: string;
+    knownStatisticIds: Set<string> | null;
   };
   el.config = config;
   el.index = index;
   el.hass = hass;
   el.lang = 'en';
+  el.knownStatisticIds = knownStatisticIds;
   document.body.appendChild(el);
   await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
   return el;
@@ -108,15 +111,32 @@ describe('ExpressionRowEditor — formula validation (T016)', () => {
     expect(internal._formulaError).toBeTruthy();
   });
 
-  it('formula with unknown entity sets entity error, does NOT dispatch', async () => {
-    const hass = makeHass({});
-    const el = await createExpressionRowEditor({ expression: '' }, 0, hass);
+  it('formula with an id unknown to the recorder sets an error, does NOT dispatch', async () => {
+    const el = await createExpressionRowEditor({ expression: '' }, 0, makeHass({}), new Set(['sensor.other']));
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
     fireFormChange(el, { expression: '{{ sensor.missing }}' });
     expect(dispatched).toHaveLength(0);
     const internal = el as unknown as { _formulaError: string | null };
     expect(internal._formulaError).toContain('sensor.missing');
+  });
+
+  it('does not flag ids while the known statistic ids are not loaded (null)', async () => {
+    const el = await createExpressionRowEditor({ expression: '' }, 0, makeHass({}), null);
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
+    fireFormChange(el, { expression: '{{ sensor.missing }}' });
+    expect(dispatched).toHaveLength(1);
+  });
+
+  it('accepts an external statistic id known to the recorder but absent from hass.states', async () => {
+    const el = await createExpressionRowEditor({ expression: '' }, 0, makeHass({}), new Set(['tibber:consumption']));
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
+    fireFormChange(el, { expression: '{{ tibber:consumption * 2 }}' });
+    const internal = el as unknown as { _formulaError: string | null };
+    expect(internal._formulaError).toBeNull();
+    expect(dispatched).toHaveLength(1);
   });
 
   it('valid formula clears error and dispatches row-changed', async () => {

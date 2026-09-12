@@ -4,11 +4,16 @@ import type { PredecessorConfig } from '../types/card-config';
 import type { HomeAssistant } from '../types/ha-types';
 import { localize } from '../localize/localize';
 
+/** Stable reference: ha-selector re-initialises when the selector object changes identity. */
+const STATISTIC_SELECTOR = { statistic: {} };
+
 @customElement('calendar-stats-predecessor-list-editor')
 export class PredecessorListEditor extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
   @property({ attribute: false }) predecessors: PredecessorConfig[] = [];
   @property() lang = 'en';
+  /** Statistic ids known to the recorder; null while not loaded (no stale warning). */
+  @property({ attribute: false }) knownStatisticIds: Set<string> | null = null;
 
   static styles = css`
     :host {
@@ -115,7 +120,7 @@ export class PredecessorListEditor extends LitElement {
   }
 
   private _isStale(entry: PredecessorConfig): boolean {
-    return entry.entity !== '' && this.hass != null && !this.hass.states[entry.entity];
+    return entry.entity !== '' && this.knownStatisticIds !== null && !this.knownStatisticIds.has(entry.entity);
   }
 
   render() {
@@ -125,20 +130,22 @@ export class PredecessorListEditor extends LitElement {
       <div class="section-title">${localize('editor.predecessors', lang)}</div>
       ${this.predecessors.map((entry, i) => html`
         <div class="predecessor-entry">
-          <div class="field">
-            <label>${localize('editor.predecessor_entity', lang)}</label>
-            <input
-              data-field="predecessor_entity"
-              type="text"
-              .value=${entry.entity}
-              @change=${(e: Event) => this._handleEntryChange(i, 'entity', (e.target as HTMLInputElement).value)}
-            />
-          </div>
+          <ha-selector
+            data-field="predecessor_entity"
+            .hass=${this.hass}
+            .selector=${STATISTIC_SELECTOR}
+            .value=${entry.entity}
+            .label=${localize('editor.predecessor_entity', lang)}
+            @value-changed=${(e: CustomEvent) => {
+              const v = (e.detail.value as string | undefined) ?? '';
+              if (v !== entry.entity) this._handleEntryChange(i, 'entity', v);
+            }}
+          ></ha-selector>
 
           ${this._isStale(entry) ? html`
             <div class="stale-entity" data-stale>
               <ha-icon icon="mdi:alert-circle"></ha-icon>
-              ${localize('editor.entity_not_found', lang)}
+              ${localize('editor.statistic_not_found', lang)}
             </div>
           ` : ''}
 
