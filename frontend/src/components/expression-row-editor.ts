@@ -100,6 +100,8 @@ export class ExpressionRowEditor extends LitElement {
     if (this._formulaError) return;
 
     const updated = { ...this.config, ...formData };
+    // show_zero defaults to true; only the non-default false is written.
+    if (updated.show_zero === true) delete updated.show_zero;
     this.dispatchEvent(new CustomEvent('row-changed', {
       detail: { index: this.index, config: updated },
       bubbles: true,
@@ -124,7 +126,7 @@ export class ExpressionRowEditor extends LitElement {
         <div class="advanced-content">
           <ha-form
             .hass=${this.hass}
-            .data=${this.config}
+            .data=${{ ...this.config, show_zero: this.config?.show_zero !== false }}
             .schema=${EXPRESSION_ROW_SCHEMA_ADVANCED}
             .computeLabel=${this._computeLabel}
             @value-changed=${this._handleFormChanged}

@@ -5,11 +5,16 @@ import type { CardConfig, EntityConfig, EntityRowConfig, ExpressionRowConfig } f
 import type { HomeAssistant } from '../types/ha-types';
 import { localize } from '../localize/localize';
 import { StatisticsService } from '../services/statistics-service';
+import type { StatisticMetaEntry } from '../services/statistics-service';
 import './entity-row-editor';
 import './expression-row-editor';
 
 /** Stable reference: ha-selector re-initialises when the selector object changes identity. */
 const STATISTIC_SELECTOR = { statistic: {} };
+
+const OPTIONS_SCHEMA = [
+  { name: 'show_threshold_table', selector: { boolean: {} } },
+];
 
 @customElement('calendar-stats-card-editor')
 export class CalendarStatsCardEditor extends LitElement {
@@ -22,6 +27,8 @@ export class CalendarStatsCardEditor extends LitElement {
   @state() private _formReady = customElements.get('ha-form') != null;
   /** Statistic ids known to the recorder; null until loaded or when the request failed. */
   @state() private _knownStatisticIds: Set<string> | null = null;
+  /** Recorder metadata by statistic id; same lifecycle as the id set. */
+  @state() private _statMeta: Map<string, StatisticMetaEntry> | null = null;
 
   private readonly _service = new StatisticsService();
   private _statisticIdsRequested = false;
@@ -47,9 +54,6 @@ export class CalendarStatsCardEditor extends LitElement {
       font-weight: 600;
       font-size: 0.9em;
       margin-bottom: 4px;
-    }
-    .options-section ha-formfield {
-      --mdc-typography-body2-font-size: 0.9em;
     }
     .add-row-section {
       padding: 8px 0;
@@ -193,7 +197,8 @@ export class CalendarStatsCardEditor extends LitElement {
     try {
       const entries = await this._service.listStatisticIds(this.hass);
       if (!Array.isArray(entries)) return;
-      this._knownStatisticIds = new Set(entries.map((e) => e.statistic_id));
+      this._statMeta = new Map(entries.map((e) => [e.statistic_id, e]));
+      this._knownStatisticIds = new Set(this._statMeta.keys());
     } catch {
       // ids stay unknown; row editors then show no stale warning
     }
@@ -246,8 +251,9 @@ export class CalendarStatsCardEditor extends LitElement {
   }
 
   /** Only the non-default (false) is written, so the shown-by-default case stays implicit. */
-  private _handleThresholdTableToggle = (e: Event): void => {
-    const checked = (e.target as HTMLInputElement).checked;
+  private _handleOptionsChanged = (e: CustomEvent): void => {
+    const value = e.detail.value as Record<string, unknown>;
+    const checked = value['show_threshold_table'] !== false;
     const rest = { ...this._rest };
     if (checked) delete rest['show_threshold_table'];
     else rest['show_threshold_table'] = false;
@@ -319,6 +325,9 @@ export class CalendarStatsCardEditor extends LitElement {
     this._dispatchConfigChanged();
   }
 
+  private _computeOptionLabel = (schema: { name: string }): string =>
+    localize(`editor.${schema.name}`, this._lang);
+
   private get _lang(): string {
     return this.hass?.selectedLanguage ?? this.hass?.language ?? 'en';
   }
@@ -381,13 +390,13 @@ export class CalendarStatsCardEditor extends LitElement {
 
       <div class="options-section">
         <div class="options-title">${localize('editor.options', lang)}</div>
-        <ha-formfield .label=${localize('editor.show_threshold_table', lang)}>
-          <ha-checkbox
-            data-field="show_threshold_table"
-            .checked=${this._rest['show_threshold_table'] !== false}
-            @change=${this._handleThresholdTableToggle}
-          ></ha-checkbox>
-        </ha-formfield>
+        <ha-form
+          .hass=${this.hass}
+          .data=${{ show_threshold_table: this._rest['show_threshold_table'] !== false }}
+          .schema=${OPTIONS_SCHEMA}
+          .computeLabel=${this._computeOptionLabel}
+          @value-changed=${this._handleOptionsChanged}
+        ></ha-form>
       </div>
     `;
   }
@@ -466,6 +475,7 @@ export class CalendarStatsCardEditor extends LitElement {
           ? html`<calendar-stats-entity-row-editor
               .hass=${this.hass}
               .knownStatisticIds=${this._knownStatisticIds}
+              .statMeta=${this._statMeta?.get((entity as EntityRowConfig).entity)}
               .config=${entity as EntityRowConfig}
               .index=${index}
               .lang=${lang}

@@ -338,41 +338,50 @@ describe('CalendarStatsCardEditor — threshold table toggle', () => {
     entities: [{ entity: 'sensor.temp' }],
   };
 
-  function toggle(el: HTMLElement): (HTMLElement & { checked: boolean }) | null {
-    return el.shadowRoot!.querySelector('ha-checkbox[data-field="show_threshold_table"]') as
-      (HTMLElement & { checked: boolean }) | null;
+  type OptionsForm = HTMLElement & { data: Record<string, unknown>; schema: { name: string; selector: unknown }[] };
+
+  function optionsForm(el: HTMLElement): OptionsForm {
+    const forms = Array.from(el.shadowRoot!.querySelectorAll('ha-form')) as OptionsForm[];
+    return forms.find((f) => f.schema?.some((s) => s.name === 'show_threshold_table'))!;
   }
 
-  it('renders the toggle, checked by default', async () => {
+  function fire(el: HTMLElement, value: Record<string, unknown>): void {
+    optionsForm(el).dispatchEvent(new CustomEvent('value-changed', { detail: { value }, bubbles: true, composed: true }));
+  }
+
+  it('renders the option as a boolean selector, on by default', async () => {
     const el = await createEditor(CONFIG);
-    expect(toggle(el)!.checked).toBe(true);
+    const form = optionsForm(el);
+    expect(form.schema.find((s) => s.name === 'show_threshold_table')!.selector).toEqual({ boolean: {} });
+    expect(form.data['show_threshold_table']).toBe(true);
   });
 
   it('reflects an explicit false from the config', async () => {
     const el = await createEditor({ ...CONFIG, show_threshold_table: false } as CardConfig);
-    expect(toggle(el)!.checked).toBe(false);
+    expect(optionsForm(el).data['show_threshold_table']).toBe(false);
   });
 
-  it('emits show_threshold_table: false when unchecked', async () => {
+  it('emits show_threshold_table: false when switched off', async () => {
     const el = await createEditor(CONFIG);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
-    const box = toggle(el)!;
-    box.checked = false;
-    box.dispatchEvent(new Event('change'));
+    fire(el, { show_threshold_table: false });
     const config = (dispatched[0]!.detail as { config: CardConfig }).config;
     expect(config.show_threshold_table).toBe(false);
   });
 
-  it('drops the key again when re-checked, keeping the default implicit', async () => {
+  it('drops the key again when switched on, keeping the default implicit', async () => {
     const el = await createEditor({ ...CONFIG, show_threshold_table: false } as CardConfig);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
-    const box = toggle(el)!;
-    box.checked = true;
-    box.dispatchEvent(new Event('change'));
+    fire(el, { show_threshold_table: true });
     const config = (dispatched[0]!.detail as { config: CardConfig }).config;
     expect('show_threshold_table' in config).toBe(false);
+  });
+
+  it('renders no ha-checkbox', async () => {
+    const el = await createEditor(CONFIG);
+    expect(el.shadowRoot!.querySelector('ha-checkbox, ha-formfield')).toBeNull();
   });
 });
 
@@ -396,10 +405,10 @@ describe('CalendarStatsCardEditor — options section', () => {
     expect(addRow.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('holds the threshold table checkbox', async () => {
+  it('holds the threshold table form', async () => {
     const el = await createEditor(CONFIG);
     const section = el.shadowRoot!.querySelector('.options-section')!;
-    expect(section.querySelector('ha-checkbox[data-field="show_threshold_table"]')).not.toBeNull();
+    expect(section.querySelector('ha-form')).not.toBeNull();
   });
 
   it('shows the section even with no rows configured', async () => {
@@ -409,7 +418,10 @@ describe('CalendarStatsCardEditor — options section', () => {
 });
 
 describe('CalendarStatsCardEditor — known statistic ids', () => {
-  const META = [{ statistic_id: 'sensor.a' }, { statistic_id: 'tibber:consumption' }];
+  const META = [
+    { statistic_id: 'sensor.a', has_sum: false, mean_type: 1 },
+    { statistic_id: 'tibber:consumption', has_sum: true, mean_type: 0 },
+  ];
 
   it('requests recorder/list_statistic_ids once when hass is set', async () => {
     const send = vi.fn().mockResolvedValue(META);
@@ -443,5 +455,16 @@ describe('CalendarStatsCardEditor — known statistic ids', () => {
     const rowEditor = el.shadowRoot!.querySelector('calendar-stats-entity-row-editor') as (HTMLElement & { knownStatisticIds?: Set<string> | null }) | null;
     expect(rowEditor).toBeTruthy();
     expect(rowEditor!.knownStatisticIds).toBeNull();
+  });
+
+  it("passes the row's metadata entry to the row editor as statMeta", async () => {
+    const send = vi.fn().mockResolvedValue(META);
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [{ entity: 'tibber:consumption' }] }, makeHass({}, send));
+    (el as unknown as { _editRow(i: number): void })._editRow(0);
+    await vi.waitFor(async () => {
+      await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+      const rowEditor = el.shadowRoot!.querySelector('calendar-stats-entity-row-editor') as (HTMLElement & { statMeta?: unknown }) | null;
+      expect(rowEditor?.statMeta).toEqual(META[1]);
+    }, { timeout: 2000 });
   });
 });

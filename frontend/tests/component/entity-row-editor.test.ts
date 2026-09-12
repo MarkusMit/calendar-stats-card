@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { HomeAssistant } from '../../src/types/ha-types';
 import type { EntityRowConfig } from '../../src/types/card-config';
+import type { StatisticMetaEntry } from '../../src/services/statistics-service';
 import '../../src/components/entity-row-editor';
 
 afterEach(() => {
@@ -22,6 +23,7 @@ async function createEntityRowEditor(
   index = 0,
   hass: HomeAssistant = makeHass(),
   knownStatisticIds: Set<string> | null = null,
+  statMeta: StatisticMetaEntry | undefined = undefined,
 ): Promise<HTMLElement> {
   const el = document.createElement('calendar-stats-entity-row-editor') as HTMLElement & {
     config: EntityRowConfig;
@@ -29,7 +31,9 @@ async function createEntityRowEditor(
     hass: HomeAssistant;
     lang: string;
     knownStatisticIds: Set<string> | null;
+    statMeta: StatisticMetaEntry | undefined;
   };
+  el.statMeta = statMeta;
   el.config = config;
   el.index = index;
   el.hass = hass;
@@ -120,38 +124,6 @@ describe('EntityRowEditor — Advanced section (T014)', () => {
     expect(schemaHasField(el, 'unit')).toBe(true);
   });
 
-  it('show_zero checkbox renders in compact visibility row', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.temp', show_zero: true });
-    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_zero"]');
-    expect(cb).toBeTruthy();
-  });
-
-  it('show_min checkbox renders in compact visibility row', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: false });
-    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_min"]');
-    expect(cb).toBeTruthy();
-  });
-
-  it('show_avg checkbox renders in compact visibility row', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_avg"]');
-    expect(cb).toBeTruthy();
-  });
-
-  it('show_max checkbox renders in compact visibility row', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_max"]');
-    expect(cb).toBeTruthy();
-  });
-
-  it('all four visibility checkboxes share one row', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const row = el.shadowRoot!.querySelector('.visibility-row');
-    expect(row).toBeTruthy();
-    const checkboxes = row!.querySelectorAll('[data-field]');
-    expect(checkboxes.length).toBe(4);
-  });
-
   it('text_color field is in Advanced schema', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
     expect(schemaHasField(el, 'text_color')).toBe(true);
@@ -171,15 +143,116 @@ describe('EntityRowEditor — Advanced section (T014)', () => {
     expect(dispatched[0]!.detail.config.factor).toBe(2.5);
   });
 
-  it('show_min toggle dispatches row-changed', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: true }, 0);
+});
+
+function advancedSchemaNames(el: HTMLElement): string[] {
+  const form = el.shadowRoot!.querySelectorAll('ha-form')[1] as HTMLElement & { schema: { name: string }[] };
+  return form.schema.map((f) => f.name);
+}
+
+function advancedForm(el: HTMLElement): HTMLElement & { data: Record<string, unknown> } {
+  return el.shadowRoot!.querySelectorAll('ha-form')[1] as HTMLElement & { data: Record<string, unknown> };
+}
+
+function selectorOf(el: HTMLElement, name: string): unknown {
+  return schemaField(el, name)?.['selector'];
+}
+
+function hassWith(entityId: string, attributes: Record<string, unknown>): HomeAssistant {
+  return makeHass({ [entityId]: { entity_id: entityId, state: '1', attributes } });
+}
+
+const SUM_META: StatisticMetaEntry = {
+  statistic_id: 'tibber:consumption', statistics_unit_of_measurement: 'kWh', unit_class: 'energy',
+  has_sum: true, mean_type: 0, source: 'tibber',
+};
+const MEAN_META: StatisticMetaEntry = {
+  statistic_id: 'wetter:temp', statistics_unit_of_measurement: '°C', unit_class: 'temperature',
+  has_sum: false, mean_type: 1, source: 'wetter',
+};
+
+describe('EntityRowEditor — kind-aware advanced schema', () => {
+  it('unknown kind: offers state_class and all four visibility switches', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    const names = advancedSchemaNames(el);
+    expect(names).toEqual(expect.arrayContaining(['state_class', 'show_zero', 'show_min', 'show_avg', 'show_max']));
+    for (const f of ['show_zero', 'show_min', 'show_avg', 'show_max']) {
+      expect(selectorOf(el, f)).toEqual({ boolean: {} });
+    }
+  });
+
+  it('measurement entity: offers min/avg/max switches, hides show_zero and state_class', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' }, 0, hassWith('sensor.temp', { state_class: 'measurement' }));
+    const names = advancedSchemaNames(el);
+    expect(names).toEqual(expect.arrayContaining(['show_min', 'show_avg', 'show_max']));
+    expect(names).not.toContain('show_zero');
+    expect(names).not.toContain('state_class');
+  });
+
+  it('cumulative entity: offers show_zero and state_class, hides min/avg/max switches', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.energy' }, 0, hassWith('sensor.energy', { state_class: 'total_increasing' }));
+    const names = advancedSchemaNames(el);
+    expect(names).toEqual(expect.arrayContaining(['show_zero', 'state_class']));
+    expect(names).not.toContain('show_min');
+    expect(names).not.toContain('show_avg');
+    expect(names).not.toContain('show_max');
+  });
+
+  it('external statistic with has_sum metadata counts as cumulative', async () => {
+    const el = await createEntityRowEditor({ entity: 'tibber:consumption' }, 0, makeHass({}), new Set(['tibber:consumption']), SUM_META);
+    const names = advancedSchemaNames(el);
+    expect(names).toContain('show_zero');
+    expect(names).not.toContain('show_min');
+  });
+
+  it('external statistic with mean metadata counts as measurement', async () => {
+    const el = await createEntityRowEditor({ entity: 'wetter:temp' }, 0, makeHass({}), new Set(['wetter:temp']), MEAN_META);
+    const names = advancedSchemaNames(el);
+    expect(names).toContain('show_min');
+    expect(names).not.toContain('show_zero');
+    expect(names).not.toContain('state_class');
+  });
+
+  it('config state_class override wins over the entity attribute', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp', state_class: 'total' }, 0, hassWith('sensor.temp', { state_class: 'measurement' }));
+    const names = advancedSchemaNames(el);
+    expect(names).toContain('show_zero');
+    expect(names).toContain('state_class');
+    expect(names).not.toContain('show_min');
+  });
+
+  it('renders no ha-checkbox', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    expect(el.shadowRoot!.querySelector('ha-checkbox, ha-formfield')).toBeNull();
+  });
+});
+
+describe('EntityRowEditor — visibility switch defaults and serialisation', () => {
+  it('feeds unset visibility flags to the form as true (the card default)', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: false });
+    const data = advancedForm(el).data;
+    expect(data['show_min']).toBe(false);
+    expect(data['show_zero']).toBe(true);
+    expect(data['show_avg']).toBe(true);
+    expect(data['show_max']).toBe(true);
+  });
+
+  it('switching a flag off writes false', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' }, 0);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_min"]') as HTMLInputElement & { checked: boolean };
-    cb.checked = false;
-    cb.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-    expect(dispatched).toHaveLength(1);
+    fireFormChange(el, { entity: 'sensor.temp', show_min: false, show_avg: true, show_max: true, show_zero: true }, 1);
     expect(dispatched[0]!.detail.config.show_min).toBe(false);
+  });
+
+  it('switching a flag back on drops the key instead of writing true', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: false }, 0);
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
+    fireFormChange(el, { entity: 'sensor.temp', show_min: true, show_avg: true, show_max: true, show_zero: true }, 1);
+    const cfg = dispatched[0]!.detail.config as Record<string, unknown>;
+    expect('show_min' in cfg).toBe(false);
+    expect('show_zero' in cfg).toBe(false);
   });
 });
 

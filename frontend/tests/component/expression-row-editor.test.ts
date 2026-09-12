@@ -186,13 +186,28 @@ describe('ExpressionRowEditor — Advanced section (T017)', () => {
     expect(schemaHasField(el, 'background_color')).toBe(true);
   });
 
-  it('show_zero change dispatches row-changed', async () => {
+  it('feeds an unset show_zero to the advanced form as true (the card default)', async () => {
+    const el = await createExpressionRowEditor({ expression: '{{ sensor.a }}' });
+    const form = el.shadowRoot!.querySelectorAll('ha-form')[1] as HTMLElement & { data: Record<string, unknown> };
+    expect(form.data['show_zero']).toBe(true);
+  });
+
+  it('switching show_zero off writes false', async () => {
+    const hass = makeHass({ 'sensor.a': { entity_id: 'sensor.a', state: '1', attributes: {} } });
+    const el = await createExpressionRowEditor({ expression: '{{ sensor.a }}' }, 1, hass);
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
+    fireFormChange(el, { expression: '{{ sensor.a }}', show_zero: false }, 1);
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]!.detail.config.show_zero).toBe(false);
+  });
+
+  it('switching show_zero back on drops the key instead of writing true', async () => {
     const hass = makeHass({ 'sensor.a': { entity_id: 'sensor.a', state: '1', attributes: {} } });
     const el = await createExpressionRowEditor({ expression: '{{ sensor.a }}', show_zero: false }, 1, hass);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
     fireFormChange(el, { expression: '{{ sensor.a }}', show_zero: true }, 1);
-    expect(dispatched).toHaveLength(1);
-    expect(dispatched[0]!.detail.config.show_zero).toBe(true);
+    expect('show_zero' in (dispatched[0]!.detail.config as Record<string, unknown>)).toBe(false);
   });
 });
