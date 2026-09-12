@@ -94,7 +94,7 @@
     "predecessors": "Vorgänger",
     "add_predecessor": "Vorgänger hinzufügen",
     "remove_predecessor": "Vorgänger entfernen",
-    "predecessor_entity": "Entitäts-ID",
+    "predecessor_entity": "Statistik-ID",
     "predecessor_replaced_on": "Ersetzt am",
     "predecessor_factor": "Faktor (optional)",
     "invalid_expression_syntax": "Ungültige Ausdruckssyntax",
