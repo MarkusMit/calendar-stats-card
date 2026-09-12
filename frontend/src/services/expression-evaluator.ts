@@ -26,7 +26,7 @@ function tokenize(expression: string): Token[] {
 
     if (/[a-zA-Z_]/.test(src[pos]!)) {
       const start = pos;
-      while (pos < src.length && /[a-zA-Z0-9_.]/.test(src[pos]!)) pos++;
+      while (pos < src.length && /[a-zA-Z0-9_.:]/.test(src[pos]!)) pos++;
       tokens.push({ type: 'ENTITY', strVal: src.slice(start, pos) });
       continue;
     }
@@ -51,7 +51,7 @@ function tokenize(expression: string): Token[] {
 export function extractEntityIds(expression: string): string[] {
   const ids = new Set<string>();
   for (const tok of tokenize(expression)) {
-    if (tok.type === 'ENTITY' && tok.strVal?.includes('.')) ids.add(tok.strVal);
+    if (tok.type === 'ENTITY' && (tok.strVal?.includes('.') || tok.strVal?.includes(':'))) ids.add(tok.strVal);
   }
   return [...ids];
 }
