@@ -52,6 +52,45 @@ const totalMeta: EntityMetadata = {
 };
 
 describe('transformDailyStats — cumulative delta', () => {
+  it('uses HA change for the first entry instead of its cumulative sum (sparse imported statistic)', () => {
+    // Imported precipitation: last row before the fetch window is outside it, HA sum is
+    // the all-time cumulative value. HA computes change against that earlier row.
+    const start = new Date('2015-01-01T00:00:00Z').getTime();
+    const raw = { 'sensor.rain': [{ start, end: start + 86400_000, sum: 1045, change: 2 }] };
+    const result = transformDailyStats(raw, { 'sensor.rain': precipMeta }, TZ, TODAY_MS);
+    const day = result.get('sensor.rain::2015-01-01');
+    expect(day?.kind).toBe('cumulative');
+    if (day?.kind === 'cumulative') expect(day.sum).toBe(2);
+  });
+
+  it('prefers HA change over the sum difference of consecutive entries', () => {
+    const s1 = new Date('2025-01-01T00:00:00Z').getTime();
+    const s2 = new Date('2025-01-03T00:00:00Z').getTime();
+    const raw = {
+      'sensor.energy': [
+        { start: s1, end: s1 + 86400_000, sum: 10, change: 3 },
+        { start: s2, end: s2 + 86400_000, sum: 15, change: 5 },
+      ],
+    };
+    const result = transformDailyStats(raw, { 'sensor.energy': energyMeta }, TZ, TODAY_MS);
+    const day1 = result.get('sensor.energy::2025-01-01');
+    const day2 = result.get('sensor.energy::2025-01-03');
+    if (day1?.kind === 'cumulative') expect(day1.sum).toBe(3);
+    if (day2?.kind === 'cumulative') expect(day2.sum).toBe(5);
+  });
+
+  it('negative HA change → 0 for total_increasing, kept for total', () => {
+    const start = new Date('2025-01-02T00:00:00Z').getTime();
+    const rawInc = { 'sensor.energy': [{ start, end: start + 86400_000, sum: 8, change: -2 }] };
+    const inc = transformDailyStats(rawInc, { 'sensor.energy': energyMeta }, TZ, TODAY_MS).get('sensor.energy::2025-01-02');
+    expect(inc?.kind).toBe('cumulative');
+    if (inc?.kind === 'cumulative') expect(inc.sum).toBe(0);
+    const rawNet = { 'sensor.net': [{ start, end: start + 86400_000, sum: 7, change: -3 }] };
+    const net = transformDailyStats(rawNet, { 'sensor.net': totalMeta }, TZ, TODAY_MS).get('sensor.net::2025-01-02');
+    expect(net?.kind).toBe('cumulative');
+    if (net?.kind === 'cumulative') expect(net.sum).toBe(-3);
+  });
+
   it('computes daily delta from consecutive sum values', () => {
     const start1 = new Date('2025-01-01T00:00:00Z').getTime();
     const start2 = new Date('2025-01-02T00:00:00Z').getTime();
@@ -738,5 +777,58 @@ describe('transformMonthlyStats — current month total excludes today', () => {
     const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, dailyValues, [{ entity: 'sensor.temp' }], 2025, TZ, TODAY_MS);
 
     expect(result.get('0::sensor.temp::2025-6')?.total).toBeNull();
+  });
+});
+
+describe('transformMonthlyStats - months covered only by predecessor daily values', () => {
+  it('measurement row gets a summary for a month without an HA monthly bucket of its own', () => {
+    // Main sensor only started in March; January carries predecessor-resolved daily values.
+    const tsMar2025 = new Date('2025-03-01T00:00:00Z').getTime();
+    const raw = {
+      'sensor.temp': [{ start: tsMar2025, end: tsMar2025 + 2678400_000, mean: 18, min: 5, max: 30 }],
+    };
+    const dailyValues = new Map<string, DailyValue>([
+      ['sensor.temp::2025-01-01', { kind: 'measurement', entityId: 'sensor.temp', date: '2025-01-01', min: -14, mean: -3, max: 10 }],
+      ['sensor.temp::2025-01-02', { kind: 'measurement', entityId: 'sensor.temp', date: '2025-01-02', min: -7, mean: 2, max: 8 }],
+      ['sensor.temp::2025-03-01', { kind: 'measurement', entityId: 'sensor.temp', date: '2025-03-01', min: 1, mean: 5, max: 9 }],
+    ]);
+    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, dailyValues, [{ entity: 'sensor.temp' }], 2025, TZ, TODAY_MS);
+    const jan = result.get('0::sensor.temp::2025-1');
+    expect(jan).toBeDefined();
+    expect(jan?.min).toBe(-14);
+    expect(jan?.max).toBe(10);
+    expect(jan?.total).toBeNull();
+    expect(result.get('0::sensor.temp::2025-2')).toBeUndefined();
+    expect(result.get('0::sensor.temp::2025-3')?.min).toBe(1);
+  });
+
+  it('cumulative row gets min/mean/max but an empty total for a month without an HA monthly bucket', () => {
+    const tsMar2025 = new Date('2025-03-01T00:00:00Z').getTime();
+    const raw = {
+      'sensor.energy': [{ start: tsMar2025, end: tsMar2025 + 2678400_000, sum: 100 }],
+    };
+    const dailyValues = new Map<string, DailyValue>([
+      ['sensor.energy::2025-01-01', { kind: 'cumulative', entityId: 'sensor.energy', date: '2025-01-01', sum: 4 }],
+      ['sensor.energy::2025-01-02', { kind: 'cumulative', entityId: 'sensor.energy', date: '2025-01-02', sum: 6 }],
+    ]);
+    const result = transformMonthlyStats(raw, { 'sensor.energy': energyMeta }, dailyValues, [{ entity: 'sensor.energy' }], 2025, TZ, TODAY_MS);
+    const jan = result.get('0::sensor.energy::2025-1');
+    expect(jan?.min).toBe(4);
+    expect(jan?.max).toBe(6);
+    expect(jan?.mean).toBe(5);
+    expect(jan?.total).toBeNull();
+  });
+});
+
+describe('transformMonthlyStats - year without any HA monthly bucket for the main entity', () => {
+  it('still summarises months that carry predecessor-resolved daily values', () => {
+    const raw = {}; // main entity did not exist yet in the viewing year
+    const dailyValues = new Map<string, DailyValue>([
+      ['sensor.temp::2023-05-01', { kind: 'measurement', entityId: 'sensor.temp', date: '2023-05-01', min: 4, mean: 9, max: 15 }],
+    ]);
+    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, dailyValues, [{ entity: 'sensor.temp' }], 2023, TZ, TODAY_MS);
+    expect(result.get('0::sensor.temp::2023-5')?.min).toBe(4);
+    expect(result.get('0::sensor.temp::2023-5')?.max).toBe(15);
+    expect(result.size).toBe(1);
   });
 });

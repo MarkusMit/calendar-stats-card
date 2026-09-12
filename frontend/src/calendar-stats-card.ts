@@ -1,13 +1,14 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { CardConfig, ThresholdRule, ThresholdLegendGroup } from './types/card-config';
+import type { CardConfig, ThresholdRule, ThresholdLegendGroup, CumulativeStateClass } from './types/card-config';
 import type { HomeAssistant } from './types/ha-types';
 import type { ViewState, YearStatistics, DateRange, RangePreset, MonthAnchor, ViewMode } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
 import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues, rowSummaryKey, wrapMonth } from './services/data-transform';
 import { rowKey } from './types/card-config';
 import { resolvePredecessorData } from './services/predecessor-resolver';
+import { resolveEntityMetadata } from './services/entity-metadata';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
 import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor, msUntilNextMidnight } from './services/date-range';
 import { localize } from './localize/localize';
@@ -418,27 +419,39 @@ export class CalendarStatsCard extends LitElement {
         }
       }
 
-      const [dailyRaw, monthlyRaw] = await Promise.all([
+      const [dailyRaw, monthlyRaw, statMeta] = await Promise.all([
         this._service.fetchDailyStats(this._hass, entityIds, dailyStartTime, endTime),
         this._service.fetchMonthlyStats(this._hass, entityIds, monthlyStartTime, endTime),
+        this._service.fetchStatisticsMetadata(this._hass, entityIds),
       ]);
 
       if (token !== this._fetchAbortFlag) return false;
 
-      // Build metadata map from hass.states
       const metadataMap: Record<string, import('./types/statistics').EntityMetadata> = {};
-      for (const id of entityIds) {
-        const stateObj = this._hass.states[id];
-        const attrs = stateObj?.attributes;
-        metadataMap[id] = {
-          entityId: id,
-          stateClass: (attrs?.['state_class'] as 'measurement' | 'total_increasing' | 'total') ?? 'unknown',
-          deviceClass: (attrs?.['device_class'] as string | null) ?? null,
-          unitOfMeasurement: (attrs?.['unit_of_measurement'] as string | null) ?? null,
-          friendlyName: (attrs?.['friendly_name'] as string | null) ?? null,
-          hasStatistics: true,
-        };
+      const resolve = (id: string, cfgStateClass: CumulativeStateClass | undefined) =>
+        resolveEntityMetadata(id, this._hass!.states[id]?.attributes, statMeta.get(id), cfgStateClass);
+
+      // Main rows first (first row wins for duplicate ids): their resolved kind is what
+      // a stateless predecessor inherits below.
+      for (const cfg of this._config.entities) {
+        if ('entity' in cfg) metadataMap[cfg.entity] ??= resolve(cfg.entity, cfg.state_class);
       }
+      // Predecessors: the row's state_class override wins. Without one, a predecessor
+      // that has no state object (external statistic, deleted entity) inherits the main
+      // row's cumulative kind — statistics metadata alone cannot tell total from
+      // total_increasing, and a mismatch would get the predecessor skipped.
+      for (const cfg of this._config.entities) {
+        if (!('entity' in cfg)) continue;
+        const mainClass = metadataMap[cfg.entity]!.stateClass;
+        const inheritable = mainClass === 'total' || mainClass === 'total_increasing' ? mainClass : undefined;
+        for (const p of cfg.predecessors ?? []) {
+          if (metadataMap[p.entity]) continue;
+          const inherited = this._hass.states[p.entity] ? undefined : inheritable;
+          metadataMap[p.entity] = resolve(p.entity, cfg.state_class ?? inherited);
+        }
+      }
+      // Expression operands that are not rows or predecessors.
+      for (const id of entityIds) metadataMap[id] ??= resolve(id, undefined);
 
       // Add synthetic metadata for expression rows
       for (const cfg of this._config.entities) {
@@ -666,8 +679,12 @@ export class CalendarStatsCard extends LitElement {
   }
 
   private _onDocClick = (e: MouseEvent): void => {
-    const bar = this.shadowRoot?.querySelector('.bottom-bar');
-    if (bar && e.composedPath().includes(bar)) return;
+    // Only the legend's own toggle and popover keep it open; any other
+    // bottom-bar button counts as an outside click.
+    const path = e.composedPath();
+    const toggle = this.shadowRoot?.querySelector('.legend-toggle');
+    const popover = this.shadowRoot?.querySelector('.legend-popover');
+    if ((toggle && path.includes(toggle)) || (popover && path.includes(popover))) return;
     this._setLegendOpen(false);
   };
 

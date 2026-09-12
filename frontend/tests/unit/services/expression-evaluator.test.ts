@@ -95,3 +95,20 @@ describe('evaluate — error handling', () => {
     expect(() => evaluate('{{ sensor.a @ sensor.b }}', { 'sensor.a': 1, 'sensor.b': 2 })).toThrow();
   });
 });
+
+describe('external statistic IDs (domain:object_id)', () => {
+  it('extracts external statistic IDs alongside entity IDs', () => {
+    const ids = extractEntityIds('{{ tibber:energy_consumption * 2 + sensor.b }}');
+    expect(ids).toContain('tibber:energy_consumption');
+    expect(ids).toContain('sensor.b');
+    expect(ids).toHaveLength(2);
+  });
+
+  it('evaluates expressions with external statistic IDs', () => {
+    expect(evaluate('tibber:a + 1', { 'tibber:a': 2 })).toBe(3);
+  });
+
+  it('still ignores bare identifiers without a separator', () => {
+    expect(extractEntityIds('foo + sensor.a')).toEqual(['sensor.a']);
+  });
+});

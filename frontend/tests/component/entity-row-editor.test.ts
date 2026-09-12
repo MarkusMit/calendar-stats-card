@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { HomeAssistant } from '../../src/types/ha-types';
 import type { EntityRowConfig } from '../../src/types/card-config';
+import type { StatisticMetaEntry } from '../../src/services/statistics-service';
 import '../../src/components/entity-row-editor';
 
 afterEach(() => {
@@ -21,17 +22,23 @@ async function createEntityRowEditor(
   config: EntityRowConfig,
   index = 0,
   hass: HomeAssistant = makeHass(),
+  knownStatisticIds: Set<string> | null = null,
+  statMeta: StatisticMetaEntry | undefined = undefined,
 ): Promise<HTMLElement> {
   const el = document.createElement('calendar-stats-entity-row-editor') as HTMLElement & {
     config: EntityRowConfig;
     index: number;
     hass: HomeAssistant;
     lang: string;
+    knownStatisticIds: Set<string> | null;
+    statMeta: StatisticMetaEntry | undefined;
   };
+  el.statMeta = statMeta;
   el.config = config;
   el.index = index;
   el.hass = hass;
   el.lang = 'en';
+  el.knownStatisticIds = knownStatisticIds;
   document.body.appendChild(el);
   await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
   return el;
@@ -101,10 +108,26 @@ describe('EntityRowEditor — basic rendering (T007)', () => {
 
 // T014: US3 — Advanced section
 describe('EntityRowEditor — Advanced section (T014)', () => {
-  it('renders ha-expansion-panel for Advanced section', async () => {
+  it('renders outlined Display, Thresholds and Predecessors panels in that order', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const panel = el.shadowRoot!.querySelector('ha-expansion-panel, [data-section="advanced"]');
-    expect(panel).toBeTruthy();
+    const panels = Array.from(el.shadowRoot!.querySelectorAll('ha-expansion-panel')) as (HTMLElement & { header: string })[];
+    expect(panels.map((p) => p.dataset['section'])).toEqual(['display', 'thresholds', 'predecessors']);
+    expect(panels.map((p) => p.header)).toEqual(['Display', 'Thresholds', 'Predecessors']);
+    for (const p of panels) expect(p.hasAttribute('outlined')).toBe(true);
+  });
+
+  it('renders no Advanced panel', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    const headers = Array.from(el.shadowRoot!.querySelectorAll('ha-expansion-panel')).map((p) => (p as HTMLElement & { header: string }).header);
+    expect(headers).not.toContain('Advanced');
+  });
+
+  it('translates the Display panel header', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    (el as unknown as { lang: string }).lang = 'de';
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    const panel = el.shadowRoot!.querySelector('ha-expansion-panel[data-section="display"]') as HTMLElement & { header: string };
+    expect(panel.header).toBe('Darstellung');
   });
 
   it('factor field is in Advanced schema', async () => {
@@ -112,41 +135,30 @@ describe('EntityRowEditor — Advanced section (T014)', () => {
     expect(schemaHasField(el, 'factor')).toBe(true);
   });
 
-  it('unit field is in Advanced schema', async () => {
+  it('main schema is entity, name, unit, precision', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', unit: 'kW' });
-    expect(schemaHasField(el, 'unit')).toBe(true);
+    const form = el.shadowRoot!.querySelector('ha-form') as HTMLElement & { schema: { name: string }[] };
+    expect(form.schema.map((f) => f.name)).toEqual(['entity', 'name', 'unit', 'precision']);
   });
 
-  it('show_zero checkbox renders in compact visibility row', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.temp', show_zero: true });
-    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_zero"]');
-    expect(cb).toBeTruthy();
-  });
-
-  it('show_min checkbox renders in compact visibility row', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: false });
-    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_min"]');
-    expect(cb).toBeTruthy();
-  });
-
-  it('show_avg checkbox renders in compact visibility row', async () => {
+  it('Display panel form holds factor and colours but not unit', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_avg"]');
-    expect(cb).toBeTruthy();
+    const form = el.shadowRoot!.querySelector('ha-expansion-panel[data-section="display"] ha-form') as HTMLElement & { schema: { name: string }[] };
+    const names = form.schema.map((f) => f.name);
+    expect(names).toEqual(expect.arrayContaining(['factor', 'text_color', 'background_color']));
+    expect(names).not.toContain('unit');
   });
 
-  it('show_max checkbox renders in compact visibility row', async () => {
+  it('explains precision, unit, factor, colours and state_class as helper text', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_max"]');
-    expect(cb).toBeTruthy();
-  });
-
-  it('all four visibility checkboxes share one row', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const row = el.shadowRoot!.querySelector('.visibility-row');
-    expect(row).toBeTruthy();
-    const checkboxes = row!.querySelectorAll('[data-field]');
-    expect(checkboxes.length).toBe(4);
+    const forms = Array.from(el.shadowRoot!.querySelectorAll('ha-form')) as (HTMLElement & { computeHelper: (s: { name: string }) => string | undefined })[];
+    expect(forms[0]!.computeHelper({ name: 'precision' })).toBe('Decimal digits in day cells and summary columns; default 1');
+    expect(forms[0]!.computeHelper({ name: 'unit' })).toBe('Overrides the unit shown beside the label');
+    expect(forms[0]!.computeHelper({ name: 'name' })).toBeUndefined();
+    expect(forms[1]!.computeHelper({ name: 'factor' })).toBe('Multiplier for every displayed value, e.g. 0.001 to show Wh as kWh');
+    expect(forms[1]!.computeHelper({ name: 'text_color' })).toBe('Any CSS colour: name, hex, rgb(), hsl() or var(--primary-color)');
+    expect(forms[1]!.computeHelper({ name: 'background_color' })).toBe('Any CSS colour: name, hex, rgb(), hsl() or var(--primary-color)');
+    expect(forms[1]!.computeHelper({ name: 'state_class' })).toBe('For external statistics with counter resets; total_increasing clamps negative deltas to 0');
   });
 
   it('text_color field is in Advanced schema', async () => {
@@ -168,24 +180,132 @@ describe('EntityRowEditor — Advanced section (T014)', () => {
     expect(dispatched[0]!.detail.config.factor).toBe(2.5);
   });
 
-  it('show_min toggle dispatches row-changed', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: true }, 0);
+});
+
+function advancedSchemaNames(el: HTMLElement): string[] {
+  const form = el.shadowRoot!.querySelectorAll('ha-form')[1] as HTMLElement & { schema: { name: string }[] };
+  return form.schema.map((f) => f.name);
+}
+
+function advancedForm(el: HTMLElement): HTMLElement & { data: Record<string, unknown> } {
+  return el.shadowRoot!.querySelectorAll('ha-form')[1] as HTMLElement & { data: Record<string, unknown> };
+}
+
+function selectorOf(el: HTMLElement, name: string): unknown {
+  return schemaField(el, name)?.['selector'];
+}
+
+function hassWith(entityId: string, attributes: Record<string, unknown>): HomeAssistant {
+  return makeHass({ [entityId]: { entity_id: entityId, state: '1', attributes } });
+}
+
+const SUM_META: StatisticMetaEntry = {
+  statistic_id: 'tibber:consumption', statistics_unit_of_measurement: 'kWh', unit_class: 'energy',
+  has_sum: true, mean_type: 0, source: 'tibber',
+};
+const MEAN_META: StatisticMetaEntry = {
+  statistic_id: 'wetter:temp', statistics_unit_of_measurement: '°C', unit_class: 'temperature',
+  has_sum: false, mean_type: 1, source: 'wetter',
+};
+
+describe('EntityRowEditor — kind-aware advanced schema', () => {
+  it('unknown kind: offers state_class and all four visibility switches', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    const names = advancedSchemaNames(el);
+    expect(names).toEqual(expect.arrayContaining(['state_class', 'show_zero', 'show_min', 'show_avg', 'show_max']));
+    for (const f of ['show_zero', 'show_min', 'show_avg', 'show_max']) {
+      expect(selectorOf(el, f)).toEqual({ boolean: {} });
+    }
+  });
+
+  it('measurement entity: offers min/avg/max switches, hides show_zero and state_class', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' }, 0, hassWith('sensor.temp', { state_class: 'measurement' }));
+    const names = advancedSchemaNames(el);
+    expect(names).toEqual(expect.arrayContaining(['show_min', 'show_avg', 'show_max']));
+    expect(names).not.toContain('show_zero');
+    expect(names).not.toContain('state_class');
+  });
+
+  it('cumulative entity: offers show_zero and state_class, hides min/avg/max switches', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.energy' }, 0, hassWith('sensor.energy', { state_class: 'total_increasing' }));
+    const names = advancedSchemaNames(el);
+    expect(names).toEqual(expect.arrayContaining(['show_zero', 'state_class']));
+    expect(names).not.toContain('show_min');
+    expect(names).not.toContain('show_avg');
+    expect(names).not.toContain('show_max');
+  });
+
+  it('external statistic with has_sum metadata counts as cumulative', async () => {
+    const el = await createEntityRowEditor({ entity: 'tibber:consumption' }, 0, makeHass({}), new Set(['tibber:consumption']), SUM_META);
+    const names = advancedSchemaNames(el);
+    expect(names).toContain('show_zero');
+    expect(names).not.toContain('show_min');
+  });
+
+  it('external statistic with mean metadata counts as measurement', async () => {
+    const el = await createEntityRowEditor({ entity: 'wetter:temp' }, 0, makeHass({}), new Set(['wetter:temp']), MEAN_META);
+    const names = advancedSchemaNames(el);
+    expect(names).toContain('show_min');
+    expect(names).not.toContain('show_zero');
+    expect(names).not.toContain('state_class');
+  });
+
+  it('config state_class override wins over the entity attribute', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp', state_class: 'total' }, 0, hassWith('sensor.temp', { state_class: 'measurement' }));
+    const names = advancedSchemaNames(el);
+    expect(names).toContain('show_zero');
+    expect(names).toContain('state_class');
+    expect(names).not.toContain('show_min');
+  });
+
+  it('renders no ha-checkbox', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    expect(el.shadowRoot!.querySelector('ha-checkbox, ha-formfield')).toBeNull();
+  });
+});
+
+describe('EntityRowEditor — visibility switch defaults and serialisation', () => {
+  it('feeds unset visibility flags to the form as true (the card default)', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: false });
+    const data = advancedForm(el).data;
+    expect(data['show_min']).toBe(false);
+    expect(data['show_zero']).toBe(true);
+    expect(data['show_avg']).toBe(true);
+    expect(data['show_max']).toBe(true);
+  });
+
+  it('switching a flag off writes false', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' }, 0);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
-    const cb = el.shadowRoot!.querySelector('.visibility-row [data-field="show_min"]') as HTMLInputElement & { checked: boolean };
-    cb.checked = false;
-    cb.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-    expect(dispatched).toHaveLength(1);
+    fireFormChange(el, { entity: 'sensor.temp', show_min: false, show_avg: true, show_max: true, show_zero: true }, 1);
     expect(dispatched[0]!.detail.config.show_min).toBe(false);
+  });
+
+  it('switching a flag back on drops the key instead of writing true', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp', show_min: false }, 0);
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
+    fireFormChange(el, { entity: 'sensor.temp', show_min: true, show_avg: true, show_max: true, show_zero: true }, 1);
+    const cfg = dispatched[0]!.detail.config as Record<string, unknown>;
+    expect('show_min' in cfg).toBe(false);
+    expect('show_zero' in cfg).toBe(false);
   });
 });
 
 // T021: US5 — Thresholds nested collapsible in EntityRowEditor
 describe('EntityRowEditor — Thresholds sub-section (T021)', () => {
-  it('renders calendar-stats-threshold-list-editor inside Advanced', async () => {
+  it('renders calendar-stats-threshold-list-editor inside the Thresholds panel', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', thresholds: [] });
-    const thresholdEditor = el.shadowRoot!.querySelector('calendar-stats-threshold-list-editor');
+    const thresholdEditor = el.shadowRoot!.querySelector('ha-expansion-panel[data-section="thresholds"] calendar-stats-threshold-list-editor');
     expect(thresholdEditor).toBeTruthy();
+  });
+
+  it('passes hass down to the threshold editor so its selectors can render', async () => {
+    const hass = makeHass();
+    const el = await createEntityRowEditor({ entity: 'sensor.temp', thresholds: [] }, 0, hass);
+    const thresholdEditor = el.shadowRoot!.querySelector('calendar-stats-threshold-list-editor') as HTMLElement & { hass?: HomeAssistant };
+    expect(thresholdEditor.hass).toBe(hass);
   });
 
   it('thresholds-changed event updates config and dispatches row-changed', async () => {
@@ -205,9 +325,9 @@ describe('EntityRowEditor — Thresholds sub-section (T021)', () => {
 
 // T025: US6 — Predecessors sub-section in EntityRowEditor
 describe('EntityRowEditor — Predecessors sub-section (T025)', () => {
-  it('renders calendar-stats-predecessor-list-editor inside Advanced', async () => {
+  it('renders calendar-stats-predecessor-list-editor inside the Predecessors panel', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', predecessors: [] });
-    const predEditor = el.shadowRoot!.querySelector('calendar-stats-predecessor-list-editor');
+    const predEditor = el.shadowRoot!.querySelector('ha-expansion-panel[data-section="predecessors"] calendar-stats-predecessor-list-editor');
     expect(predEditor).toBeTruthy();
   });
 
@@ -226,20 +346,65 @@ describe('EntityRowEditor — Predecessors sub-section (T025)', () => {
   });
 });
 
-// T007: stale entity indicator (FR-013)
-describe('EntityRowEditor — stale entity indicator (T007/FR-013)', () => {
-  it('shows stale-entity indicator when entity not in hass.states', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.missing' }, 0, makeHass({}));
-    const indicator = el.shadowRoot!.querySelector('[data-stale], .stale-entity, .entity-not-found');
-    expect(indicator).toBeTruthy();
+function schemaField(el: HTMLElement, fieldName: string): Record<string, unknown> | undefined {
+  const forms = el.shadowRoot!.querySelectorAll('ha-form');
+  for (const form of Array.from(forms)) {
+    const schema = (form as HTMLElement & { schema?: { name: string }[] }).schema;
+    const field = schema?.find((f) => f.name === fieldName);
+    if (field) return field as unknown as Record<string, unknown>;
+  }
+  return undefined;
+}
+
+describe('EntityRowEditor — statistic picker and state_class', () => {
+  it('uses the statistic selector for the entity field', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    const field = schemaField(el, 'entity');
+    expect(field?.['selector']).toEqual({ statistic: {} });
   });
 
-  it('no stale indicator when entity exists in hass.states', async () => {
-    const hass = makeHass({
-      'sensor.temp': { entity_id: 'sensor.temp', state: '20', attributes: {} },
-    });
-    const el = await createEntityRowEditor({ entity: 'sensor.temp' }, 0, hass);
-    const indicator = el.shadowRoot!.querySelector('[data-stale], .stale-entity, .entity-not-found');
-    expect(indicator).toBeNull();
+  it('offers state_class with total and total_increasing in the advanced schema', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    const field = schemaField(el, 'state_class');
+    const options = ((field?.['selector'] as { select?: { options?: { value: string }[] } })?.select?.options ?? []).map((o) => o.value);
+    expect(options).toEqual(['total', 'total_increasing']);
+  });
+});
+
+describe('EntityRowEditor — clearing state_class', () => {
+  it('drops state_class from the row config when the dropdown is cleared', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp', state_class: 'total_increasing' });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
+    fireFormChange(el, { entity: 'sensor.temp', state_class: undefined }, 1);
+    fireFormChange(el, { entity: 'sensor.temp', state_class: '' }, 1);
+    expect(dispatched).toHaveLength(2);
+    for (const ev of dispatched) {
+      expect('state_class' in (ev.detail.config as Record<string, unknown>)).toBe(false);
+    }
+  });
+});
+
+describe('EntityRowEditor — stale indicator against known statistic ids', () => {
+  it('shows stale indicator when the id is not among the known statistic ids', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.missing' }, 0, makeHass({}), new Set(['sensor.other']));
+    expect(el.shadowRoot!.querySelector('[data-stale]')).toBeTruthy();
+  });
+
+  it('shows no stale indicator while the known ids are not loaded (null)', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.missing' }, 0, makeHass({}), null);
+    expect(el.shadowRoot!.querySelector('[data-stale]')).toBeNull();
+  });
+
+  it('shows no stale indicator for an external id known to the recorder but absent from hass.states', async () => {
+    const el = await createEntityRowEditor({ entity: 'tibber:consumption' }, 0, makeHass({}), new Set(['tibber:consumption']));
+    expect(el.shadowRoot!.querySelector('[data-stale]')).toBeNull();
+  });
+
+  it('passes the known statistic ids to the predecessor editor', async () => {
+    const known = new Set(['sensor.temp']);
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' }, 0, makeHass({}), known);
+    const pred = el.shadowRoot!.querySelector('calendar-stats-predecessor-list-editor') as HTMLElement & { knownStatisticIds?: Set<string> | null };
+    expect(pred.knownStatisticIds).toBe(known);
   });
 });

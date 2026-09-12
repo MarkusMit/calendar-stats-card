@@ -4,8 +4,8 @@ import type { CardConfig, ExpressionRowConfig } from '../../src/types/card-confi
 import '../../src/components/calendar-stats-card-editor';
 import '../../src/components/expression-row-editor';
 
-if (!customElements.get('ha-entity-picker')) {
-  customElements.define('ha-entity-picker', class extends HTMLElement {});
+if (!customElements.get('ha-form')) {
+  customElements.define('ha-form', class extends HTMLElement {});
 }
 
 afterEach(() => {
@@ -13,22 +13,23 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function makeHass(states: Record<string, unknown> = {}): HomeAssistant {
+function makeHass(states: Record<string, unknown> = {}, send: ReturnType<typeof vi.fn> = vi.fn()): HomeAssistant {
   return {
     config: { version: '2026.5.0', time_zone: 'UTC' },
     states: states as HomeAssistant['states'],
-    connection: { sendMessagePromise: vi.fn() },
+    connection: { sendMessagePromise: send as unknown as HomeAssistant['connection']['sendMessagePromise'] },
     language: 'en',
   };
 }
 
-async function createEditor(config?: CardConfig): Promise<HTMLElement> {
+async function createEditor(config?: CardConfig, hass?: HomeAssistant): Promise<HTMLElement> {
   const el = document.createElement('calendar-stats-card-editor') as HTMLElement & {
     setConfig(c: CardConfig): void;
     hass: HomeAssistant;
   };
   document.body.appendChild(el);
   if (config) el.setConfig(config);
+  if (hass) el.hass = hass;
   await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
   return el;
 }
@@ -41,10 +42,50 @@ describe('CalendarStatsCardEditor — US1: empty state and entity-row addition (
     expect(text).toMatch(/no rows yet|add your first row/i);
   });
 
-  it('renders add-row chips', async () => {
+  it('renders a permanent empty statistic selector for adding an entity row', async () => {
     const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
-    const btn = el.shadowRoot!.querySelector('[data-action="add-entity-row"], [data-action="add-expression-row"]');
+    const picker = el.shadowRoot!.querySelector('.add-row ha-selector[data-action="add-entity-row"]') as
+      (HTMLElement & { selector?: unknown; value?: string; label?: string; required?: boolean }) | null;
+    expect(picker).toBeTruthy();
+    expect(picker!.selector).toEqual({ statistic: {} });
+    expect(picker!.value ?? '').toBe('');
+    expect(picker!.label).toBe('Add entity');
+    expect(picker!.required).toBe(false);
+  });
+
+  it('renders an ha-button for adding an expression row next to the selector', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
+    const btn = el.shadowRoot!.querySelector('.add-row ha-button[data-action="add-expression-row"]');
     expect(btn).toBeTruthy();
+    expect(btn!.textContent!.trim()).toBe('Add expression');
+    expect(btn!.getAttribute('appearance')).toBe('plain');
+  });
+
+  it('picking a statistic in the add selector appends a row and opens its detail view', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [{ entity: 'sensor.a' }] });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
+    const picker = el.shadowRoot!.querySelector('.add-row ha-selector[data-action="add-entity-row"]')!;
+    picker.dispatchEvent(new CustomEvent('value-changed', { detail: { value: 'sensor.b' }, bubbles: true, composed: true }));
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect(dispatched).toHaveLength(1);
+    const config = (dispatched[0]!.detail as { config: CardConfig }).config;
+    expect(config.entities.map((e) => (e as { entity: string }).entity)).toEqual(['sensor.a', 'sensor.b']);
+    expect(el.shadowRoot!.querySelector('calendar-stats-entity-row-editor')).toBeTruthy();
+  });
+
+  it('an empty value in the add selector adds nothing', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
+    const picker = el.shadowRoot!.querySelector('.add-row ha-selector[data-action="add-entity-row"]')!;
+    picker.dispatchEvent(new CustomEvent('value-changed', { detail: { value: '' }, bubbles: true, composed: true }));
+    expect(dispatched).toHaveLength(0);
+  });
+
+  it('renders no type menu, chips or cancel button', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
+    expect(el.shadowRoot!.querySelector('.type-menu, .add-chip, .type-menu-cancel, .entity-picker-row')).toBeNull();
   });
 
   it('dispatches config-changed with new entity after entity-row addition', async () => {
@@ -153,13 +194,49 @@ describe('CalendarStatsCardEditor — US2: row management (T010)', () => {
 
 // Inline entity picker + reorder + badge removal
 describe('CalendarStatsCardEditor — inline picker, reorder, no badge', () => {
-  it('renders inline ha-entity-picker per entity row', async () => {
+  it('renders an inline statistic selector per entity row', async () => {
     const el = await createEditor({
       type: 'calendar-stats-card',
       entities: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }],
     });
-    const pickers = el.shadowRoot!.querySelectorAll('.row-list ha-entity-picker');
+    const pickers = el.shadowRoot!.querySelectorAll('.row-list ha-selector');
     expect(pickers.length).toBe(2);
+    for (const picker of Array.from(pickers)) {
+      expect((picker as HTMLElement & { selector?: unknown }).selector).toEqual({ statistic: {} });
+    }
+  });
+
+  it('clearing an inline row selector removes that row', async () => {
+    const el = await createEditor({
+      type: 'calendar-stats-card',
+      entities: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }],
+    });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
+    const picker = el.shadowRoot!.querySelectorAll('.row-list ha-selector')[0]!;
+    picker.dispatchEvent(new CustomEvent('value-changed', { detail: { value: '' }, bubbles: true, composed: true }));
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect(dispatched).toHaveLength(1);
+    const config = (dispatched[0]!.detail as { config: CardConfig }).config;
+    expect(config.entities.map((e) => (e as { entity: string }).entity)).toEqual(['sensor.b']);
+  });
+
+  it('picking a different statistic in an inline row selector replaces the row entity', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [{ entity: 'sensor.a', name: 'A' }] });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
+    const picker = el.shadowRoot!.querySelector('.row-list ha-selector')!;
+    picker.dispatchEvent(new CustomEvent('value-changed', { detail: { value: 'sensor.z' }, bubbles: true, composed: true }));
+    const config = (dispatched[0]!.detail as { config: CardConfig }).config;
+    expect(config.entities[0]).toEqual({ entity: 'sensor.z', name: 'A' });
+  });
+
+  it('orders row actions edit (pencil) then remove (close), as HA does', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [{ entity: 'sensor.a' }] });
+    const buttons = el.shadowRoot!.querySelectorAll('.row-header ha-icon-button');
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]!.querySelector('ha-icon')!.getAttribute('icon')).toBe('mdi:pencil');
+    expect(buttons[1]!.querySelector('ha-icon')!.getAttribute('icon')).toBe('mdi:close');
   });
 
   it('does not render type badge in main row list', async () => {
@@ -325,41 +402,50 @@ describe('CalendarStatsCardEditor — threshold table toggle', () => {
     entities: [{ entity: 'sensor.temp' }],
   };
 
-  function toggle(el: HTMLElement): (HTMLElement & { checked: boolean }) | null {
-    return el.shadowRoot!.querySelector('ha-checkbox[data-field="show_threshold_table"]') as
-      (HTMLElement & { checked: boolean }) | null;
+  type OptionsForm = HTMLElement & { data: Record<string, unknown>; schema: { name: string; selector: unknown }[] };
+
+  function optionsForm(el: HTMLElement): OptionsForm {
+    const forms = Array.from(el.shadowRoot!.querySelectorAll('ha-form')) as OptionsForm[];
+    return forms.find((f) => f.schema?.some((s) => s.name === 'show_threshold_table'))!;
   }
 
-  it('renders the toggle, checked by default', async () => {
+  function fire(el: HTMLElement, value: Record<string, unknown>): void {
+    optionsForm(el).dispatchEvent(new CustomEvent('value-changed', { detail: { value }, bubbles: true, composed: true }));
+  }
+
+  it('renders the option as a boolean selector, on by default', async () => {
     const el = await createEditor(CONFIG);
-    expect(toggle(el)!.checked).toBe(true);
+    const form = optionsForm(el);
+    expect(form.schema.find((s) => s.name === 'show_threshold_table')!.selector).toEqual({ boolean: {} });
+    expect(form.data['show_threshold_table']).toBe(true);
   });
 
   it('reflects an explicit false from the config', async () => {
     const el = await createEditor({ ...CONFIG, show_threshold_table: false } as CardConfig);
-    expect(toggle(el)!.checked).toBe(false);
+    expect(optionsForm(el).data['show_threshold_table']).toBe(false);
   });
 
-  it('emits show_threshold_table: false when unchecked', async () => {
+  it('emits show_threshold_table: false when switched off', async () => {
     const el = await createEditor(CONFIG);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
-    const box = toggle(el)!;
-    box.checked = false;
-    box.dispatchEvent(new Event('change'));
+    fire(el, { show_threshold_table: false });
     const config = (dispatched[0]!.detail as { config: CardConfig }).config;
     expect(config.show_threshold_table).toBe(false);
   });
 
-  it('drops the key again when re-checked, keeping the default implicit', async () => {
+  it('drops the key again when switched on, keeping the default implicit', async () => {
     const el = await createEditor({ ...CONFIG, show_threshold_table: false } as CardConfig);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
-    const box = toggle(el)!;
-    box.checked = true;
-    box.dispatchEvent(new Event('change'));
+    fire(el, { show_threshold_table: true });
     const config = (dispatched[0]!.detail as { config: CardConfig }).config;
     expect('show_threshold_table' in config).toBe(false);
+  });
+
+  it('renders no ha-checkbox', async () => {
+    const el = await createEditor(CONFIG);
+    expect(el.shadowRoot!.querySelector('ha-checkbox, ha-formfield')).toBeNull();
   });
 });
 
@@ -369,28 +455,83 @@ describe('CalendarStatsCardEditor — options section', () => {
     entities: [{ entity: 'sensor.temp' }],
   };
 
-  it('renders an Options section with a heading', async () => {
+  it('renders the options form without a heading', async () => {
     const el = await createEditor(CONFIG);
     const section = el.shadowRoot!.querySelector('.options-section');
     expect(section).not.toBeNull();
-    expect(section!.querySelector('.options-title')!.textContent!.trim()).toBe('Options');
+    expect(section!.querySelector('.options-title')).toBeNull();
+    expect(section!.textContent).not.toContain('Options');
   });
 
-  it('places the section after the add-row controls', async () => {
+  it('places the section above the row list and the add-row controls', async () => {
     const el = await createEditor(CONFIG);
-    const addRow = el.shadowRoot!.querySelector('.add-row-section')!;
     const section = el.shadowRoot!.querySelector('.options-section')!;
-    expect(addRow.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const list = el.shadowRoot!.querySelector('ha-sortable')!;
+    const addRow = el.shadowRoot!.querySelector('.add-row')!;
+    expect(section.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section.compareDocumentPosition(addRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('holds the threshold table checkbox', async () => {
+  it('holds the threshold table form', async () => {
     const el = await createEditor(CONFIG);
     const section = el.shadowRoot!.querySelector('.options-section')!;
-    expect(section.querySelector('ha-checkbox[data-field="show_threshold_table"]')).not.toBeNull();
+    expect(section.querySelector('ha-form')).not.toBeNull();
   });
 
   it('shows the section even with no rows configured', async () => {
     const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
     expect(el.shadowRoot!.querySelector('.options-section')).not.toBeNull();
+  });
+});
+
+describe('CalendarStatsCardEditor — known statistic ids', () => {
+  const META = [
+    { statistic_id: 'sensor.a', has_sum: false, mean_type: 1 },
+    { statistic_id: 'tibber:consumption', has_sum: true, mean_type: 0 },
+  ];
+
+  it('requests recorder/list_statistic_ids once when hass is set', async () => {
+    const send = vi.fn().mockResolvedValue(META);
+    const hass = makeHass({}, send);
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [{ entity: 'sensor.a' }] }, hass);
+    (el as unknown as { hass: HomeAssistant }).hass = { ...hass };
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    const calls = send.mock.calls.filter((c) => (c[0] as Record<string, unknown>)['type'] === 'recorder/list_statistic_ids');
+    expect(calls).toHaveLength(1);
+  });
+
+  it('passes the loaded ids to the row editor in detail view', async () => {
+    const send = vi.fn().mockResolvedValue(META);
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [{ entity: 'sensor.a' }] }, makeHass({}, send));
+    (el as unknown as { _editRow(i: number): void })._editRow(0);
+    await vi.waitFor(async () => {
+      await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+      const rowEditor = el.shadowRoot!.querySelector('calendar-stats-entity-row-editor') as (HTMLElement & { knownStatisticIds?: Set<string> | null }) | null;
+      expect(rowEditor?.knownStatisticIds).toBeInstanceOf(Set);
+      expect(rowEditor!.knownStatisticIds!.has('tibber:consumption')).toBe(true);
+    }, { timeout: 2000 });
+  });
+
+  it('leaves the ids unknown (null) and still renders when the request fails', async () => {
+    const send = vi.fn().mockRejectedValue(new Error('WS error'));
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [{ entity: 'sensor.a' }] }, makeHass({}, send));
+    (el as unknown as { _editRow(i: number): void })._editRow(0);
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    const rowEditor = el.shadowRoot!.querySelector('calendar-stats-entity-row-editor') as (HTMLElement & { knownStatisticIds?: Set<string> | null }) | null;
+    expect(rowEditor).toBeTruthy();
+    expect(rowEditor!.knownStatisticIds).toBeNull();
+  });
+
+  it("passes the row's metadata entry to the row editor as statMeta", async () => {
+    const send = vi.fn().mockResolvedValue(META);
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [{ entity: 'tibber:consumption' }] }, makeHass({}, send));
+    (el as unknown as { _editRow(i: number): void })._editRow(0);
+    await vi.waitFor(async () => {
+      await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+      const rowEditor = el.shadowRoot!.querySelector('calendar-stats-entity-row-editor') as (HTMLElement & { statMeta?: unknown }) | null;
+      expect(rowEditor?.statMeta).toEqual(META[1]);
+    }, { timeout: 2000 });
   });
 });

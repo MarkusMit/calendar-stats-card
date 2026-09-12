@@ -71,11 +71,13 @@ export function transformDailyStats(
         };
         result.set(key, dayVal);
       } else {
-        // Cumulative
+        // Cumulative. HA's `change` is the delta against the previous row even when
+        // that row lies before the fetch window (sparse imported statistics); the
+        // in-window sum difference is only a fallback for responses without `change`.
         const prevEntry = sorted[i - 1];
         const prevSum = prevEntry != null ? (prevEntry.sum ?? 0) : null;
         const currentSum = entry.sum ?? 0;
-        let delta = prevSum === null ? currentSum : currentSum - prevSum;
+        let delta = entry.change ?? (prevSum === null ? currentSum : currentSum - prevSum);
 
         if (isTotalIncreasing && delta < 0) delta = 0;
 
@@ -180,25 +182,36 @@ export function transformMonthlyStats(
     const entityId = cfg.entity;
     const meta = metadataMap[entityId];
     if (!meta) return;
-    const entries = rawStats[entityId];
-    if (!entries) return;
+    // No HA bucket at all in this year (entity did not exist yet) is fine: months
+    // stitched in from a predecessor still get a daily-derived summary below.
+    const entries = rawStats[entityId] ?? [];
 
     const isMeasurement = meta.stateClass === 'measurement';
     const excludeZero = cfg.show_zero === false;
     const sorted = [...entries].sort((a, b) => a.start - b.start);
 
+    // HA monthly buckets of the viewing year, by month. Buckets start at LOCAL
+    // midnight in the server timezone — derive year/month in that zone, not UTC,
+    // or every bucket east of UTC shifts back a month. Lookup-only entries from
+    // before the viewing year (Dec-of-prior-year for January's cross-year delta)
+    // MUST NOT produce a summary entry (FR-007); they stay reachable via `sorted`.
+    const bucketIndexByMonth = new Map<number, number>();
     sorted.forEach((entry, i) => {
-      // HA monthly buckets start at LOCAL midnight in the server timezone — derive
-      // year/month in that zone, not UTC, or every bucket east of UTC shifts back a month.
       const { year, month } = yearMonthInTz(entry.start, timeZone);
-      // Lookup-only entries from before the viewing year (e.g. Dec-of-prior-year fetched to
-      // enable January's cross-year delta) MUST NOT produce a summary entry. FR-007.
-      if (year < viewingYear) return;
+      if (year === viewingYear) bucketIndexByMonth.set(month, i);
+    });
+
+    // Every month of the viewing year: a month has a summary when the entity has an
+    // HA bucket for it OR when daily values exist — e.g. months stitched in from a
+    // predecessor before the entity itself had statistics.
+    for (let month = 1; month <= 12; month++) {
+      const year = viewingYear;
+      const bucketIndex = bucketIndexByMonth.get(month);
+      // min/mean/max always derive from daily values (feature 010 behaviour preserved).
+      const fromDaily = computeMonthlySummaryFromDailyValues(entityId, year, month, isMeasurement, excludeZero, dailyValues);
+      if (bucketIndex === undefined && !fromDaily) continue;
 
       const key = rowSummaryKey(rowIndex, entityId, year, month);
-
-      // min/mean/max still derive from daily values (feature 010 behaviour preserved).
-      const fromDaily = computeMonthlySummaryFromDailyValues(entityId, year, month, isMeasurement, excludeZero, dailyValues);
 
       // total: HA monthly sum delta for cumulative rows (feature 011); null for measurement rows.
       let total: number | null = null;
@@ -208,14 +221,16 @@ export function transformMonthlyStats(
           // but the day cells stop at yesterday (FR-003). Sum the completed daily deltas
           // instead — today is stored as an `empty` DailyValue and drops out on its own.
           total = fromDaily?.total ?? null;
-        } else if (entry.sum === undefined) {
-          // FR-002 missing-sum edge case: render empty rather than fall back to daily-sum.
+        } else if (bucketIndex === undefined || sorted[bucketIndex]!.sum === undefined) {
+          // No HA bucket (predecessor-only month) or FR-002 missing-sum edge case:
+          // render empty rather than fall back to daily-sum arithmetic.
           total = null;
         } else {
+          const entry = sorted[bucketIndex]!;
           // Look up immediately-preceding-month entry for the delta.
           let prevSum: number | undefined;
-          if (i > 0) {
-            const prev = sorted[i - 1]!;
+          if (bucketIndex > 0) {
+            const prev = sorted[bucketIndex - 1]!;
             if (prev.sum !== undefined) {
               const { year: prevYear, month: prevMonth } = yearMonthInTz(prev.start, timeZone);
               const expectedPrevYear = month === 1 ? year - 1 : year;
@@ -227,9 +242,9 @@ export function transformMonthlyStats(
           }
           if (prevSum === undefined) {
             // FR-006 first-tracked-month fallback OR gap-handling (Research Q2).
-            total = entry.sum;
+            total = entry.sum!;
           } else {
-            const delta = entry.sum - prevSum;
+            const delta = entry.sum! - prevSum;
             // FR-002a negative-delta clamp: total_increasing clamps to 0; total passes through.
             total = meta.stateClass === 'total_increasing' ? Math.max(0, delta) : delta;
           }
@@ -240,7 +255,7 @@ export function transformMonthlyStats(
         ? { ...fromDaily, total }
         : { entityId, year, month, min: null, mean: null, max: null, total };
       result.set(key, summary);
-    });
+    }
   });
 
   return result;

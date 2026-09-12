@@ -148,4 +148,17 @@ describe('RangeNavigator — popover', () => {
     await el.updateComplete;
     expect(el.shadowRoot!.querySelector('.popover')).toBeNull();
   });
+
+  it('prev button closes the popover and still emits prev-range', async () => {
+    const el = await renderNav({ range: thisYear });
+    const prev = vi.fn();
+    el.addEventListener('calendar-stats-prev-range', prev);
+    (el.shadowRoot!.querySelector('.range-label') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.popover')).toBeTruthy();
+    (el.shadowRoot!.querySelector('button.prev') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.popover')).toBeNull();
+    expect(prev).toHaveBeenCalledTimes(1);
+  });
 });

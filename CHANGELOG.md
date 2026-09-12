@@ -11,6 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-12
+
+### Added
+
+- External long-term statistics (`domain:object_id`) as entity rows, predecessors and expression operands.
+  Kind, unit and name come from HA's statistics metadata (`recorder/get_statistics_metadata`).
+- `state_class` row option to force `total` or `total_increasing` where the metadata cannot tell them apart.
+- The editor picks from all statistics (entities and external) for rows and predecessors, and flags IDs without long-term statistics.
+
+### Changed
+
+- Editor: threshold rules and predecessor entries use HA form selectors (dropdown operator, date picker, statistic picker) inside outlined expansion panels.
+- Editor: row options are grouped into Display, Thresholds and Predecessors panels; fields carry helper text; toggles are switches.
+- Editor: the entity row only offers the visibility switches and the `state_class` override that apply to its kind.
+- Editor: an always-visible statistic picker under the row list adds entity rows; the card option sits above the list.
+- Editor: threshold panel headers name each period (`> day 5 · month 100`).
+- Rows whose ID has no long-term statistics show the `⚠` label prefix and empty cells, as documented.
+
+### Fixed
+
+- Editor: clearing an inline row picker removes the row instead of being ignored.
+- Editor: an unknown statistic ID in a formula warns but no longer blocks saving; a stored invalid formula shows its state when the editor opens.
+- Yearly view showed empty months, and empty whole years, wherever the main entity had no HA monthly bucket, even when a predecessor supplied the daily values.
+  Every month with daily values now gets a summary; the cumulative total stays empty without an HA bucket.
+- An external predecessor of a `total_increasing` entity was skipped as a kind mismatch.
+  A predecessor without a state object now inherits the main row's cumulative kind.
+- README no longer claims the card reads `has_mean` and `mean_type` from the statistics response.
+- The first recorded day of a year in a sparse statistic (imported data with rows only on days with a value) showed the all-time cumulative `sum` instead of the day's delta.
+  Day cells now use HA's `change`, which is computed against the last row even when it lies before the fetch window.
+
 ## [0.7.0] - 2026-09-09
 
 ### Added
@@ -162,7 +192,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Threshold coloring is no longer applied to a cumulative row's total column; the total uses the static color only.
 - Table text can now be selected (for copying) in the macOS Home Assistant app by adding `-webkit-user-select` for WKWebView.
 
-[Unreleased]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.5.0...v0.5.1

@@ -33,7 +33,6 @@ Supported: `en`, `de`.
 
 ### For Later Implementation
 
-- Separate min/max rows
 - Manual weather/snowfall input
 
 ## Project Principles
@@ -57,7 +56,8 @@ Computation rules per row type are normative; any deviation is a defect.
 
 **Cumulative entity rows (`total_increasing` / `total`)**:
 
-- Day cells: single daily value (delta from previous day's HA `sum`).
+- Day cells: single daily value, HA's `change` (delta of `sum` against the previous recorded row, even one before the fetch window).
+  In-window `sum` difference only when the response carries no `change`.
 - Monthly min/avg/max: card-computed from daily values; zero-value days excluded when the row's `show_zero` is `false`, included otherwise (default).
 - Monthly **total**: `HA monthly sum[month] − HA monthly sum[prev_month]` from HA's `period: 'month'` statistics.
   First tracked month or after a monthly-statistics gap: `total = HA monthly sum[month]`.
@@ -103,11 +103,6 @@ Features listed under "For Later Implementation" or explicitly out of scope are 
 - Node.js 24 (current LTS); source in `frontend/`, bundle to `frontend/dist/calendar-stats-card.js` (gitignored)
 - UTF-8, LF line endings only (enforced via `.gitattributes`); CRLF is a defect
 - New runtime dependencies need explicit justification; prefer HA-provided APIs and browser built-ins
-
-## Dev Environment (maintainer setup)
-
-- Node.js 24.15 runs in WSL2 on the maintainer's machine; any OS with Node 24 works
-- `scripts/deploy.sh` (gitignored, personal) builds and copies the bundle to a HA instance
 
 ## Build & Test Commands
 
