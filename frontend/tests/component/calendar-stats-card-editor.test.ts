@@ -453,11 +453,12 @@ describe('CalendarStatsCardEditor — options section', () => {
     entities: [{ entity: 'sensor.temp' }],
   };
 
-  it('renders an Options section with a heading', async () => {
+  it('renders the options form without a heading', async () => {
     const el = await createEditor(CONFIG);
     const section = el.shadowRoot!.querySelector('.options-section');
     expect(section).not.toBeNull();
-    expect(section!.querySelector('.options-title')!.textContent!.trim()).toBe('Options');
+    expect(section!.querySelector('.options-title')).toBeNull();
+    expect(section!.textContent).not.toContain('Options');
   });
 
   it('places the section above the row list and the add-row controls', async () => {

@@ -108,10 +108,26 @@ describe('EntityRowEditor — basic rendering (T007)', () => {
 
 // T014: US3 — Advanced section
 describe('EntityRowEditor — Advanced section (T014)', () => {
-  it('renders ha-expansion-panel for Advanced section', async () => {
+  it('renders outlined Display, Thresholds and Predecessors panels in that order', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp' });
-    const panel = el.shadowRoot!.querySelector('ha-expansion-panel, [data-section="advanced"]');
-    expect(panel).toBeTruthy();
+    const panels = Array.from(el.shadowRoot!.querySelectorAll('ha-expansion-panel')) as (HTMLElement & { header: string })[];
+    expect(panels.map((p) => p.dataset['section'])).toEqual(['display', 'thresholds', 'predecessors']);
+    expect(panels.map((p) => p.header)).toEqual(['Display', 'Thresholds', 'Predecessors']);
+    for (const p of panels) expect(p.hasAttribute('outlined')).toBe(true);
+  });
+
+  it('renders no Advanced panel', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    const headers = Array.from(el.shadowRoot!.querySelectorAll('ha-expansion-panel')).map((p) => (p as HTMLElement & { header: string }).header);
+    expect(headers).not.toContain('Advanced');
+  });
+
+  it('translates the Display panel header', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    (el as unknown as { lang: string }).lang = 'de';
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    const panel = el.shadowRoot!.querySelector('ha-expansion-panel[data-section="display"]') as HTMLElement & { header: string };
+    expect(panel.header).toBe('Darstellung');
   });
 
   it('factor field is in Advanced schema', async () => {
@@ -119,9 +135,30 @@ describe('EntityRowEditor — Advanced section (T014)', () => {
     expect(schemaHasField(el, 'factor')).toBe(true);
   });
 
-  it('unit field is in Advanced schema', async () => {
+  it('main schema is entity, name, unit, precision', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', unit: 'kW' });
-    expect(schemaHasField(el, 'unit')).toBe(true);
+    const form = el.shadowRoot!.querySelector('ha-form') as HTMLElement & { schema: { name: string }[] };
+    expect(form.schema.map((f) => f.name)).toEqual(['entity', 'name', 'unit', 'precision']);
+  });
+
+  it('Display panel form holds factor and colours but not unit', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    const form = el.shadowRoot!.querySelector('ha-expansion-panel[data-section="display"] ha-form') as HTMLElement & { schema: { name: string }[] };
+    const names = form.schema.map((f) => f.name);
+    expect(names).toEqual(expect.arrayContaining(['factor', 'text_color', 'background_color']));
+    expect(names).not.toContain('unit');
+  });
+
+  it('explains precision, unit, factor, colours and state_class as helper text', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    const forms = Array.from(el.shadowRoot!.querySelectorAll('ha-form')) as (HTMLElement & { computeHelper: (s: { name: string }) => string | undefined })[];
+    expect(forms[0]!.computeHelper({ name: 'precision' })).toBe('Decimal digits in day cells and summary columns; default 1');
+    expect(forms[0]!.computeHelper({ name: 'unit' })).toBe('Overrides the unit shown beside the label');
+    expect(forms[0]!.computeHelper({ name: 'name' })).toBeUndefined();
+    expect(forms[1]!.computeHelper({ name: 'factor' })).toBe('Multiplier for every displayed value, e.g. 0.001 to show Wh as kWh');
+    expect(forms[1]!.computeHelper({ name: 'text_color' })).toBe('Any CSS colour: name, hex, rgb(), hsl() or var(--primary-color)');
+    expect(forms[1]!.computeHelper({ name: 'background_color' })).toBe('Any CSS colour: name, hex, rgb(), hsl() or var(--primary-color)');
+    expect(forms[1]!.computeHelper({ name: 'state_class' })).toBe('For external statistics with counter resets; total_increasing clamps negative deltas to 0');
   });
 
   it('text_color field is in Advanced schema', async () => {
@@ -258,9 +295,9 @@ describe('EntityRowEditor — visibility switch defaults and serialisation', () 
 
 // T021: US5 — Thresholds nested collapsible in EntityRowEditor
 describe('EntityRowEditor — Thresholds sub-section (T021)', () => {
-  it('renders calendar-stats-threshold-list-editor inside Advanced', async () => {
+  it('renders calendar-stats-threshold-list-editor inside the Thresholds panel', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', thresholds: [] });
-    const thresholdEditor = el.shadowRoot!.querySelector('calendar-stats-threshold-list-editor');
+    const thresholdEditor = el.shadowRoot!.querySelector('ha-expansion-panel[data-section="thresholds"] calendar-stats-threshold-list-editor');
     expect(thresholdEditor).toBeTruthy();
   });
 
@@ -288,9 +325,9 @@ describe('EntityRowEditor — Thresholds sub-section (T021)', () => {
 
 // T025: US6 — Predecessors sub-section in EntityRowEditor
 describe('EntityRowEditor — Predecessors sub-section (T025)', () => {
-  it('renders calendar-stats-predecessor-list-editor inside Advanced', async () => {
+  it('renders calendar-stats-predecessor-list-editor inside the Predecessors panel', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', predecessors: [] });
-    const predEditor = el.shadowRoot!.querySelector('calendar-stats-predecessor-list-editor');
+    const predEditor = el.shadowRoot!.querySelector('ha-expansion-panel[data-section="predecessors"] calendar-stats-predecessor-list-editor');
     expect(predEditor).toBeTruthy();
   });
 

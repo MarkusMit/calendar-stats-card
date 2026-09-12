@@ -5,6 +5,7 @@ import type { HomeAssistant } from '../types/ha-types';
 import type { EntityMetadata } from '../types/statistics';
 import type { StatisticMetaEntry } from '../services/statistics-service';
 import { resolveEntityMetadata } from '../services/entity-metadata';
+import { editorLabel, editorHelper } from '../services/editor-labels';
 import { localize } from '../localize/localize';
 import './threshold-list-editor';
 import './predecessor-list-editor';
@@ -13,6 +14,7 @@ import type { PredecessorConfig } from '../types/card-config';
 const ENTITY_ROW_SCHEMA_MAIN = [
   { name: 'entity', selector: { statistic: {} } },
   { name: 'name', selector: { text: {} } },
+  { name: 'unit', selector: { text: {} } },
   { name: 'precision', selector: { number: { min: 0, step: 1, mode: 'box' } } },
 ];
 
@@ -28,7 +30,7 @@ function visibilityFields(kind: RowKind): readonly VisibilityField[] {
   return ['show_zero'];
 }
 
-function advancedSchema(lang: string, kind: RowKind) {
+function displaySchema(lang: string, kind: RowKind) {
   const stateClass = kind === 'measurement' ? [] : [{
     name: 'state_class',
     selector: {
@@ -44,7 +46,6 @@ function advancedSchema(lang: string, kind: RowKind) {
   return [
     ...stateClass,
     { name: 'factor', selector: { number: { step: 0.001, mode: 'box' } } },
-    { name: 'unit', selector: { text: {} } },
     { name: 'text_color', selector: { text: {} } },
     { name: 'background_color', selector: { text: {} } },
     ...visibilityFields(kind).map((name) => ({ name, selector: { boolean: {} } })),
@@ -62,15 +63,18 @@ export class EntityRowEditor extends LitElement {
   /** Recorder metadata for this row's id; decides the kind of external statistics. */
   @property({ attribute: false }) statMeta: StatisticMetaEntry | undefined = undefined;
 
-  private _advancedSchemaKey = '';
-  private _advancedSchema: ReturnType<typeof advancedSchema> = [];
+  private _displaySchemaKey = '';
+  private _displaySchema: ReturnType<typeof displaySchema> = [];
 
   static styles = css`
     :host {
       display: block;
     }
-    .advanced-content {
-      padding: 8px 0;
+    ha-expansion-panel {
+      margin-top: 8px;
+    }
+    .panel-content {
+      padding: 8px 12px 12px;
     }
     .stale-entity {
       display: flex;
@@ -110,23 +114,8 @@ export class EntityRowEditor extends LitElement {
     }));
   }
 
-  private _computeLabel = (schema: { name: string }) => {
-    const labels: Record<string, string> = {
-      entity: localize('editor.entity_row', this.lang),
-      name: localize('editor.name', this.lang),
-      precision: localize('editor.precision', this.lang),
-      state_class: localize('editor.state_class', this.lang),
-      factor: localize('editor.factor', this.lang),
-      unit: localize('editor.unit', this.lang),
-      show_zero: localize('editor.show_zero', this.lang),
-      show_min: localize('editor.show_min', this.lang),
-      show_avg: localize('editor.show_avg', this.lang),
-      show_max: localize('editor.show_max', this.lang),
-      text_color: localize('editor.text_color', this.lang),
-      background_color: localize('editor.background_color', this.lang),
-    };
-    return labels[schema.name] ?? schema.name;
-  };
+  private _computeLabel = (schema: { name: string }): string => editorLabel(schema.name, this.lang);
+  private _computeHelper = (schema: { name: string }): string | undefined => editorHelper(schema.name, this.lang);
 
   private _handleFormChanged(ev: CustomEvent): void {
     const updated = { ...this.config, ...(ev.detail.value as Record<string, unknown>) };
@@ -159,7 +148,7 @@ export class EntityRowEditor extends LitElement {
   }
 
   /** Form data with the visibility switches resolved to their effective value. */
-  private _advancedData(kind: RowKind): Record<string, unknown> {
+  private _displayData(kind: RowKind): Record<string, unknown> {
     const data: Record<string, unknown> = { ...this.config };
     for (const field of visibilityFields(kind)) {
       data[field] = this.config?.[field] !== false;
@@ -172,9 +161,9 @@ export class EntityRowEditor extends LitElement {
     const stale = this._isStale();
     const kind = this._kind();
     const schemaKey = `${lang}:${kind}`;
-    if (this._advancedSchemaKey !== schemaKey) {
-      this._advancedSchema = advancedSchema(lang, kind);
-      this._advancedSchemaKey = schemaKey;
+    if (this._displaySchemaKey !== schemaKey) {
+      this._displaySchema = displaySchema(lang, kind);
+      this._displaySchemaKey = schemaKey;
     }
     return html`
       <ha-form
@@ -182,6 +171,7 @@ export class EntityRowEditor extends LitElement {
         .data=${this.config}
         .schema=${ENTITY_ROW_SCHEMA_MAIN}
         .computeLabel=${this._computeLabel}
+        .computeHelper=${this._computeHelper}
         @value-changed=${this._handleFormChanged}
       ></ha-form>
       ${stale ? html`
@@ -190,20 +180,29 @@ export class EntityRowEditor extends LitElement {
           ${localize('editor.statistic_not_found', lang)}
         </div>
       ` : ''}
-      <ha-expansion-panel .header=${localize('editor.advanced', lang)}>
-        <div class="advanced-content">
+      <ha-expansion-panel outlined data-section="display" .header=${localize('editor.section_display', lang)}>
+        <div class="panel-content">
           <ha-form
             .hass=${this.hass}
-            .data=${this._advancedData(kind)}
-            .schema=${this._advancedSchema}
+            .data=${this._displayData(kind)}
+            .schema=${this._displaySchema}
             .computeLabel=${this._computeLabel}
+            .computeHelper=${this._computeHelper}
             @value-changed=${this._handleFormChanged}
           ></ha-form>
+        </div>
+      </ha-expansion-panel>
+      <ha-expansion-panel outlined data-section="thresholds" .header=${localize('editor.thresholds', lang)}>
+        <div class="panel-content">
           <calendar-stats-threshold-list-editor
             .hass=${this.hass}
             .thresholds=${this.config?.thresholds ?? []}
             .lang=${lang}
           ></calendar-stats-threshold-list-editor>
+        </div>
+      </ha-expansion-panel>
+      <ha-expansion-panel outlined data-section="predecessors" .header=${localize('editor.predecessors', lang)}>
+        <div class="panel-content">
           <calendar-stats-predecessor-list-editor
             .hass=${this.hass}
             .knownStatisticIds=${this.knownStatisticIds}

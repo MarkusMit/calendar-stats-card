@@ -29,10 +29,16 @@ describe('ThresholdListEditor — (T020)', () => {
     expect(el.tagName.toLowerCase()).toBe('calendar-stats-threshold-list-editor');
   });
 
-  it('renders "Add threshold" button', async () => {
+  it('renders "Add threshold" as an ha-button', async () => {
     const el = await createThresholdListEditor([]);
-    const btn = el.shadowRoot!.querySelector('[data-action="add-threshold"]');
+    const btn = el.shadowRoot!.querySelector('ha-button[data-action="add-threshold"]');
     expect(btn).toBeTruthy();
+    expect(btn!.textContent!.trim()).toBe('Add threshold');
+  });
+
+  it('renders no section title and no chip button (the parent panel carries the heading)', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 1 }]);
+    expect(el.shadowRoot!.querySelector('.section-title, .add-chip, button')).toBeNull();
   });
 
   it('add threshold dispatches thresholds-changed with one rule appended', async () => {

@@ -193,10 +193,25 @@ describe('ExpressionRowEditor — formula validation (T016)', () => {
 
 // T017: US4 — Advanced section
 describe('ExpressionRowEditor — Advanced section (T017)', () => {
-  it('renders ha-expansion-panel for Advanced section', async () => {
+  it('renders outlined Display and Thresholds panels in that order', async () => {
     const el = await createExpressionRowEditor({ expression: '' });
-    const panel = el.shadowRoot!.querySelector('ha-expansion-panel, [data-section="advanced"]');
-    expect(panel).toBeTruthy();
+    const panels = Array.from(el.shadowRoot!.querySelectorAll('ha-expansion-panel')) as (HTMLElement & { header: string })[];
+    expect(panels.map((p) => p.dataset['section'])).toEqual(['display', 'thresholds']);
+    expect(panels.map((p) => p.header)).toEqual(['Display', 'Thresholds']);
+    for (const p of panels) expect(p.hasAttribute('outlined')).toBe(true);
+  });
+
+  it('renders the threshold editor inside the Thresholds panel', async () => {
+    const el = await createExpressionRowEditor({ expression: '' });
+    expect(el.shadowRoot!.querySelector('ha-expansion-panel[data-section="thresholds"] calendar-stats-threshold-list-editor')).toBeTruthy();
+  });
+
+  it('explains precision, unit and colours as helper text', async () => {
+    const el = await createExpressionRowEditor({ expression: '' });
+    const forms = Array.from(el.shadowRoot!.querySelectorAll('ha-form')) as (HTMLElement & { computeHelper: (s: { name: string }) => string | undefined })[];
+    expect(forms[0]!.computeHelper({ name: 'precision' })).toBe('Decimal digits in day cells and summary columns; default 1');
+    expect(forms[0]!.computeHelper({ name: 'unit' })).toBe('Overrides the unit shown beside the label');
+    expect(forms[1]!.computeHelper({ name: 'text_color' })).toBe('Any CSS colour: name, hex, rgb(), hsl() or var(--primary-color)');
   });
 
   it('show_zero checkbox is in Advanced schema', async () => {

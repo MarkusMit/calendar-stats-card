@@ -25,14 +25,6 @@ export class PredecessorListEditor extends LitElement {
     :host {
       display: block;
     }
-    .section-title {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--secondary-text-color, rgba(0,0,0,0.54));
-      padding: 8px 0 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
     ha-expansion-panel {
       margin-bottom: 8px;
     }
@@ -46,28 +38,6 @@ export class PredecessorListEditor extends LitElement {
       color: var(--warning-color, orange);
       font-size: 0.85em;
       padding: 4px 0;
-    }
-    .add-chip {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-      border-radius: 18px;
-      color: var(--primary-color);
-      cursor: pointer;
-      padding: 6px 14px;
-      font-size: 14px;
-      font-weight: 500;
-      border: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: inherit;
-      margin-top: 8px;
-    }
-    .add-chip:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.22);
-    }
-    .add-chip ha-icon {
-      --mdc-icon-size: 18px;
-      color: var(--primary-color);
     }
   `;
 
@@ -123,7 +93,6 @@ export class PredecessorListEditor extends LitElement {
     const lang = this.lang;
 
     return html`
-      <div class="section-title">${localize('editor.predecessors', lang)}</div>
       ${this.predecessors.map((entry, i) => html`
         <ha-expansion-panel
           outlined
@@ -155,10 +124,10 @@ export class PredecessorListEditor extends LitElement {
           </div>
         </ha-expansion-panel>
       `)}
-      <button type="button" class="add-chip" data-action="add-predecessor" @click=${() => this._addPredecessor()}>
-        <ha-icon icon="mdi:plus"></ha-icon>
+      <ha-button data-action="add-predecessor" @click=${() => this._addPredecessor()}>
+        <ha-icon slot="start" icon="mdi:plus"></ha-icon>
         ${localize('editor.add_predecessor', lang)}
-      </button>
+      </ha-button>
     `;
   }
 }

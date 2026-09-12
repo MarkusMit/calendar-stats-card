@@ -4,6 +4,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { CardConfig, EntityConfig, EntityRowConfig, ExpressionRowConfig } from '../types/card-config';
 import type { HomeAssistant } from '../types/ha-types';
 import { localize } from '../localize/localize';
+import { editorLabel } from '../services/editor-labels';
 import { StatisticsService } from '../services/statistics-service';
 import type { StatisticMetaEntry } from '../services/statistics-service';
 import './entity-row-editor';
@@ -44,15 +45,7 @@ export class CalendarStatsCardEditor extends LitElement {
       font-style: italic;
     }
     .options-section {
-      padding: 8px 0 0;
-      border-top: 1px solid var(--divider-color, #e0e0e0);
-      margin-top: 8px;
-    }
-    .options-title {
-      color: var(--secondary-text-color);
-      font-weight: 600;
-      font-size: 0.9em;
-      margin-bottom: 4px;
+      padding: 0 0 8px;
     }
     .add-row {
       display: flex;
@@ -290,8 +283,7 @@ export class CalendarStatsCardEditor extends LitElement {
     this._dispatchConfigChanged();
   }
 
-  private _computeOptionLabel = (schema: { name: string }): string =>
-    localize(`editor.${schema.name}`, this._lang);
+  private _computeOptionLabel = (schema: { name: string }): string => editorLabel(schema.name, this._lang);
 
   private get _lang(): string {
     return this.hass?.selectedLanguage ?? this.hass?.language ?? 'en';
@@ -312,7 +304,6 @@ export class CalendarStatsCardEditor extends LitElement {
 
     return html`
       <div class="options-section">
-        <div class="options-title">${localize('editor.options', lang)}</div>
         <ha-form
           .hass=${this.hass}
           .data=${{ show_threshold_table: this._rest['show_threshold_table'] !== false }}

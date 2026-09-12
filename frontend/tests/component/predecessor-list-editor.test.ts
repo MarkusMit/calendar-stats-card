@@ -45,10 +45,16 @@ describe('PredecessorListEditor — (T024)', () => {
     expect(el.tagName.toLowerCase()).toBe('calendar-stats-predecessor-list-editor');
   });
 
-  it('renders "Add predecessor" button', async () => {
+  it('renders "Add predecessor" as an ha-button', async () => {
     const el = await createPredecessorListEditor([]);
-    const btn = el.shadowRoot!.querySelector('[data-action="add-predecessor"]');
+    const btn = el.shadowRoot!.querySelector('ha-button[data-action="add-predecessor"]');
     expect(btn).toBeTruthy();
+    expect(btn!.textContent!.trim()).toBe('Add predecessor');
+  });
+
+  it('renders no section title and no chip button (the parent panel carries the heading)', async () => {
+    const el = await createPredecessorListEditor([{ entity: 'sensor.a' }]);
+    expect(el.shadowRoot!.querySelector('.section-title, .add-chip, button')).toBeNull();
   });
 
   it('add predecessor dispatches predecessors-changed with one entry appended', async () => {

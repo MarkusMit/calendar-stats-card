@@ -52,41 +52,11 @@ export class ThresholdListEditor extends LitElement {
     :host {
       display: block;
     }
-    .section-title {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--secondary-text-color, rgba(0,0,0,0.54));
-      padding: 8px 0 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
     ha-expansion-panel {
       margin-bottom: 8px;
     }
     .rule-content {
       padding: 8px 12px 12px;
-    }
-    .add-chip {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-      border-radius: 18px;
-      color: var(--primary-color);
-      cursor: pointer;
-      padding: 6px 14px;
-      font-size: 14px;
-      font-weight: 500;
-      border: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: inherit;
-      margin-top: 8px;
-    }
-    .add-chip:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.22);
-    }
-    .add-chip ha-icon {
-      --mdc-icon-size: 18px;
-      color: var(--primary-color);
     }
   `;
 
@@ -152,7 +122,6 @@ export class ThresholdListEditor extends LitElement {
     }
 
     return html`
-      <div class="section-title">${localize('editor.thresholds', lang)}</div>
       ${this.thresholds.map((rule, i) => html`
         <ha-expansion-panel
           .header=${this._panelHeader(rule)}
@@ -177,10 +146,10 @@ export class ThresholdListEditor extends LitElement {
           </div>
         </ha-expansion-panel>
       `)}
-      <button type="button" class="add-chip" data-action="add-threshold" @click=${() => this._addThreshold()}>
-        <ha-icon icon="mdi:plus"></ha-icon>
+      <ha-button data-action="add-threshold" @click=${() => this._addThreshold()}>
+        <ha-icon slot="start" icon="mdi:plus"></ha-icon>
         ${localize('editor.add_threshold', lang)}
-      </button>
+      </ha-button>
     `;
   }
 }

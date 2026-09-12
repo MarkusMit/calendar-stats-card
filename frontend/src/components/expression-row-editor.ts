@@ -4,6 +4,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { ExpressionRowConfig, ThresholdRule } from '../types/card-config';
 import type { HomeAssistant } from '../types/ha-types';
 import { localize } from '../localize/localize';
+import { editorLabel, editorHelper } from '../services/editor-labels';
 import { extractEntityIds } from '../services/expression-evaluator';
 import './threshold-list-editor';
 
@@ -14,10 +15,10 @@ const EXPRESSION_ROW_SCHEMA_MAIN = [
   { name: 'precision', selector: { number: { min: 0, step: 1, mode: 'box' } } },
 ];
 
-const EXPRESSION_ROW_SCHEMA_ADVANCED = [
-  { name: 'show_zero', selector: { boolean: {} } },
+const EXPRESSION_ROW_SCHEMA_DISPLAY = [
   { name: 'text_color', selector: { text: {} } },
   { name: 'background_color', selector: { text: {} } },
+  { name: 'show_zero', selector: { boolean: {} } },
 ];
 
 @customElement('calendar-stats-expression-row-editor')
@@ -51,8 +52,11 @@ export class ExpressionRowEditor extends LitElement {
     .formula-warning {
       color: var(--warning-color, orange);
     }
-    .advanced-content {
-      padding: 8px 0;
+    ha-expansion-panel {
+      margin-top: 8px;
+    }
+    .panel-content {
+      padding: 8px 12px 12px;
     }
   `;
 
@@ -75,21 +79,8 @@ export class ExpressionRowEditor extends LitElement {
     this.removeEventListener('thresholds-changed', this._onThresholdsChanged);
   }
 
-  private _computeLabel = (schema: { name: string }) => {
-    const labels: Record<string, string> = {
-      expression: localize('editor.formula', this.lang),
-      name: localize('editor.name', this.lang),
-      unit: localize('editor.unit', this.lang),
-      precision: localize('editor.precision', this.lang),
-      show_zero: localize('editor.show_zero', this.lang),
-      text_color: localize('editor.text_color', this.lang),
-      background_color: localize('editor.background_color', this.lang),
-    };
-    return labels[schema.name] ?? schema.name;
-  };
-
-  private _computeHelper = (schema: { name: string }): string | undefined =>
-    schema.name === 'expression' ? localize('editor.formula_help', this.lang) : undefined;
+  private _computeLabel = (schema: { name: string }): string => editorLabel(schema.name, this.lang);
+  private _computeHelper = (schema: { name: string }): string | undefined => editorHelper(schema.name, this.lang);
 
   protected willUpdate(changed: PropertyValues): void {
     if (changed.has('config') || changed.has('knownStatisticIds') || changed.has('lang')) {
@@ -153,15 +144,20 @@ export class ExpressionRowEditor extends LitElement {
           ${this._entityWarning}
         </div>
       ` : ''}
-      <ha-expansion-panel .header=${localize('editor.advanced', lang)}>
-        <div class="advanced-content">
+      <ha-expansion-panel outlined data-section="display" .header=${localize('editor.section_display', lang)}>
+        <div class="panel-content">
           <ha-form
             .hass=${this.hass}
             .data=${{ ...this.config, show_zero: this.config?.show_zero !== false }}
-            .schema=${EXPRESSION_ROW_SCHEMA_ADVANCED}
+            .schema=${EXPRESSION_ROW_SCHEMA_DISPLAY}
             .computeLabel=${this._computeLabel}
+            .computeHelper=${this._computeHelper}
             @value-changed=${this._handleFormChanged}
           ></ha-form>
+        </div>
+      </ha-expansion-panel>
+      <ha-expansion-panel outlined data-section="thresholds" .header=${localize('editor.thresholds', lang)}>
+        <div class="panel-content">
           <calendar-stats-threshold-list-editor
             .hass=${this.hass}
             .thresholds=${this.config?.thresholds ?? []}
