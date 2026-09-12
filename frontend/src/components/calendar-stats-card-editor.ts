@@ -1,10 +1,21 @@
 import { LitElement, html, css } from 'lit';
+import type { PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { CardConfig, EntityConfig, EntityRowConfig, ExpressionRowConfig } from '../types/card-config';
 import type { HomeAssistant } from '../types/ha-types';
 import { localize } from '../localize/localize';
+import { editorLabel } from '../services/editor-labels';
+import { StatisticsService } from '../services/statistics-service';
+import type { StatisticMetaEntry } from '../services/statistics-service';
 import './entity-row-editor';
 import './expression-row-editor';
+
+/** Stable reference: ha-selector re-initialises when the selector object changes identity. */
+const STATISTIC_SELECTOR = { statistic: {} };
+
+const OPTIONS_SCHEMA = [
+  { name: 'show_threshold_table', selector: { boolean: {} } },
+];
 
 @customElement('calendar-stats-card-editor')
 export class CalendarStatsCardEditor extends LitElement {
@@ -12,9 +23,15 @@ export class CalendarStatsCardEditor extends LitElement {
 
   @state() private _entities: EntityConfig[] = [];
   @state() private _rest: Record<string, unknown> = {};
-  @state() private _addingEntityRow = false;
   @state() private _editingIndex: number | null = null;
-  @state() private _entityPickerReady = customElements.get('ha-entity-picker') != null;
+  @state() private _formReady = customElements.get('ha-form') != null;
+  /** Statistic ids known to the recorder; null until loaded or when the request failed. */
+  @state() private _knownStatisticIds: Set<string> | null = null;
+  /** Recorder metadata by statistic id; same lifecycle as the id set. */
+  @state() private _statMeta: Map<string, StatisticMetaEntry> | null = null;
+
+  private readonly _service = new StatisticsService();
+  private _statisticIdsRequested = false;
 
   static styles = css`
     :host {
@@ -28,69 +45,20 @@ export class CalendarStatsCardEditor extends LitElement {
       font-style: italic;
     }
     .options-section {
-      padding: 8px 0 0;
-      border-top: 1px solid var(--divider-color, #e0e0e0);
-      margin-top: 8px;
+      padding: 0 0 8px;
     }
-    .options-title {
-      color: var(--secondary-text-color);
-      font-weight: 600;
-      font-size: 0.9em;
-      margin-bottom: 4px;
-    }
-    .options-section ha-formfield {
-      --mdc-typography-body2-font-size: 0.9em;
-    }
-    .add-row-section {
-      padding: 8px 0;
-    }
-    .add-chip {
-      --mdc-theme-primary: var(--primary-color);
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-      border-radius: 18px;
-      color: var(--primary-color);
-      cursor: pointer;
-      padding: 6px 14px;
-      font-size: 14px;
-      font-weight: 500;
-      border: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: inherit;
-    }
-    .add-chip:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.22);
-    }
-    .add-chip ha-icon,
-    .add-chip ha-svg-icon {
-      --mdc-icon-size: 18px;
-      color: var(--primary-color);
-    }
-    .type-menu {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 8px 0;
-      align-items: center;
-    }
-    .type-menu-cancel {
-      background: transparent;
-      border: none;
-      color: var(--secondary-text-color);
-      cursor: pointer;
-      padding: 6px 10px;
-      font-size: 14px;
-    }
-    .entity-picker-row {
+    .add-row {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 8px 0;
     }
-    .entity-picker-row ha-entity-picker,
-    .entity-picker-row ha-selector {
+    .add-row ha-selector {
       flex: 1;
+      min-width: 0;
+    }
+    .add-row ha-button {
+      flex-shrink: 0;
     }
     .row-list {
       display: flex;
@@ -119,7 +87,7 @@ export class CalendarStatsCardEditor extends LitElement {
       flex: 1;
       min-width: 0;
     }
-    .row-content ha-entity-picker {
+    .row-content ha-selector {
       display: block;
       width: 100%;
     }
@@ -170,13 +138,32 @@ export class CalendarStatsCardEditor extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    void this._ensureEntityPickerLoaded();
+    void this._ensureFormLoaded();
   }
 
-  private async _ensureEntityPickerLoaded(): Promise<void> {
-    if (this._entityPickerReady) return;
-    if (customElements.get('ha-entity-picker')) {
-      this._entityPickerReady = true;
+  protected updated(changed: PropertyValues): void {
+    if (changed.has('hass') && this.hass && !this._statisticIdsRequested) {
+      this._statisticIdsRequested = true;
+      void this._loadStatisticIds();
+    }
+  }
+
+  private async _loadStatisticIds(): Promise<void> {
+    try {
+      const entries = await this._service.listStatisticIds(this.hass);
+      if (!Array.isArray(entries)) return;
+      this._statMeta = new Map(entries.map((e) => [e.statistic_id, e]));
+      this._knownStatisticIds = new Set(this._statMeta.keys());
+    } catch {
+      // ids stay unknown; row editors then show no stale warning
+    }
+  }
+
+  /** ha-form (and with it ha-selector) ships with the entities card editor. */
+  private async _ensureFormLoaded(): Promise<void> {
+    if (this._formReady) return;
+    if (customElements.get('ha-form')) {
+      this._formReady = true;
       return;
     }
     const w = window as unknown as { loadCardHelpers?: () => Promise<{ createCardElement: (cfg: unknown) => Promise<{ constructor: { getConfigElement?: () => Promise<unknown> } }> }> };
@@ -189,8 +176,8 @@ export class CalendarStatsCardEditor extends LitElement {
         // ignore — fall through to whenDefined
       }
     }
-    await customElements.whenDefined('ha-entity-picker');
-    this._entityPickerReady = true;
+    await customElements.whenDefined('ha-form');
+    this._formReady = true;
   }
 
   setConfig(config: CardConfig): void {
@@ -219,8 +206,9 @@ export class CalendarStatsCardEditor extends LitElement {
   }
 
   /** Only the non-default (false) is written, so the shown-by-default case stays implicit. */
-  private _handleThresholdTableToggle = (e: Event): void => {
-    const checked = (e.target as HTMLInputElement).checked;
+  private _handleOptionsChanged = (e: CustomEvent): void => {
+    const value = e.detail.value as Record<string, unknown>;
+    const checked = value['show_threshold_table'] !== false;
     const rest = { ...this._rest };
     if (checked) delete rest['show_threshold_table'];
     else rest['show_threshold_table'] = false;
@@ -231,7 +219,6 @@ export class CalendarStatsCardEditor extends LitElement {
   _addEntityRow(entityId: string): void {
     const newIndex = this._entities.length;
     this._entities = [...this._entities, { entity: entityId } as EntityRowConfig];
-    this._addingEntityRow = false;
     this._editingIndex = newIndex;
     this._dispatchConfigChanged();
   }
@@ -239,7 +226,6 @@ export class CalendarStatsCardEditor extends LitElement {
   _addExpressionRow(): void {
     const newIndex = this._entities.length;
     this._entities = [...this._entities, { expression: '' } as ExpressionRowConfig];
-    this._addingEntityRow = false;
     this._editingIndex = newIndex;
     // Do NOT dispatch config-changed yet — expression is empty (FR-008)
   }
@@ -283,14 +269,21 @@ export class CalendarStatsCardEditor extends LitElement {
     this._editingIndex = null;
   }
 
+  /** An emptied inline selector removes the row; HA's entities editor behaves the same. */
   private _handleEntityPicked(index: number, entityId: string): void {
     const current = this._entities[index] as EntityRowConfig;
+    if (!entityId) {
+      this._removeRow(index);
+      return;
+    }
     if (current.entity === entityId) return;
     const updated = [...this._entities];
     updated[index] = { ...current, entity: entityId };
     this._entities = updated;
     this._dispatchConfigChanged();
   }
+
+  private _computeOptionLabel = (schema: { name: string }): string => editorLabel(schema.name, this._lang);
 
   private get _lang(): string {
     return this.hass?.selectedLanguage ?? this.hass?.language ?? 'en';
@@ -303,13 +296,23 @@ export class CalendarStatsCardEditor extends LitElement {
       return this._renderDetail(this._editingIndex, lang);
     }
 
-    if (!this._entityPickerReady) {
+    if (!this._formReady) {
       return html`<div class="empty-state">${localize('editor.loading', lang)}</div>`;
     }
 
     const empty = this._entities.length === 0;
 
     return html`
+      <div class="options-section">
+        <ha-form
+          .hass=${this.hass}
+          .data=${{ show_threshold_table: this._rest['show_threshold_table'] !== false }}
+          .schema=${OPTIONS_SCHEMA}
+          .computeLabel=${this._computeOptionLabel}
+          @value-changed=${this._handleOptionsChanged}
+        ></ha-form>
+      </div>
+
       ${empty ? html`
         <div class="empty-state">
           ${localize('editor.no_rows', lang)}
@@ -325,42 +328,23 @@ export class CalendarStatsCardEditor extends LitElement {
         </ha-sortable>
       `}
 
-      <div class="add-row-section">
-        ${!this._addingEntityRow ? html`
-          <div class="type-menu">
-            <button type="button" class="add-chip" data-action="add-entity-row" @click=${() => { this._addingEntityRow = true; }}>
-              <ha-icon icon="mdi:plus"></ha-icon>
-              ${localize('editor.add_entity', lang)}
-            </button>
-            <button type="button" class="add-chip" data-action="add-expression-row" @click=${() => { this._addExpressionRow(); }}>
-              <ha-icon icon="mdi:plus"></ha-icon>
-              ${localize('editor.add_expression', lang)}
-            </button>
-          </div>
-        ` : html`
-          <div class="entity-picker-row">
-            <ha-entity-picker
-              .hass=${this.hass}
-              allow-custom-entity
-              @value-changed=${(e: CustomEvent) => {
-                const v = e.detail.value as string | undefined;
-                if (v) this._addEntityRow(v);
-              }}
-            ></ha-entity-picker>
-            <button type="button" class="type-menu-cancel" @click=${() => { this._addingEntityRow = false; }}>✕</button>
-          </div>
-        `}
-      </div>
-
-      <div class="options-section">
-        <div class="options-title">${localize('editor.options', lang)}</div>
-        <ha-formfield .label=${localize('editor.show_threshold_table', lang)}>
-          <ha-checkbox
-            data-field="show_threshold_table"
-            .checked=${this._rest['show_threshold_table'] !== false}
-            @change=${this._handleThresholdTableToggle}
-          ></ha-checkbox>
-        </ha-formfield>
+      <div class="add-row">
+        <ha-selector
+          data-action="add-entity-row"
+          .hass=${this.hass}
+          .selector=${STATISTIC_SELECTOR}
+          .value=${''}
+          .required=${false}
+          .label=${localize('editor.add_entity', lang)}
+          @value-changed=${(e: CustomEvent) => {
+            const v = e.detail.value as string | undefined;
+            if (v) this._addEntityRow(v);
+          }}
+        ></ha-selector>
+        <ha-button appearance="plain" data-action="add-expression-row" @click=${() => { this._addExpressionRow(); }}>
+          <ha-icon slot="start" icon="mdi:plus"></ha-icon>
+          ${localize('editor.add_expression', lang)}
+        </ha-button>
       </div>
     `;
   }
@@ -378,15 +362,14 @@ export class CalendarStatsCardEditor extends LitElement {
           ${isEntity
             ? html`
               <div class="row-content">
-                <ha-entity-picker
+                <ha-selector
                   .hass=${this.hass}
+                  .selector=${STATISTIC_SELECTOR}
                   .value=${(entity as EntityRowConfig).entity}
-                  allow-custom-entity
                   @value-changed=${(e: CustomEvent) => {
-                    const v = e.detail.value as string | undefined;
-                    if (v) this._handleEntityPicked(i, v);
+                    this._handleEntityPicked(i, (e.detail.value as string | undefined) ?? '');
                   }}
-                ></ha-entity-picker>
+                ></ha-selector>
               </div>
             `
             : html`
@@ -403,13 +386,13 @@ export class CalendarStatsCardEditor extends LitElement {
             `
           }
           <ha-icon-button
-            .label=${localize('editor.remove_row', lang)}
-            @click=${() => this._removeRow(i)}
-          ><ha-icon icon="mdi:delete"></ha-icon></ha-icon-button>
-          <ha-icon-button
             .label=${localize('editor.edit_row', lang)}
             @click=${() => this._editRow(i)}
           ><ha-icon icon="mdi:pencil"></ha-icon></ha-icon-button>
+          <ha-icon-button
+            .label=${localize('editor.remove_row', lang)}
+            @click=${() => this._removeRow(i)}
+          ><ha-icon icon="mdi:close"></ha-icon></ha-icon-button>
         </div>
       </div>
     `;
@@ -438,6 +421,8 @@ export class CalendarStatsCardEditor extends LitElement {
         ${isEntity
           ? html`<calendar-stats-entity-row-editor
               .hass=${this.hass}
+              .knownStatisticIds=${this._knownStatisticIds}
+              .statMeta=${this._statMeta?.get((entity as EntityRowConfig).entity)}
               .config=${entity as EntityRowConfig}
               .index=${index}
               .lang=${lang}
@@ -445,6 +430,7 @@ export class CalendarStatsCardEditor extends LitElement {
             ></calendar-stats-entity-row-editor>`
           : html`<calendar-stats-expression-row-editor
               .hass=${this.hass}
+              .knownStatisticIds=${this._knownStatisticIds}
               .config=${entity as ExpressionRowConfig}
               .index=${index}
               .lang=${lang}

@@ -716,6 +716,30 @@ describe('CalendarStatsCard — threshold legend (grouped, floating bar)', () =>
     await card.updateComplete;
     expect(card.shadowRoot!.querySelector('.legend-popover')).toBeNull();
   });
+
+  it('legend closes when the view-mode toggle is clicked', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' })]);
+    await openLegend(card);
+    expect(card.shadowRoot!.querySelector('.legend-popover')).not.toBeNull();
+    const toggle = card.shadowRoot!.querySelector('calendar-stats-view-mode-toggle')!;
+    await vi.waitFor(() => { if (!toggle.shadowRoot?.querySelector('button.mode-toggle')) throw new Error('toggle not ready'); });
+    (toggle.shadowRoot!.querySelector('button.mode-toggle') as HTMLButtonElement).click();
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('.legend-popover')).toBeNull();
+  });
+
+  it('legend closes when the range prev button is clicked', async () => {
+    const card = await createCard(CONFIG, makeHass());
+    await applyThresholdGroups(card, [group('Temperature [°C]', { operator: 'above', value: 25, background_color: 'orange', name: 'Summer day' })]);
+    await openLegend(card);
+    expect(card.shadowRoot!.querySelector('.legend-popover')).not.toBeNull();
+    const nav = card.shadowRoot!.querySelector('calendar-stats-range-navigator')!;
+    await vi.waitFor(() => { if (!nav.shadowRoot?.querySelector('button.prev')) throw new Error('nav not ready'); });
+    (nav.shadowRoot!.querySelector('button.prev') as HTMLButtonElement).click();
+    await card.updateComplete;
+    expect(card.shadowRoot!.querySelector('.legend-popover')).toBeNull();
+  });
 });
 
 // --- Floating bottom bar (008) ---

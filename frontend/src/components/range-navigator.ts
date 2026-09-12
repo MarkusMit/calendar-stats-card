@@ -226,7 +226,12 @@ export class RangeNavigator extends LitElement {
   }
 
   private _onDocClick = (e: MouseEvent): void => {
-    if (e.composedPath().includes(this)) return;
+    // Only the range label and the popover keep it open; prev/next count as
+    // outside clicks so the popover closes when the range is stepped.
+    const path = e.composedPath();
+    const label = this.shadowRoot?.querySelector('.range-label');
+    const popover = this.shadowRoot?.querySelector('.popover');
+    if ((label && path.includes(label)) || (popover && path.includes(popover))) return;
     this._close();
   };
 
