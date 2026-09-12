@@ -42,10 +42,48 @@ describe('CalendarStatsCardEditor — US1: empty state and entity-row addition (
     expect(text).toMatch(/no rows yet|add your first row/i);
   });
 
-  it('renders add-row chips', async () => {
+  it('renders a permanent empty statistic selector for adding an entity row', async () => {
     const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
-    const btn = el.shadowRoot!.querySelector('[data-action="add-entity-row"], [data-action="add-expression-row"]');
+    const picker = el.shadowRoot!.querySelector('.add-row ha-selector[data-action="add-entity-row"]') as
+      (HTMLElement & { selector?: unknown; value?: string; label?: string }) | null;
+    expect(picker).toBeTruthy();
+    expect(picker!.selector).toEqual({ statistic: {} });
+    expect(picker!.value ?? '').toBe('');
+    expect(picker!.label).toBe('Add entity');
+  });
+
+  it('renders an ha-button for adding an expression row next to the selector', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
+    const btn = el.shadowRoot!.querySelector('.add-row ha-button[data-action="add-expression-row"]');
     expect(btn).toBeTruthy();
+    expect(btn!.textContent!.trim()).toBe('Add expression');
+  });
+
+  it('picking a statistic in the add selector appends a row and opens its detail view', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [{ entity: 'sensor.a' }] });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
+    const picker = el.shadowRoot!.querySelector('.add-row ha-selector[data-action="add-entity-row"]')!;
+    picker.dispatchEvent(new CustomEvent('value-changed', { detail: { value: 'sensor.b' }, bubbles: true, composed: true }));
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect(dispatched).toHaveLength(1);
+    const config = (dispatched[0]!.detail as { config: CardConfig }).config;
+    expect(config.entities.map((e) => (e as { entity: string }).entity)).toEqual(['sensor.a', 'sensor.b']);
+    expect(el.shadowRoot!.querySelector('calendar-stats-entity-row-editor')).toBeTruthy();
+  });
+
+  it('an empty value in the add selector adds nothing', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
+    const picker = el.shadowRoot!.querySelector('.add-row ha-selector[data-action="add-entity-row"]')!;
+    picker.dispatchEvent(new CustomEvent('value-changed', { detail: { value: '' }, bubbles: true, composed: true }));
+    expect(dispatched).toHaveLength(0);
+  });
+
+  it('renders no type menu, chips or cancel button', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
+    expect(el.shadowRoot!.querySelector('.type-menu, .add-chip, .type-menu-cancel, .entity-picker-row')).toBeNull();
   });
 
   it('dispatches config-changed with new entity after entity-row addition', async () => {
@@ -166,13 +204,37 @@ describe('CalendarStatsCardEditor — inline picker, reorder, no badge', () => {
     }
   });
 
-  it('opens a statistic selector when adding an entity row', async () => {
-    const el = await createEditor({ type: 'calendar-stats-card', entities: [] });
-    (el.shadowRoot!.querySelector('[data-action="add-entity-row"]') as HTMLElement).click();
+  it('clearing an inline row selector removes that row', async () => {
+    const el = await createEditor({
+      type: 'calendar-stats-card',
+      entities: [{ entity: 'sensor.a' }, { entity: 'sensor.b' }],
+    });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
+    const picker = el.shadowRoot!.querySelectorAll('.row-list ha-selector')[0]!;
+    picker.dispatchEvent(new CustomEvent('value-changed', { detail: { value: '' }, bubbles: true, composed: true }));
     await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
-    const picker = el.shadowRoot!.querySelector('.entity-picker-row ha-selector') as (HTMLElement & { selector?: unknown }) | null;
-    expect(picker).toBeTruthy();
-    expect(picker!.selector).toEqual({ statistic: {} });
+    expect(dispatched).toHaveLength(1);
+    const config = (dispatched[0]!.detail as { config: CardConfig }).config;
+    expect(config.entities.map((e) => (e as { entity: string }).entity)).toEqual(['sensor.b']);
+  });
+
+  it('picking a different statistic in an inline row selector replaces the row entity', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [{ entity: 'sensor.a', name: 'A' }] });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('config-changed', (e) => dispatched.push(e as CustomEvent));
+    const picker = el.shadowRoot!.querySelector('.row-list ha-selector')!;
+    picker.dispatchEvent(new CustomEvent('value-changed', { detail: { value: 'sensor.z' }, bubbles: true, composed: true }));
+    const config = (dispatched[0]!.detail as { config: CardConfig }).config;
+    expect(config.entities[0]).toEqual({ entity: 'sensor.z', name: 'A' });
+  });
+
+  it('orders row actions edit (pencil) then remove (close), as HA does', async () => {
+    const el = await createEditor({ type: 'calendar-stats-card', entities: [{ entity: 'sensor.a' }] });
+    const buttons = el.shadowRoot!.querySelectorAll('.row-header ha-icon-button');
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]!.querySelector('ha-icon')!.getAttribute('icon')).toBe('mdi:pencil');
+    expect(buttons[1]!.querySelector('ha-icon')!.getAttribute('icon')).toBe('mdi:close');
   });
 
   it('does not render type badge in main row list', async () => {
@@ -398,11 +460,13 @@ describe('CalendarStatsCardEditor — options section', () => {
     expect(section!.querySelector('.options-title')!.textContent!.trim()).toBe('Options');
   });
 
-  it('places the section after the add-row controls', async () => {
+  it('places the section above the row list and the add-row controls', async () => {
     const el = await createEditor(CONFIG);
-    const addRow = el.shadowRoot!.querySelector('.add-row-section')!;
     const section = el.shadowRoot!.querySelector('.options-section')!;
-    expect(addRow.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const list = el.shadowRoot!.querySelector('ha-sortable')!;
+    const addRow = el.shadowRoot!.querySelector('.add-row')!;
+    expect(section.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section.compareDocumentPosition(addRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('holds the threshold table form', async () => {

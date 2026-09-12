@@ -22,7 +22,6 @@ export class CalendarStatsCardEditor extends LitElement {
 
   @state() private _entities: EntityConfig[] = [];
   @state() private _rest: Record<string, unknown> = {};
-  @state() private _addingEntityRow = false;
   @state() private _editingIndex: number | null = null;
   @state() private _formReady = customElements.get('ha-form') != null;
   /** Statistic ids known to the recorder; null until loaded or when the request failed. */
@@ -55,55 +54,18 @@ export class CalendarStatsCardEditor extends LitElement {
       font-size: 0.9em;
       margin-bottom: 4px;
     }
-    .add-row-section {
-      padding: 8px 0;
-    }
-    .add-chip {
-      --mdc-theme-primary: var(--primary-color);
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.12);
-      border-radius: 18px;
-      color: var(--primary-color);
-      cursor: pointer;
-      padding: 6px 14px;
-      font-size: 14px;
-      font-weight: 500;
-      border: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: inherit;
-    }
-    .add-chip:hover {
-      background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.22);
-    }
-    .add-chip ha-icon,
-    .add-chip ha-svg-icon {
-      --mdc-icon-size: 18px;
-      color: var(--primary-color);
-    }
-    .type-menu {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 8px 0;
-      align-items: center;
-    }
-    .type-menu-cancel {
-      background: transparent;
-      border: none;
-      color: var(--secondary-text-color);
-      cursor: pointer;
-      padding: 6px 10px;
-      font-size: 14px;
-    }
-    .entity-picker-row {
+    .add-row {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 8px 0;
     }
-    .entity-picker-row ha-selector {
+    .add-row ha-selector {
       flex: 1;
+      min-width: 0;
+    }
+    .add-row ha-button {
+      flex-shrink: 0;
     }
     .row-list {
       display: flex;
@@ -264,7 +226,6 @@ export class CalendarStatsCardEditor extends LitElement {
   _addEntityRow(entityId: string): void {
     const newIndex = this._entities.length;
     this._entities = [...this._entities, { entity: entityId } as EntityRowConfig];
-    this._addingEntityRow = false;
     this._editingIndex = newIndex;
     this._dispatchConfigChanged();
   }
@@ -272,7 +233,6 @@ export class CalendarStatsCardEditor extends LitElement {
   _addExpressionRow(): void {
     const newIndex = this._entities.length;
     this._entities = [...this._entities, { expression: '' } as ExpressionRowConfig];
-    this._addingEntityRow = false;
     this._editingIndex = newIndex;
     // Do NOT dispatch config-changed yet — expression is empty (FR-008)
   }
@@ -316,8 +276,13 @@ export class CalendarStatsCardEditor extends LitElement {
     this._editingIndex = null;
   }
 
+  /** An emptied inline selector removes the row; HA's entities editor behaves the same. */
   private _handleEntityPicked(index: number, entityId: string): void {
     const current = this._entities[index] as EntityRowConfig;
+    if (!entityId) {
+      this._removeRow(index);
+      return;
+    }
     if (current.entity === entityId) return;
     const updated = [...this._entities];
     updated[index] = { ...current, entity: entityId };
@@ -346,6 +311,17 @@ export class CalendarStatsCardEditor extends LitElement {
     const empty = this._entities.length === 0;
 
     return html`
+      <div class="options-section">
+        <div class="options-title">${localize('editor.options', lang)}</div>
+        <ha-form
+          .hass=${this.hass}
+          .data=${{ show_threshold_table: this._rest['show_threshold_table'] !== false }}
+          .schema=${OPTIONS_SCHEMA}
+          .computeLabel=${this._computeOptionLabel}
+          @value-changed=${this._handleOptionsChanged}
+        ></ha-form>
+      </div>
+
       ${empty ? html`
         <div class="empty-state">
           ${localize('editor.no_rows', lang)}
@@ -361,42 +337,22 @@ export class CalendarStatsCardEditor extends LitElement {
         </ha-sortable>
       `}
 
-      <div class="add-row-section">
-        ${!this._addingEntityRow ? html`
-          <div class="type-menu">
-            <button type="button" class="add-chip" data-action="add-entity-row" @click=${() => { this._addingEntityRow = true; }}>
-              <ha-icon icon="mdi:plus"></ha-icon>
-              ${localize('editor.add_entity', lang)}
-            </button>
-            <button type="button" class="add-chip" data-action="add-expression-row" @click=${() => { this._addExpressionRow(); }}>
-              <ha-icon icon="mdi:plus"></ha-icon>
-              ${localize('editor.add_expression', lang)}
-            </button>
-          </div>
-        ` : html`
-          <div class="entity-picker-row">
-            <ha-selector
-              .hass=${this.hass}
-              .selector=${STATISTIC_SELECTOR}
-              @value-changed=${(e: CustomEvent) => {
-                const v = e.detail.value as string | undefined;
-                if (v) this._addEntityRow(v);
-              }}
-            ></ha-selector>
-            <button type="button" class="type-menu-cancel" @click=${() => { this._addingEntityRow = false; }}>✕</button>
-          </div>
-        `}
-      </div>
-
-      <div class="options-section">
-        <div class="options-title">${localize('editor.options', lang)}</div>
-        <ha-form
+      <div class="add-row">
+        <ha-selector
+          data-action="add-entity-row"
           .hass=${this.hass}
-          .data=${{ show_threshold_table: this._rest['show_threshold_table'] !== false }}
-          .schema=${OPTIONS_SCHEMA}
-          .computeLabel=${this._computeOptionLabel}
-          @value-changed=${this._handleOptionsChanged}
-        ></ha-form>
+          .selector=${STATISTIC_SELECTOR}
+          .value=${''}
+          .label=${localize('editor.add_entity', lang)}
+          @value-changed=${(e: CustomEvent) => {
+            const v = e.detail.value as string | undefined;
+            if (v) this._addEntityRow(v);
+          }}
+        ></ha-selector>
+        <ha-button data-action="add-expression-row" @click=${() => { this._addExpressionRow(); }}>
+          <ha-icon slot="start" icon="mdi:plus"></ha-icon>
+          ${localize('editor.add_expression', lang)}
+        </ha-button>
       </div>
     `;
   }
@@ -419,8 +375,7 @@ export class CalendarStatsCardEditor extends LitElement {
                   .selector=${STATISTIC_SELECTOR}
                   .value=${(entity as EntityRowConfig).entity}
                   @value-changed=${(e: CustomEvent) => {
-                    const v = e.detail.value as string | undefined;
-                    if (v) this._handleEntityPicked(i, v);
+                    this._handleEntityPicked(i, (e.detail.value as string | undefined) ?? '');
                   }}
                 ></ha-selector>
               </div>
@@ -439,13 +394,13 @@ export class CalendarStatsCardEditor extends LitElement {
             `
           }
           <ha-icon-button
-            .label=${localize('editor.remove_row', lang)}
-            @click=${() => this._removeRow(i)}
-          ><ha-icon icon="mdi:delete"></ha-icon></ha-icon-button>
-          <ha-icon-button
             .label=${localize('editor.edit_row', lang)}
             @click=${() => this._editRow(i)}
           ><ha-icon icon="mdi:pencil"></ha-icon></ha-icon-button>
+          <ha-icon-button
+            .label=${localize('editor.remove_row', lang)}
+            @click=${() => this._removeRow(i)}
+          ><ha-icon icon="mdi:close"></ha-icon></ha-icon-button>
         </div>
       </div>
     `;

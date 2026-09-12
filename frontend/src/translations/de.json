@@ -61,8 +61,8 @@
     "all_years": "Alle Jahre"
   },
   "editor": {
-    "add_entity": "Entität",
-    "add_expression": "Ausdruck",
+    "add_entity": "Entität hinzufügen",
+    "add_expression": "Ausdruck hinzufügen",
     "entity_row": "Entitätszeile",
     "expression_row": "Ausdruckszeile",
     "no_rows": "Noch keine Zeilen — fügen Sie oben Ihre erste Zeile hinzu",
