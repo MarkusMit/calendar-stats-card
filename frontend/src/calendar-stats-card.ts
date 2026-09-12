@@ -1,13 +1,14 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { CardConfig, ThresholdRule, ThresholdLegendGroup } from './types/card-config';
+import type { CardConfig, ThresholdRule, ThresholdLegendGroup, CumulativeStateClass } from './types/card-config';
 import type { HomeAssistant } from './types/ha-types';
 import type { ViewState, YearStatistics, DateRange, RangePreset, MonthAnchor, ViewMode } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
 import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues, rowSummaryKey, wrapMonth } from './services/data-transform';
 import { rowKey } from './types/card-config';
 import { resolvePredecessorData } from './services/predecessor-resolver';
+import { resolveEntityMetadata } from './services/entity-metadata';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
 import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor, msUntilNextMidnight } from './services/date-range';
 import { localize } from './localize/localize';
@@ -418,26 +419,31 @@ export class CalendarStatsCard extends LitElement {
         }
       }
 
-      const [dailyRaw, monthlyRaw] = await Promise.all([
+      const [dailyRaw, monthlyRaw, statMeta] = await Promise.all([
         this._service.fetchDailyStats(this._hass, entityIds, dailyStartTime, endTime),
         this._service.fetchMonthlyStats(this._hass, entityIds, monthlyStartTime, endTime),
+        this._service.fetchStatisticsMetadata(this._hass, entityIds),
       ]);
 
       if (token !== this._fetchAbortFlag) return false;
 
-      // Build metadata map from hass.states
+      // Config state_class overrides, keyed by id; a row's override also covers its
+      // predecessors. First row wins when the same id appears in several rows.
+      const cfgStateClassById: Record<string, CumulativeStateClass | undefined> = {};
+      for (const cfg of this._config.entities) {
+        if (!('entity' in cfg)) continue;
+        cfgStateClassById[cfg.entity] ??= cfg.state_class;
+        for (const p of cfg.predecessors ?? []) cfgStateClassById[p.entity] ??= cfg.state_class;
+      }
+
       const metadataMap: Record<string, import('./types/statistics').EntityMetadata> = {};
       for (const id of entityIds) {
-        const stateObj = this._hass.states[id];
-        const attrs = stateObj?.attributes;
-        metadataMap[id] = {
-          entityId: id,
-          stateClass: (attrs?.['state_class'] as 'measurement' | 'total_increasing' | 'total') ?? 'unknown',
-          deviceClass: (attrs?.['device_class'] as string | null) ?? null,
-          unitOfMeasurement: (attrs?.['unit_of_measurement'] as string | null) ?? null,
-          friendlyName: (attrs?.['friendly_name'] as string | null) ?? null,
-          hasStatistics: true,
-        };
+        metadataMap[id] = resolveEntityMetadata(
+          id,
+          this._hass.states[id]?.attributes,
+          statMeta.get(id),
+          cfgStateClassById[id],
+        );
       }
 
       // Add synthetic metadata for expression rows
