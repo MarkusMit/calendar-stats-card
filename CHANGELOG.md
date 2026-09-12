@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - External long-term statistics (`domain:object_id`) as entity rows, predecessors and expression operands.
   Kind, unit and name come from HA's statistics metadata (`recorder/get_statistics_metadata`).
 - `state_class` row option to force `total` or `total_increasing` where the metadata cannot tell them apart.
-- The editor picks from all statistics (entities and external) and flags IDs without long-term statistics.
+- The editor picks from all statistics (entities and external) for rows and predecessors, and flags IDs without long-term statistics.
 
 ### Changed
 

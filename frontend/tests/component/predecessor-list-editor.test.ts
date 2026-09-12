@@ -79,10 +79,23 @@ describe('PredecessorListEditor — (T024)', () => {
     expect(result[0]!.entity).toBe('sensor.b');
   });
 
-  it('renders entity ID text field for each entry', async () => {
+  it('renders a statistic selector for the entity of each entry', async () => {
     const el = await createPredecessorListEditor([{ entity: 'sensor.old' }]);
-    const field = el.shadowRoot!.querySelector('[data-field="predecessor_entity"]');
+    const field = el.shadowRoot!.querySelector('ha-selector[data-field="predecessor_entity"]') as (HTMLElement & { selector?: unknown; value?: string }) | null;
     expect(field).toBeTruthy();
+    expect(field!.selector).toEqual({ statistic: {} });
+    expect(field!.value).toBe('sensor.old');
+  });
+
+  it('picking a statistic dispatches predecessors-changed with the new entity', async () => {
+    const el = await createPredecessorListEditor([{ entity: 'sensor.old', replaced_on: '2025-01-01' }]);
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('predecessors-changed', (e) => dispatched.push(e as CustomEvent));
+    const field = el.shadowRoot!.querySelector('ha-selector[data-field="predecessor_entity"]')!;
+    field.dispatchEvent(new CustomEvent('value-changed', { detail: { value: 'wetter_xls:temperatur' }, bubbles: true, composed: true }));
+    expect(dispatched).toHaveLength(1);
+    const result = dispatched[0]!.detail.predecessors as PredecessorConfig[];
+    expect(result[0]).toEqual({ entity: 'wetter_xls:temperatur', replaced_on: '2025-01-01' });
   });
 
   it('renders replaced_on date field for each entry', async () => {
