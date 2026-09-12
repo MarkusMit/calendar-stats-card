@@ -108,7 +108,7 @@ describe('ThresholdListEditor — (T020)', () => {
   });
 });
 
-type SchemaEntry = { name?: string; type?: string; required?: boolean; selector?: unknown; schema?: SchemaEntry[] };
+type SchemaEntry = { name?: string; type?: string; required?: boolean; column_min_width?: string; selector?: unknown; schema?: SchemaEntry[] };
 
 function ruleSchema(el: HTMLElement): SchemaEntry[] {
   return (el.shadowRoot!.querySelector('ha-form') as HTMLElement & { schema: SchemaEntry[] }).schema;
@@ -132,6 +132,8 @@ describe('ThresholdListEditor — rule form schema', () => {
     const grid = ruleSchema(el).find((s) => s.type === 'grid')!;
     // ha-form hands a named grid item data[name]; only an unnamed grid receives the whole rule.
     expect(grid.name).toBe('');
+    // Keeps the three periods on one row down to narrow dialogs (HA default min width is 200px).
+    expect(grid.column_min_width).toBe('120px');
     expect(grid.schema!.map((s) => s.name)).toEqual(['value', 'value_month', 'value_year']);
     for (const entry of grid.schema!) {
       expect(entry.selector).toMatchObject({ number: { mode: 'box' } });

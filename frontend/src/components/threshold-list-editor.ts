@@ -30,6 +30,7 @@ function ruleSchema(lang: string) {
       // Unnamed on purpose: ha-form hands a named grid item data[name], an unnamed one the whole rule.
       name: '',
       type: 'grid',
+      column_min_width: '120px',
       schema: PERIOD_FIELDS.map(({ field }) => ({
         name: field,
         selector: { number: { step: 'any', mode: 'box' } },
