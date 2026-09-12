@@ -180,8 +180,9 @@ export function transformMonthlyStats(
     const entityId = cfg.entity;
     const meta = metadataMap[entityId];
     if (!meta) return;
-    const entries = rawStats[entityId];
-    if (!entries) return;
+    // No HA bucket at all in this year (entity did not exist yet) is fine: months
+    // stitched in from a predecessor still get a daily-derived summary below.
+    const entries = rawStats[entityId] ?? [];
 
     const isMeasurement = meta.stateClass === 'measurement';
     const excludeZero = cfg.show_zero === false;

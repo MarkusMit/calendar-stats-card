@@ -780,3 +780,16 @@ describe('transformMonthlyStats - months covered only by predecessor daily value
     expect(jan?.total).toBeNull();
   });
 });
+
+describe('transformMonthlyStats - year without any HA monthly bucket for the main entity', () => {
+  it('still summarises months that carry predecessor-resolved daily values', () => {
+    const raw = {}; // main entity did not exist yet in the viewing year
+    const dailyValues = new Map<string, DailyValue>([
+      ['sensor.temp::2023-05-01', { kind: 'measurement', entityId: 'sensor.temp', date: '2023-05-01', min: 4, mean: 9, max: 15 }],
+    ]);
+    const result = transformMonthlyStats(raw, { 'sensor.temp': tempMeta }, dailyValues, [{ entity: 'sensor.temp' }], 2023, TZ, TODAY_MS);
+    expect(result.get('0::sensor.temp::2023-5')?.min).toBe(4);
+    expect(result.get('0::sensor.temp::2023-5')?.max).toBe(15);
+    expect(result.size).toBe(1);
+  });
+});
