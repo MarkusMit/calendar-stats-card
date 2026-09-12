@@ -21,17 +21,20 @@ async function createEntityRowEditor(
   config: EntityRowConfig,
   index = 0,
   hass: HomeAssistant = makeHass(),
+  knownStatisticIds: Set<string> | null = null,
 ): Promise<HTMLElement> {
   const el = document.createElement('calendar-stats-entity-row-editor') as HTMLElement & {
     config: EntityRowConfig;
     index: number;
     hass: HomeAssistant;
     lang: string;
+    knownStatisticIds: Set<string> | null;
   };
   el.config = config;
   el.index = index;
   el.hass = hass;
   el.lang = 'en';
+  el.knownStatisticIds = knownStatisticIds;
   document.body.appendChild(el);
   await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
   return el;
@@ -226,20 +229,65 @@ describe('EntityRowEditor — Predecessors sub-section (T025)', () => {
   });
 });
 
-// T007: stale entity indicator (FR-013)
-describe('EntityRowEditor — stale entity indicator (T007/FR-013)', () => {
-  it('shows stale-entity indicator when entity not in hass.states', async () => {
-    const el = await createEntityRowEditor({ entity: 'sensor.missing' }, 0, makeHass({}));
-    const indicator = el.shadowRoot!.querySelector('[data-stale], .stale-entity, .entity-not-found');
-    expect(indicator).toBeTruthy();
+function schemaField(el: HTMLElement, fieldName: string): Record<string, unknown> | undefined {
+  const forms = el.shadowRoot!.querySelectorAll('ha-form');
+  for (const form of Array.from(forms)) {
+    const schema = (form as HTMLElement & { schema?: { name: string }[] }).schema;
+    const field = schema?.find((f) => f.name === fieldName);
+    if (field) return field as unknown as Record<string, unknown>;
+  }
+  return undefined;
+}
+
+describe('EntityRowEditor — statistic picker and state_class', () => {
+  it('uses the statistic selector for the entity field', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    const field = schemaField(el, 'entity');
+    expect(field?.['selector']).toEqual({ statistic: {} });
   });
 
-  it('no stale indicator when entity exists in hass.states', async () => {
-    const hass = makeHass({
-      'sensor.temp': { entity_id: 'sensor.temp', state: '20', attributes: {} },
-    });
-    const el = await createEntityRowEditor({ entity: 'sensor.temp' }, 0, hass);
-    const indicator = el.shadowRoot!.querySelector('[data-stale], .stale-entity, .entity-not-found');
-    expect(indicator).toBeNull();
+  it('offers state_class with total and total_increasing in the advanced schema', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' });
+    const field = schemaField(el, 'state_class');
+    const options = ((field?.['selector'] as { select?: { options?: { value: string }[] } })?.select?.options ?? []).map((o) => o.value);
+    expect(options).toEqual(['total', 'total_increasing']);
+  });
+});
+
+describe('EntityRowEditor — clearing state_class', () => {
+  it('drops state_class from the row config when the dropdown is cleared', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.temp', state_class: 'total_increasing' });
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('row-changed', (e) => dispatched.push(e as CustomEvent));
+    fireFormChange(el, { entity: 'sensor.temp', state_class: undefined }, 1);
+    fireFormChange(el, { entity: 'sensor.temp', state_class: '' }, 1);
+    expect(dispatched).toHaveLength(2);
+    for (const ev of dispatched) {
+      expect('state_class' in (ev.detail.config as Record<string, unknown>)).toBe(false);
+    }
+  });
+});
+
+describe('EntityRowEditor — stale indicator against known statistic ids', () => {
+  it('shows stale indicator when the id is not among the known statistic ids', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.missing' }, 0, makeHass({}), new Set(['sensor.other']));
+    expect(el.shadowRoot!.querySelector('[data-stale]')).toBeTruthy();
+  });
+
+  it('shows no stale indicator while the known ids are not loaded (null)', async () => {
+    const el = await createEntityRowEditor({ entity: 'sensor.missing' }, 0, makeHass({}), null);
+    expect(el.shadowRoot!.querySelector('[data-stale]')).toBeNull();
+  });
+
+  it('shows no stale indicator for an external id known to the recorder but absent from hass.states', async () => {
+    const el = await createEntityRowEditor({ entity: 'tibber:consumption' }, 0, makeHass({}), new Set(['tibber:consumption']));
+    expect(el.shadowRoot!.querySelector('[data-stale]')).toBeNull();
+  });
+
+  it('passes the known statistic ids to the predecessor editor', async () => {
+    const known = new Set(['sensor.temp']);
+    const el = await createEntityRowEditor({ entity: 'sensor.temp' }, 0, makeHass({}), known);
+    const pred = el.shadowRoot!.querySelector('calendar-stats-predecessor-list-editor') as HTMLElement & { knownStatisticIds?: Set<string> | null };
+    expect(pred.knownStatisticIds).toBe(known);
   });
 });

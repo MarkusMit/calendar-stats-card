@@ -1,10 +1,15 @@
 import { LitElement, html, css } from 'lit';
+import type { PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { CardConfig, EntityConfig, EntityRowConfig, ExpressionRowConfig } from '../types/card-config';
 import type { HomeAssistant } from '../types/ha-types';
 import { localize } from '../localize/localize';
+import { StatisticsService } from '../services/statistics-service';
 import './entity-row-editor';
 import './expression-row-editor';
+
+/** Stable reference: ha-selector re-initialises when the selector object changes identity. */
+const STATISTIC_SELECTOR = { statistic: {} };
 
 @customElement('calendar-stats-card-editor')
 export class CalendarStatsCardEditor extends LitElement {
@@ -14,7 +19,12 @@ export class CalendarStatsCardEditor extends LitElement {
   @state() private _rest: Record<string, unknown> = {};
   @state() private _addingEntityRow = false;
   @state() private _editingIndex: number | null = null;
-  @state() private _entityPickerReady = customElements.get('ha-entity-picker') != null;
+  @state() private _formReady = customElements.get('ha-form') != null;
+  /** Statistic ids known to the recorder; null until loaded or when the request failed. */
+  @state() private _knownStatisticIds: Set<string> | null = null;
+
+  private readonly _service = new StatisticsService();
+  private _statisticIdsRequested = false;
 
   static styles = css`
     :host {
@@ -88,7 +98,6 @@ export class CalendarStatsCardEditor extends LitElement {
       gap: 8px;
       padding: 8px 0;
     }
-    .entity-picker-row ha-entity-picker,
     .entity-picker-row ha-selector {
       flex: 1;
     }
@@ -119,7 +128,7 @@ export class CalendarStatsCardEditor extends LitElement {
       flex: 1;
       min-width: 0;
     }
-    .row-content ha-entity-picker {
+    .row-content ha-selector {
       display: block;
       width: 100%;
     }
@@ -170,13 +179,31 @@ export class CalendarStatsCardEditor extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    void this._ensureEntityPickerLoaded();
+    void this._ensureFormLoaded();
   }
 
-  private async _ensureEntityPickerLoaded(): Promise<void> {
-    if (this._entityPickerReady) return;
-    if (customElements.get('ha-entity-picker')) {
-      this._entityPickerReady = true;
+  protected updated(changed: PropertyValues): void {
+    if (changed.has('hass') && this.hass && !this._statisticIdsRequested) {
+      this._statisticIdsRequested = true;
+      void this._loadStatisticIds();
+    }
+  }
+
+  private async _loadStatisticIds(): Promise<void> {
+    try {
+      const entries = await this._service.listStatisticIds(this.hass);
+      if (!Array.isArray(entries)) return;
+      this._knownStatisticIds = new Set(entries.map((e) => e.statistic_id));
+    } catch {
+      // ids stay unknown; row editors then show no stale warning
+    }
+  }
+
+  /** ha-form (and with it ha-selector) ships with the entities card editor. */
+  private async _ensureFormLoaded(): Promise<void> {
+    if (this._formReady) return;
+    if (customElements.get('ha-form')) {
+      this._formReady = true;
       return;
     }
     const w = window as unknown as { loadCardHelpers?: () => Promise<{ createCardElement: (cfg: unknown) => Promise<{ constructor: { getConfigElement?: () => Promise<unknown> } }> }> };
@@ -189,8 +216,8 @@ export class CalendarStatsCardEditor extends LitElement {
         // ignore — fall through to whenDefined
       }
     }
-    await customElements.whenDefined('ha-entity-picker');
-    this._entityPickerReady = true;
+    await customElements.whenDefined('ha-form');
+    this._formReady = true;
   }
 
   setConfig(config: CardConfig): void {
@@ -303,7 +330,7 @@ export class CalendarStatsCardEditor extends LitElement {
       return this._renderDetail(this._editingIndex, lang);
     }
 
-    if (!this._entityPickerReady) {
+    if (!this._formReady) {
       return html`<div class="empty-state">${localize('editor.loading', lang)}</div>`;
     }
 
@@ -339,14 +366,14 @@ export class CalendarStatsCardEditor extends LitElement {
           </div>
         ` : html`
           <div class="entity-picker-row">
-            <ha-entity-picker
+            <ha-selector
               .hass=${this.hass}
-              allow-custom-entity
+              .selector=${STATISTIC_SELECTOR}
               @value-changed=${(e: CustomEvent) => {
                 const v = e.detail.value as string | undefined;
                 if (v) this._addEntityRow(v);
               }}
-            ></ha-entity-picker>
+            ></ha-selector>
             <button type="button" class="type-menu-cancel" @click=${() => { this._addingEntityRow = false; }}>✕</button>
           </div>
         `}
@@ -378,15 +405,15 @@ export class CalendarStatsCardEditor extends LitElement {
           ${isEntity
             ? html`
               <div class="row-content">
-                <ha-entity-picker
+                <ha-selector
                   .hass=${this.hass}
+                  .selector=${STATISTIC_SELECTOR}
                   .value=${(entity as EntityRowConfig).entity}
-                  allow-custom-entity
                   @value-changed=${(e: CustomEvent) => {
                     const v = e.detail.value as string | undefined;
                     if (v) this._handleEntityPicked(i, v);
                   }}
-                ></ha-entity-picker>
+                ></ha-selector>
               </div>
             `
             : html`
@@ -438,6 +465,7 @@ export class CalendarStatsCardEditor extends LitElement {
         ${isEntity
           ? html`<calendar-stats-entity-row-editor
               .hass=${this.hass}
+              .knownStatisticIds=${this._knownStatisticIds}
               .config=${entity as EntityRowConfig}
               .index=${index}
               .lang=${lang}
@@ -445,6 +473,7 @@ export class CalendarStatsCardEditor extends LitElement {
             ></calendar-stats-entity-row-editor>`
           : html`<calendar-stats-expression-row-editor
               .hass=${this.hass}
+              .knownStatisticIds=${this._knownStatisticIds}
               .config=${entity as ExpressionRowConfig}
               .index=${index}
               .lang=${lang}

@@ -21,15 +21,18 @@ async function createPredecessorListEditor(
   predecessors: PredecessorConfig[] = [],
   hass: HomeAssistant = makeHass(),
   lang = 'en',
+  knownStatisticIds: Set<string> | null = null,
 ): Promise<HTMLElement> {
   const el = document.createElement('calendar-stats-predecessor-list-editor') as HTMLElement & {
     predecessors: PredecessorConfig[];
     hass: HomeAssistant;
     lang: string;
+    knownStatisticIds: Set<string> | null;
   };
   el.predecessors = predecessors;
   el.hass = hass;
   el.lang = lang;
+  el.knownStatisticIds = knownStatisticIds;
   document.body.appendChild(el);
   await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
   return el;
@@ -106,25 +109,24 @@ describe('PredecessorListEditor — (T024)', () => {
     expect(result[0]!.entity).toBe('sensor.new');
   });
 
-  it('shows stale-entity indicator when hass.states missing predecessor entity', async () => {
-    const hass = makeHass({});
-    const el = await createPredecessorListEditor([{ entity: 'sensor.missing' }], hass);
-    const indicator = el.shadowRoot!.querySelector('[data-stale], .stale-entity, .entity-not-found');
-    expect(indicator).toBeTruthy();
+  it('shows stale indicator when the predecessor id is not among the known statistic ids', async () => {
+    const el = await createPredecessorListEditor([{ entity: 'sensor.missing' }], makeHass({}), 'en', new Set(['sensor.other']));
+    expect(el.shadowRoot!.querySelector('[data-stale]')).toBeTruthy();
   });
 
-  it('no stale indicator when predecessor entity exists in hass.states', async () => {
-    const hass = makeHass({
-      'sensor.old': { entity_id: 'sensor.old', state: '10', attributes: {} },
-    });
-    const el = await createPredecessorListEditor([{ entity: 'sensor.old' }], hass);
-    const indicator = el.shadowRoot!.querySelector('[data-stale], .stale-entity, .entity-not-found');
-    expect(indicator).toBeNull();
+  it('no stale indicator for an external id known to the recorder but absent from hass.states', async () => {
+    const el = await createPredecessorListEditor([{ entity: 'tibber:old' }], makeHass({}), 'en', new Set(['tibber:old']));
+    expect(el.shadowRoot!.querySelector('[data-stale]')).toBeNull();
+  });
+
+  it('no stale indicator while the known ids are not loaded (null)', async () => {
+    const el = await createPredecessorListEditor([{ entity: 'sensor.missing' }], makeHass({}), 'en', null);
+    expect(el.shadowRoot!.querySelector('[data-stale]')).toBeNull();
   });
 
   it('no stale indicator for empty entity string (brand-new entry)', async () => {
     const hass = makeHass({});
-    const el = await createPredecessorListEditor([{ entity: '' }], hass);
+    const el = await createPredecessorListEditor([{ entity: '' }], hass, 'en', new Set());
     const indicator = el.shadowRoot!.querySelector('[data-stale], .stale-entity, .entity-not-found');
     expect(indicator).toBeNull();
   });

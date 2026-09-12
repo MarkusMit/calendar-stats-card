@@ -9,6 +9,8 @@ export class PredecessorListEditor extends LitElement {
   @property({ attribute: false }) hass!: HomeAssistant;
   @property({ attribute: false }) predecessors: PredecessorConfig[] = [];
   @property() lang = 'en';
+  /** Statistic ids known to the recorder; null while not loaded (no stale warning). */
+  @property({ attribute: false }) knownStatisticIds: Set<string> | null = null;
 
   static styles = css`
     :host {
@@ -115,7 +117,7 @@ export class PredecessorListEditor extends LitElement {
   }
 
   private _isStale(entry: PredecessorConfig): boolean {
-    return entry.entity !== '' && this.hass != null && !this.hass.states[entry.entity];
+    return entry.entity !== '' && this.knownStatisticIds !== null && !this.knownStatisticIds.has(entry.entity);
   }
 
   render() {
@@ -138,7 +140,7 @@ export class PredecessorListEditor extends LitElement {
           ${this._isStale(entry) ? html`
             <div class="stale-entity" data-stale>
               <ha-icon icon="mdi:alert-circle"></ha-icon>
-              ${localize('editor.entity_not_found', lang)}
+              ${localize('editor.statistic_not_found', lang)}
             </div>
           ` : ''}
 
