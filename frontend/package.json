@@ -1,6 +1,6 @@
 {
   "name": "calendar-stats-card",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Home Assistant Lovelace custom card for dense monthly statistics tables",
   "license": "MIT",
   "repository": "github:MarkusMit/calendar-stats-card",
