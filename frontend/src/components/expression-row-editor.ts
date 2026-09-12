@@ -1,8 +1,10 @@
 import { LitElement, html, css } from 'lit';
+import type { PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { ExpressionRowConfig, ThresholdRule } from '../types/card-config';
 import type { HomeAssistant } from '../types/ha-types';
 import { localize } from '../localize/localize';
+import { editorLabel, editorHelper } from '../services/editor-labels';
 import { extractEntityIds } from '../services/expression-evaluator';
 import './threshold-list-editor';
 
@@ -13,10 +15,10 @@ const EXPRESSION_ROW_SCHEMA_MAIN = [
   { name: 'precision', selector: { number: { min: 0, step: 1, mode: 'box' } } },
 ];
 
-const EXPRESSION_ROW_SCHEMA_ADVANCED = [
-  { name: 'show_zero', selector: { boolean: {} } },
+const EXPRESSION_ROW_SCHEMA_DISPLAY = [
   { name: 'text_color', selector: { text: {} } },
   { name: 'background_color', selector: { text: {} } },
+  { name: 'show_zero', selector: { boolean: {} } },
 ];
 
 @customElement('calendar-stats-expression-row-editor')
@@ -28,19 +30,33 @@ export class ExpressionRowEditor extends LitElement {
   /** Statistic ids known to the recorder; null while not loaded (ids are not checked). */
   @property({ attribute: false }) knownStatisticIds: Set<string> | null = null;
 
-  @state() _formulaError: string | null = null;
+  /** Syntax errors block saving; an unknown id only warns (the row saves and renders empty). */
+  @state() private _syntaxError: string | null = null;
+  @state() private _entityWarning: string | null = null;
 
   static styles = css`
     :host {
       display: block;
     }
-    .formula-error {
-      color: var(--error-color, red);
+    .formula-error,
+    .formula-warning {
+      display: flex;
+      align-items: center;
+      gap: 4px;
       font-size: 0.85em;
       padding: 4px 0;
     }
-    .advanced-content {
-      padding: 8px 0;
+    .formula-error {
+      color: var(--error-color, red);
+    }
+    .formula-warning {
+      color: var(--warning-color, orange);
+    }
+    ha-expansion-panel {
+      margin-top: 8px;
+    }
+    .panel-content {
+      padding: 8px 12px 12px;
     }
   `;
 
@@ -63,43 +79,42 @@ export class ExpressionRowEditor extends LitElement {
     this.removeEventListener('thresholds-changed', this._onThresholdsChanged);
   }
 
-  private _computeLabel = (schema: { name: string }) => {
-    const labels: Record<string, string> = {
-      expression: localize('editor.formula', this.lang),
-      name: localize('editor.name', this.lang),
-      unit: localize('editor.unit', this.lang),
-      precision: localize('editor.precision', this.lang),
-      show_zero: localize('editor.show_zero', this.lang),
-      text_color: localize('editor.text_color', this.lang),
-      background_color: localize('editor.background_color', this.lang),
-    };
-    return labels[schema.name] ?? schema.name;
-  };
+  private _computeLabel = (schema: { name: string }): string => editorLabel(schema.name, this.lang);
+  private _computeHelper = (schema: { name: string }): string | undefined => editorHelper(schema.name, this.lang);
+
+  protected willUpdate(changed: PropertyValues): void {
+    if (changed.has('config') || changed.has('knownStatisticIds') || changed.has('lang')) {
+      this._validate(this.config?.expression ?? '');
+    }
+  }
+
+  /** Sets the syntax error and the unknown-id warning for `expression`; returns true when the syntax is valid. */
+  private _validate(expression: string): boolean {
+    this._syntaxError = null;
+    this._entityWarning = null;
+    if (!expression.trim()) return true;
+    let ids: string[];
+    try {
+      ids = extractEntityIds(expression);
+    } catch {
+      this._syntaxError = localize('editor.invalid_expression_syntax', this.lang);
+      return false;
+    }
+    const missing = this.knownStatisticIds === null ? undefined : ids.find((id) => !this.knownStatisticIds!.has(id));
+    if (missing) {
+      this._entityWarning = localize('editor.statistic_not_found_in_expression', this.lang).replace('{entity}', missing);
+    }
+    return true;
+  }
 
   private _handleFormChanged(ev: CustomEvent): void {
     const formData = ev.detail.value as Record<string, unknown>;
     const expression = (formData['expression'] as string) ?? '';
-
-    if (expression.trim()) {
-      try {
-        const entityIds = extractEntityIds(expression);
-        this._formulaError = null;
-        for (const id of entityIds) {
-          if (this.knownStatisticIds !== null && !this.knownStatisticIds.has(id)) {
-            this._formulaError = localize('editor.statistic_not_found_in_expression', this.lang).replace('{entity}', id);
-            break;
-          }
-        }
-      } catch {
-        this._formulaError = localize('editor.invalid_expression_syntax', this.lang);
-      }
-    } else {
-      this._formulaError = null;
-    }
-
-    if (this._formulaError) return;
+    if (!this._validate(expression)) return;
 
     const updated = { ...this.config, ...formData };
+    // show_zero defaults to true; only the non-default false is written.
+    if (updated.show_zero === true) delete updated.show_zero;
     this.dispatchEvent(new CustomEvent('row-changed', {
       detail: { index: this.index, config: updated },
       bubbles: true,
@@ -115,21 +130,36 @@ export class ExpressionRowEditor extends LitElement {
         .data=${this.config}
         .schema=${EXPRESSION_ROW_SCHEMA_MAIN}
         .computeLabel=${this._computeLabel}
+        .computeHelper=${this._computeHelper}
         @value-changed=${this._handleFormChanged}
       ></ha-form>
-      ${this._formulaError ? html`
-        <div class="formula-error">${this._formulaError}</div>
+      ${this._syntaxError ? html`
+        <div class="formula-error" data-error>
+          <ha-icon icon="mdi:alert-circle"></ha-icon>
+          ${this._syntaxError}
+        </div>
+      ` : this._entityWarning ? html`
+        <div class="formula-warning" data-warning>
+          <ha-icon icon="mdi:alert-circle"></ha-icon>
+          ${this._entityWarning}
+        </div>
       ` : ''}
-      <ha-expansion-panel .header=${localize('editor.advanced', lang)}>
-        <div class="advanced-content">
+      <ha-expansion-panel outlined data-section="display" .header=${localize('editor.section_display', lang)}>
+        <div class="panel-content">
           <ha-form
             .hass=${this.hass}
-            .data=${this.config}
-            .schema=${EXPRESSION_ROW_SCHEMA_ADVANCED}
+            .data=${{ ...this.config, show_zero: this.config?.show_zero !== false }}
+            .schema=${EXPRESSION_ROW_SCHEMA_DISPLAY}
             .computeLabel=${this._computeLabel}
+            .computeHelper=${this._computeHelper}
             @value-changed=${this._handleFormChanged}
           ></ha-form>
+        </div>
+      </ha-expansion-panel>
+      <ha-expansion-panel outlined data-section="thresholds" .header=${localize('editor.thresholds', lang)}>
+        <div class="panel-content">
           <calendar-stats-threshold-list-editor
+            .hass=${this.hass}
             .thresholds=${this.config?.thresholds ?? []}
             .lang=${lang}
           ></calendar-stats-threshold-list-editor>

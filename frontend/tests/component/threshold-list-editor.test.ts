@@ -29,10 +29,17 @@ describe('ThresholdListEditor — (T020)', () => {
     expect(el.tagName.toLowerCase()).toBe('calendar-stats-threshold-list-editor');
   });
 
-  it('renders "Add threshold" button', async () => {
+  it('renders "Add threshold" as an ha-button', async () => {
     const el = await createThresholdListEditor([]);
-    const btn = el.shadowRoot!.querySelector('[data-action="add-threshold"]');
+    const btn = el.shadowRoot!.querySelector('ha-button[data-action="add-threshold"]');
     expect(btn).toBeTruthy();
+    expect(btn!.textContent!.trim()).toBe('Add threshold');
+    expect(btn!.getAttribute('appearance')).toBe('plain');
+  });
+
+  it('renders no section title and no chip button (the parent panel carries the heading)', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 1 }]);
+    expect(el.shadowRoot!.querySelector('.section-title, .add-chip, button')).toBeNull();
   });
 
   it('add threshold dispatches thresholds-changed with one rule appended', async () => {
@@ -63,139 +70,148 @@ describe('ThresholdListEditor — (T020)', () => {
     expect(result[0]!.operator).toBe('below');
   });
 
-  it('renders ha-select or operator field for each rule', async () => {
-    const rules: ThresholdRule[] = [{ operator: 'above', value: 30 }];
-    const el = await createThresholdListEditor(rules);
-    const operatorField = el.shadowRoot!.querySelector('[data-field="operator"]');
-    expect(operatorField).toBeTruthy();
+  it('renders one ha-form per rule', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 30 }, { operator: 'below', value: 5 }]);
+    expect(el.shadowRoot!.querySelectorAll('ha-form')).toHaveLength(2);
   });
 
-  it('renders value field for each rule', async () => {
-    const rules: ThresholdRule[] = [{ operator: 'above', value: 30 }];
-    const el = await createThresholdListEditor(rules);
-    const valueField = el.shadowRoot!.querySelector('[data-field="value"]');
-    expect(valueField).toBeTruthy();
-  });
-
-  it('renders name field for each rule', async () => {
-    const rules: ThresholdRule[] = [{ operator: 'above', value: 30, name: 'Hot' }];
-    const el = await createThresholdListEditor(rules);
-    const nameField = el.shadowRoot!.querySelector('[data-field="threshold_name"]');
-    expect(nameField).toBeTruthy();
-  });
-
-  it('renders text_color field for each rule', async () => {
-    const rules: ThresholdRule[] = [{ operator: 'above', value: 30 }];
-    const el = await createThresholdListEditor(rules);
-    const field = el.shadowRoot!.querySelector('[data-field="threshold_text_color"]');
-    expect(field).toBeTruthy();
-  });
-
-  it('renders background_color field for each rule', async () => {
-    const rules: ThresholdRule[] = [{ operator: 'above', value: 30 }];
-    const el = await createThresholdListEditor(rules);
-    const field = el.shadowRoot!.querySelector('[data-field="threshold_background_color"]');
-    expect(field).toBeTruthy();
-  });
-
-  it('field change dispatches thresholds-changed with full updated array', async () => {
-    const rules: ThresholdRule[] = [{ operator: 'above', value: 10 }];
-    const el = await createThresholdListEditor(rules);
+  it('form value-changed dispatches thresholds-changed with the merged rule', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }, { operator: 'below', value: 5 }]);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('thresholds-changed', (e) => dispatched.push(e as CustomEvent));
-    const internal = el as unknown as { _handleRuleChange(i: number, field: string, value: unknown): void };
-    internal._handleRuleChange(0, 'value', 25);
+    const form = el.shadowRoot!.querySelectorAll('ha-form')[0]!;
+    form.dispatchEvent(new CustomEvent('value-changed', {
+      detail: { value: { operator: 'above', value: 25, name: 'Hot' } },
+      bubbles: true,
+      composed: true,
+    }));
     expect(dispatched).toHaveLength(1);
-    const result = dispatched[0]!.detail.thresholds as ThresholdRule[];
-    expect(result[0]!.value).toBe(25);
+    expect(dispatched[0]!.detail.thresholds).toEqual([
+      { operator: 'above', value: 25, name: 'Hot' },
+      { operator: 'below', value: 5 },
+    ]);
   });
 
-  it('operator localization uses underscore key for hyphenated values', async () => {
-    const rules: ThresholdRule[] = [{ operator: 'equals-above', value: 10 }];
-    const el = await createThresholdListEditor(rules, 'en');
-    // Operator label should be localized (not the raw key)
-    const operatorField = el.shadowRoot!.querySelector('[data-field="operator"]');
-    expect(operatorField).toBeTruthy();
+  it('renders no raw input or select elements', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 30, name: 'Hot' }]);
+    expect(el.shadowRoot!.querySelector('input, select')).toBeNull();
+  });
+
+  it('remove button sits in the panel icons slot and removes that rule', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }, { operator: 'below', value: 5 }]);
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('thresholds-changed', (e) => dispatched.push(e as CustomEvent));
+    const buttons = el.shadowRoot!.querySelectorAll('ha-expansion-panel > ha-icon-button[slot="icons"]');
+    expect(buttons).toHaveLength(2);
+    (buttons[0] as HTMLElement).click();
+    expect(dispatched[0]!.detail.thresholds).toEqual([{ operator: 'below', value: 5 }]);
   });
 });
 
-describe('ThresholdListEditor — per-period value inputs (015/US4)', () => {
-  it('renders day, month, and year value inputs for each rule', async () => {
-    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
-    expect(el.shadowRoot!.querySelector('input[data-field="value"]')).toBeTruthy();
-    expect(el.shadowRoot!.querySelector('input[data-field="value_month"]')).toBeTruthy();
-    expect(el.shadowRoot!.querySelector('input[data-field="value_year"]')).toBeTruthy();
+type SchemaEntry = { name?: string; type?: string; required?: boolean; column_min_width?: string; selector?: unknown; schema?: SchemaEntry[] };
+
+function ruleSchema(el: HTMLElement): SchemaEntry[] {
+  return (el.shadowRoot!.querySelector('ha-form') as HTMLElement & { schema: SchemaEntry[] }).schema;
+}
+
+describe('ThresholdListEditor — rule form schema', () => {
+  it('offers the operator as a dropdown select with all six localized options', async () => {
+    const el = await createThresholdListEditor([{ operator: 'equals-above', value: 10 }], 'en');
+    const op = ruleSchema(el).find((s) => s.name === 'operator')!;
+    const select = (op.selector as { select: { mode: string; options: { value: string; label: string }[] } }).select;
+    expect(select.mode).toBe('dropdown');
+    expect(op.required).toBe(true);
+    expect(select.options.map((o) => o.value)).toEqual([
+      'above', 'equals-above', 'equals-below', 'below', 'not-below', 'not-above',
+    ]);
+    expect(select.options[1]!.label).toBe('At least (≥)');
   });
 
-  it('shows stored values and leaves absent periods empty', async () => {
+  it('places the three period values in one grid row of number selectors', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
+    const grid = ruleSchema(el).find((s) => s.type === 'grid')!;
+    // ha-form hands a named grid item data[name]; only an unnamed grid receives the whole rule.
+    expect(grid.name).toBe('');
+    // Keeps the three periods on one row down to narrow dialogs (HA default min width is 200px).
+    expect(grid.column_min_width).toBe('120px');
+    expect(grid.schema!.map((s) => s.name)).toEqual(['value', 'value_month', 'value_year']);
+    for (const entry of grid.schema!) {
+      expect(entry.selector).toMatchObject({ number: { mode: 'box' } });
+    }
+  });
+
+  it('has text selectors for label and colours', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
+    const names = ruleSchema(el).filter((s) => s.selector != null && 'text' in (s.selector as object)).map((s) => s.name);
+    expect(names).toEqual(['name', 'text_color', 'background_color']);
+  });
+
+  it('binds the rule as ha-form data', async () => {
+    const rule: ThresholdRule = { operator: 'above', value: 10, value_month: 150 };
+    const el = await createThresholdListEditor([rule]);
+    const form = el.shadowRoot!.querySelector('ha-form') as HTMLElement & { data: unknown };
+    expect(form.data).toEqual(rule);
+  });
+
+  it('clearing a period field removes it from the rule', async () => {
     const el = await createThresholdListEditor([{ operator: 'above', value: 10, value_month: 150 }]);
-    const day = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value"]')!;
-    const month = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value_month"]')!;
-    const year = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value_year"]')!;
-    expect(day.value).toBe('10');
-    expect(month.value).toBe('150');
-    expect(year.value).toBe('');
-  });
-
-  it('entering a month value dispatches thresholds-changed with value_month', async () => {
-    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('thresholds-changed', (e) => dispatched.push(e as CustomEvent));
-    const month = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value_month"]')!;
-    month.value = '150';
-    month.dispatchEvent(new Event('change'));
-    expect(dispatched).toHaveLength(1);
+    const form = el.shadowRoot!.querySelector('ha-form')!;
+    form.dispatchEvent(new CustomEvent('value-changed', {
+      detail: { value: { operator: 'above', value: 10, value_month: undefined } },
+      bubbles: true,
+      composed: true,
+    }));
     const result = dispatched[0]!.detail.thresholds as ThresholdRule[];
-    expect(result[0]!.value_month).toBe(150);
-    expect(result[0]!.value).toBe(10);
-  });
-
-  it('clearing a period input removes the field from the rule', async () => {
-    const el = await createThresholdListEditor([{ operator: 'above', value: 10, value_month: 150 }]);
-    const dispatched: CustomEvent[] = [];
-    el.addEventListener('thresholds-changed', (e) => dispatched.push(e as CustomEvent));
-    const month = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value_month"]')!;
-    month.value = '';
-    month.dispatchEvent(new Event('change'));
-    expect(dispatched).toHaveLength(1);
-    const result = dispatched[0]!.detail.thresholds as ThresholdRule[];
+    expect(result[0]).toEqual({ operator: 'above', value: 10 });
     expect('value_month' in result[0]!).toBe(false);
-    expect(result[0]!.value).toBe(10);
   });
 
-  it('clearing the day input removes value from the rule', async () => {
-    const el = await createThresholdListEditor([{ operator: 'above', value: 10, value_month: 150 }]);
+  it('clearing a text field removes it from the rule', async () => {
+    const el = await createThresholdListEditor([{ operator: 'above', value: 10, name: 'Hot' }]);
     const dispatched: CustomEvent[] = [];
     el.addEventListener('thresholds-changed', (e) => dispatched.push(e as CustomEvent));
-    const day = el.shadowRoot!.querySelector<HTMLInputElement>('input[data-field="value"]')!;
-    day.value = '';
-    day.dispatchEvent(new Event('change'));
+    const form = el.shadowRoot!.querySelector('ha-form')!;
+    form.dispatchEvent(new CustomEvent('value-changed', {
+      detail: { value: { operator: 'above', value: 10, name: '' } },
+      bubbles: true,
+      composed: true,
+    }));
     const result = dispatched[0]!.detail.thresholds as ThresholdRule[];
-    expect('value' in result[0]!).toBe(false);
-    expect(result[0]!.value_month).toBe(150);
+    expect(result[0]).toEqual({ operator: 'above', value: 10 });
   });
 
-  it('the three period inputs share one row container', async () => {
-    const el = await createThresholdListEditor([{ operator: 'above', value: 10 }]);
-    const row = el.shadowRoot!.querySelector('.field-row');
-    expect(row).toBeTruthy();
-    expect(row!.querySelectorAll('input[data-field="value"], input[data-field="value_month"], input[data-field="value_year"]').length).toBe(3);
+  it('keeps the operator when the form sends it as undefined', async () => {
+    const el = await createThresholdListEditor([{ operator: 'below', value: 10 }]);
+    const dispatched: CustomEvent[] = [];
+    el.addEventListener('thresholds-changed', (e) => dispatched.push(e as CustomEvent));
+    const form = el.shadowRoot!.querySelector('ha-form')!;
+    form.dispatchEvent(new CustomEvent('value-changed', {
+      detail: { value: { operator: undefined, value: 10 } },
+      bubbles: true,
+      composed: true,
+    }));
+    const result = dispatched[0]!.detail.thresholds as ThresholdRule[];
+    expect(result[0]!.operator).toBe('below');
   });
 
-  it('english labels: Value (day)/(month)/(year)', async () => {
+  it('english labels: Operator, Value (day)/(month)/(year), Label (optional)', async () => {
     const el = await createThresholdListEditor([{ operator: 'above', value: 10 }], 'en');
-    const labels = [...el.shadowRoot!.querySelectorAll('.field label')].map((l) => l.textContent!.trim());
-    expect(labels).toContain('Value (day)');
-    expect(labels).toContain('Value (month)');
-    expect(labels).toContain('Value (year)');
+    const form = el.shadowRoot!.querySelector('ha-form') as HTMLElement & { computeLabel: (s: { name: string }) => string };
+    expect(form.computeLabel({ name: 'operator' })).toBe('Operator');
+    expect(form.computeLabel({ name: 'value' })).toBe('Value (day)');
+    expect(form.computeLabel({ name: 'value_month' })).toBe('Value (month)');
+    expect(form.computeLabel({ name: 'value_year' })).toBe('Value (year)');
+    expect(form.computeLabel({ name: 'name' })).toBe('Label (optional)');
   });
 
   it('german labels: Wert (Tag)/(Monat)/(Jahr)', async () => {
     const el = await createThresholdListEditor([{ operator: 'above', value: 10 }], 'de');
-    const labels = [...el.shadowRoot!.querySelectorAll('.field label')].map((l) => l.textContent!.trim());
-    expect(labels).toContain('Wert (Tag)');
-    expect(labels).toContain('Wert (Monat)');
-    expect(labels).toContain('Wert (Jahr)');
+    const form = el.shadowRoot!.querySelector('ha-form') as HTMLElement & { computeLabel: (s: { name: string }) => string };
+    expect(form.computeLabel({ name: 'value' })).toBe('Wert (Tag)');
+    expect(form.computeLabel({ name: 'value_month' })).toBe('Wert (Monat)');
+    expect(form.computeLabel({ name: 'value_year' })).toBe('Wert (Jahr)');
   });
 });
 
@@ -230,7 +246,28 @@ describe('ThresholdListEditor — operator symbol in the panel header', () => {
       { operator: 'not-above', value: 25, background_color: 'cyan' },
     ]);
 
-    expect(notBelow).toBe('Frost free (↓≥ 0)');
-    expect(notAbove).toBe('↑≤ 25');
+    expect(notBelow).toBe('Frost free (↓≥ day 0)');
+    expect(notAbove).toBe('↑≤ day 25');
+  });
+
+  it('labels every present period so day/month/year values stay distinguishable', async () => {
+    const [dayMonth, dayYear, monthOnly] = await headers([
+      { operator: 'above', value: 5, value_month: 100 },
+      { operator: 'above', value: 5, value_year: 100 },
+      { operator: 'above', value_month: 100 },
+    ]);
+    expect(dayMonth).toBe('> day 5 · month 100');
+    expect(dayYear).toBe('> day 5 · year 100');
+    expect(monthOnly).toBe('> month 100');
+  });
+
+  it('uses german period labels', async () => {
+    const [h] = await headers([{ operator: 'above', value: 5, value_month: 100 }], 'de');
+    expect(h).toBe('> Tag 5 · Monat 100');
+  });
+
+  it('shows a dash when the rule has no value yet', async () => {
+    const [h] = await headers([{ operator: 'above' }]);
+    expect(h).toBe('> —');
   });
 });

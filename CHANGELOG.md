@@ -20,10 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Editor: threshold rules and predecessor entries use HA form selectors (dropdown operator, date picker, statistic picker) inside outlined expansion panels.
+- Editor: row options are grouped into Display, Thresholds and Predecessors panels; fields carry helper text; toggles are switches.
+- Editor: the entity row only offers the visibility switches and the `state_class` override that apply to its kind.
+- Editor: an always-visible statistic picker under the row list adds entity rows; the card option sits above the list.
+- Editor: threshold panel headers name each period (`> day 5 · month 100`).
 - Rows whose ID has no long-term statistics show the `⚠` label prefix and empty cells, as documented.
 
 ### Fixed
 
+- Editor: clearing an inline row picker removes the row instead of being ignored.
+- Editor: an unknown statistic ID in a formula warns but no longer blocks saving; a stored invalid formula shows its state when the editor opens.
 - Yearly view showed empty months, and empty whole years, wherever the main entity had no HA monthly bucket, even when a predecessor supplied the daily values.
   Every month with daily values now gets a summary; the cumulative total stays empty without an HA bucket.
 - An external predecessor of a `total_increasing` entity was skipped as a kind mismatch.
