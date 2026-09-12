@@ -130,6 +130,7 @@ export class ExpressionRowEditor extends LitElement {
             @value-changed=${this._handleFormChanged}
           ></ha-form>
           <calendar-stats-threshold-list-editor
+            .hass=${this.hass}
             .thresholds=${this.config?.thresholds ?? []}
             .lang=${lang}
           ></calendar-stats-threshold-list-editor>

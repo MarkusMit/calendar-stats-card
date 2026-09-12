@@ -191,6 +191,13 @@ describe('EntityRowEditor — Thresholds sub-section (T021)', () => {
     expect(thresholdEditor).toBeTruthy();
   });
 
+  it('passes hass down to the threshold editor so its selectors can render', async () => {
+    const hass = makeHass();
+    const el = await createEntityRowEditor({ entity: 'sensor.temp', thresholds: [] }, 0, hass);
+    const thresholdEditor = el.shadowRoot!.querySelector('calendar-stats-threshold-list-editor') as HTMLElement & { hass?: HomeAssistant };
+    expect(thresholdEditor.hass).toBe(hass);
+  });
+
   it('thresholds-changed event updates config and dispatches row-changed', async () => {
     const el = await createEntityRowEditor({ entity: 'sensor.temp', thresholds: [] }, 1);
     const dispatched: CustomEvent[] = [];

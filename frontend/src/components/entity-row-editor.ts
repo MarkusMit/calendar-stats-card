@@ -189,6 +189,7 @@ export class EntityRowEditor extends LitElement {
             `)}
           </div>
           <calendar-stats-threshold-list-editor
+            .hass=${this.hass}
             .thresholds=${this.config?.thresholds ?? []}
             .lang=${lang}
           ></calendar-stats-threshold-list-editor>

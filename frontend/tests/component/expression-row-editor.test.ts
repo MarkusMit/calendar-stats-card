@@ -40,6 +40,15 @@ async function createExpressionRowEditor(
   return el;
 }
 
+describe('ExpressionRowEditor — threshold editor wiring', () => {
+  it('passes hass down to the threshold editor so its selectors can render', async () => {
+    const hass = makeHass();
+    const el = await createExpressionRowEditor({ expression: 'sensor.a' }, 0, hass);
+    const thresholdEditor = el.shadowRoot!.querySelector('calendar-stats-threshold-list-editor') as HTMLElement & { hass?: HomeAssistant };
+    expect(thresholdEditor.hass).toBe(hass);
+  });
+});
+
 function schemaHasField(el: HTMLElement, fieldName: string): boolean {
   const forms = el.shadowRoot!.querySelectorAll('ha-form');
   for (const form of Array.from(forms)) {
