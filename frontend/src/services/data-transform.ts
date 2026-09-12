@@ -249,22 +249,30 @@ export function transformMonthlyStats(
       .sort((a, b) => a.replaced_on!.localeCompare(b.replaced_on!));
     const undated = compatible.filter((p) => p.replaced_on == null);
 
-    /**
-     * Total of a month the main entity has no bucket for, from the predecessor
-     * that covers it — the dated one active on both the first and the last day
-     * (a month straddling `replaced_on` has no single source and stays empty),
-     * else the first undated fallback with a bucket. Factor applied as on day cells.
-     */
-    const predecessorMonthlyTotal = (month: number): number | null => {
+    const monthBounds = (month: number) => {
       const mm = String(month).padStart(2, '0');
       const firstDay = `${viewingYear}-${mm}-01`;
       const lastDay = `${viewingYear}-${mm}-${String(new Date(viewingYear, month, 0).getDate()).padStart(2, '0')}`;
-      const activeFirst = dated.find((p) => p.replaced_on! > firstDay);
-      if (activeFirst) {
-        const activeLast = dated.find((p) => p.replaced_on! > lastDay);
-        if (activeLast !== activeFirst) return null;
-        const total = haMonthlyTotal(activeFirst.entity, month, clampNegative);
-        return total === null ? null : total * (activeFirst.factor ?? 1);
+      return { firstDay, lastDay };
+    };
+
+    /** A `replaced_on` inside the month: no single HA bucket covers it. */
+    const switchesSource = (month: number): boolean => {
+      const { firstDay, lastDay } = monthBounds(month);
+      return dated.some((p) => p.replaced_on! > firstDay && p.replaced_on! <= lastDay);
+    };
+
+    /**
+     * Total of a month the main entity has no bucket for, from the predecessor
+     * that covers it — the dated one active on its first day, else the first
+     * undated fallback with a bucket. Factor applied as on day cells.
+     */
+    const predecessorMonthlyTotal = (month: number): number | null => {
+      const { firstDay } = monthBounds(month);
+      const active = dated.find((p) => p.replaced_on! > firstDay);
+      if (active) {
+        const total = haMonthlyTotal(active.entity, month, clampNegative);
+        return total === null ? null : total * (active.factor ?? 1);
       }
       for (const pred of undated) {
         const total = haMonthlyTotal(pred.entity, month, clampNegative);
@@ -288,10 +296,12 @@ export function transformMonthlyStats(
       // total: HA monthly sum delta for cumulative rows (feature 011); null for measurement rows.
       let total: number | null = null;
       if (!isMeasurement) {
-        if (year === nowYear && month === nowMonth) {
+        if ((year === nowYear && month === nowMonth) || switchesSource(month)) {
           // Current month: HA's monthly bucket already includes today's elapsed hours,
           // but the day cells stop at yesterday (FR-003). Sum the completed daily deltas
           // instead — today is stored as an `empty` DailyValue and drops out on its own.
+          // A month containing `replaced_on` likewise has no bucket spanning both
+          // sources; the stitched day cells (predecessor before, main from that date) do.
           total = fromDaily?.total ?? null;
         } else if (hasMainBucket) {
           // Daily-sum arithmetic is never a fallback: a bucket without a sum renders empty.

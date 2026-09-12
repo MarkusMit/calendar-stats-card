@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Yearly view: months covered only by a predecessor take their total from the predecessor's HA monthly statistics instead of staying empty.
+- The month a predecessor is replaced in sums both sources' day values instead of only the main entity's part.
 
 ## [0.8.0] - 2026-09-12
 

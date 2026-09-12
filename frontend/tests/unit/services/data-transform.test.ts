@@ -881,11 +881,35 @@ describe('transformMonthlyStats - cumulative total for months covered by a prede
     expect(result.get('0::sensor.energy::2025-1')?.total).toBeNull();
   });
 
-  it('month straddling replaced_on without a main-entity bucket stays empty', () => {
+  it('month containing replaced_on sums the stitched daily values of both sources', () => {
     const cfg: EntityConfig[] = [{ entity: 'sensor.energy', predecessors: [{ entity: 'sensor.old_energy', replaced_on: '2025-02-15' }] }];
-    const result = transformMonthlyStats(raw, metadataMap, dailyValues, cfg, 2025, TZ, TODAY_MS);
+    const stitched = new Map<string, DailyValue>([
+      ...dailyValues,
+      ['sensor.energy::2025-02-10', { kind: 'cumulative', entityId: 'sensor.energy', date: '2025-02-10', sum: 3 }],
+      ['sensor.energy::2025-02-20', { kind: 'cumulative', entityId: 'sensor.energy', date: '2025-02-20', sum: 7 }],
+    ]);
+    const result = transformMonthlyStats(raw, metadataMap, stitched, cfg, 2025, TZ, TODAY_MS);
     expect(result.get('0::sensor.energy::2025-1')?.total).toBe(30);
-    expect(result.get('0::sensor.energy::2025-2')?.total).toBeNull();
+    expect(result.get('0::sensor.energy::2025-2')?.total).toBe(6 + 3 + 7);
+  });
+
+  it('month containing replaced_on ignores the main-entity bucket (its sum covers only the days after the switch)', () => {
+    const cfg: EntityConfig[] = [{ entity: 'sensor.energy', predecessors: [{ entity: 'sensor.old_energy', replaced_on: '2025-03-15' }] }];
+    const stitched = new Map<string, DailyValue>([
+      ['sensor.energy::2025-03-02', { kind: 'cumulative', entityId: 'sensor.energy', date: '2025-03-02', sum: 40 }],
+      ['sensor.energy::2025-03-20', { kind: 'cumulative', entityId: 'sensor.energy', date: '2025-03-20', sum: 8 }],
+    ]);
+    const result = transformMonthlyStats(raw, metadataMap, stitched, cfg, 2025, TZ, TODAY_MS);
+    expect(result.get('0::sensor.energy::2025-3')?.total).toBe(48);
+  });
+
+  it('replaced_on on the first of a month does not split that month', () => {
+    const cfg: EntityConfig[] = [{ entity: 'sensor.energy', predecessors: [{ entity: 'sensor.old_energy', replaced_on: '2025-03-01' }] }];
+    const stitched = new Map<string, DailyValue>([
+      ['sensor.energy::2025-03-02', { kind: 'cumulative', entityId: 'sensor.energy', date: '2025-03-02', sum: 40 }],
+    ]);
+    const result = transformMonthlyStats(raw, metadataMap, stitched, cfg, 2025, TZ, TODAY_MS);
+    expect(result.get('0::sensor.energy::2025-3')?.total).toBe(10);
   });
 
   it('predecessor first bucket without a preceding month → total = its HA sum (FR-006)', () => {
