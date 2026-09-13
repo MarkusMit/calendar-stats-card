@@ -39,7 +39,10 @@ export class CalendarStatsCard extends LitElement {
   /** The parts of `hass` the template actually reads — these do trigger a render. */
   @state() private _lang = 'en';
   @state() private _timeZone: string | null = null;
+  /** Merged legend groups of every table on screen; see `_onThresholdsApplied`. */
   @state() private _thresholdGroups: ThresholdLegendGroup[] = [];
+  /** What each reporting table last found, so one table cannot hide another's rules. */
+  private _groupsBySource = new Map<Element, ThresholdLegendGroup[]>();
   @state() private _legendOpen = false;
   @state() private _inEditor = false;
   @state() private _viewState: ViewState = {
@@ -750,11 +753,50 @@ export class CalendarStatsCard extends LitElement {
     return total || 1;
   }
 
+  /**
+   * A table reports the rules its own cells triggered. The comparison view
+   * shows two tables at once, so the reports are merged by row label — keeping
+   * only the latest would drop whichever table reported first.
+   */
   private _onThresholdsApplied(e: CustomEvent<{ groups: ThresholdLegendGroup[] }>): void {
-    this._thresholdGroups = e.detail.groups ?? [];
+    const source = e.target;
+    if (!(source instanceof Element)) return;
+    this._groupsBySource.set(source, e.detail.groups ?? []);
+    this._thresholdGroups = this._mergedGroups();
     if (this._displayGroups().length === 0 && this._legendOpen) {
       this._setLegendOpen(false);
     }
+  }
+
+  override updated(): void {
+    // A table that left the view never reports again, so its rules are dropped
+    // here rather than lingering in the legend until some other table reports.
+    if (this._forgetDetachedSources()) this._thresholdGroups = this._mergedGroups();
+  }
+
+  /** Forgets sources no longer in the DOM; true when any were dropped. */
+  private _forgetDetachedSources(): boolean {
+    let dropped = false;
+    for (const source of this._groupsBySource.keys()) {
+      if (!source.isConnected) {
+        this._groupsBySource.delete(source);
+        dropped = true;
+      }
+    }
+    return dropped;
+  }
+
+  /** Every reporting table's groups, concatenated per row label in report order. */
+  private _mergedGroups(): ThresholdLegendGroup[] {
+    const byLabel = new Map<string, ThresholdRule[]>();
+    for (const groups of this._groupsBySource.values()) {
+      for (const g of groups) {
+        const rules = byLabel.get(g.label);
+        if (rules) rules.push(...g.rules);
+        else byLabel.set(g.label, [...g.rules]);
+      }
+    }
+    return [...byLabel].map(([label, rules]) => ({ label, rules }));
   }
 
   /** Groups with rules deduped by name (first-seen wins); groups with no named rule dropped. */
