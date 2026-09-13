@@ -5,6 +5,7 @@ import type { CardConfig, ThresholdRule, ThresholdLegendGroup, CumulativeStateCl
 import type { HomeAssistant } from './types/ha-types';
 import type { ViewState, YearStatistics, DateRange, RangePreset, MonthAnchor, ViewMode } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
+import { earliestCacheKey, readCachedEarliest, writeCachedEarliest } from './services/earliest-cache';
 import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues, rowSummaryKey, wrapMonth } from './services/data-transform';
 import { rowKey } from './types/card-config';
 import { resolvePredecessorData } from './services/predecessor-resolver';
@@ -56,6 +57,9 @@ export class CalendarStatsCard extends LitElement {
   private _fetchAbortFlag = 0;
   /** True once the earliest-data probe ran (whether or not it found data). */
   private _earliestProbed = false;
+
+  /** The in-flight (or settled) earliest-data probe, awaited by the 'all' preset. */
+  private _earliestProbe: Promise<void> | null = null;
   private _warnedPredecessors = new Set<string>();
   /** Shared auto-contrast text-color resolver, so legend swatches match data cells. */
   private _contrast = new ContrastResolver();
@@ -384,6 +388,37 @@ export class CalendarStatsCard extends LitElement {
     this.requestUpdate();
   }
 
+  /**
+   * Resolves the first recorded data point once, from the earliest monthly
+   * statistics bucket (HA metadata carries no earliest-data timestamp). The
+   * probe scans every recorded month, so it runs beside the year fetch rather
+   * than ahead of it: what it bounds — the months before data starts and how
+   * far back paging goes — only matters after the first table is on screen.
+   */
+  private _probeEarliest(entityIds: string[]): void {
+    if (this._earliestProbed || !this._hass) return;
+    this._earliestProbed = true;
+    // A cached answer renders the correct bounds at once; the probe below still
+    // runs and overwrites it, so a stale entry survives at most one load.
+    const cacheKey = earliestCacheKey(entityIds);
+    const cached = readCachedEarliest(cacheKey);
+    if (cached) this._applyEarliest(cached);
+    const hass = this._hass;
+    this._earliestProbe = this._service.findEarliestDataPoint(hass, entityIds)
+      .then((meta) => {
+        // The earliest data point does not depend on the viewed range, so a
+        // range change while the probe is in flight does not invalidate it.
+        if (!meta) return;
+        const anchor = { year: meta.earliestYear, month: meta.earliestMonth };
+        writeCachedEarliest(cacheKey, anchor);
+        this._applyEarliest(anchor);
+      })
+      .catch(() => {
+        // A failed probe leaves the range unbounded; the year fetch reports
+        // entity errors on its own.
+      });
+  }
+
   private async _fetchOneYear(year: number, token: number): Promise<boolean> {
     if (!this._hass || !this._config) return false;
 
@@ -403,22 +438,9 @@ export class CalendarStatsCard extends LitElement {
     const monthlyStartTime = `${year - 1}-12-01T00:00:00Z`;
     const endTime = `${year + 1}-01-01T00:00:00Z`;
 
-    try {
-      // Resolve the first recorded data point once, from the earliest monthly
-      // statistics bucket (HA metadata carries no earliest-data timestamp).
-      if (!this._earliestProbed) {
-        const meta = await this._service.findEarliestDataPoint(this._hass, entityIds);
-        if (token !== this._fetchAbortFlag) return false;
-        this._earliestProbed = true;
-        if (meta) {
-          this._viewState = {
-            ...this._viewState,
-            earliestDataYear: meta.earliestYear,
-            earliestDataMonth: meta.earliestMonth,
-          };
-        }
-      }
+    this._probeEarliest(entityIds);
 
+    try {
       const [dailyRaw, monthlyRaw, statMeta] = await Promise.all([
         this._service.fetchDailyStats(this._hass, entityIds, dailyStartTime, endTime),
         this._service.fetchMonthlyStats(this._hass, entityIds, monthlyStartTime, endTime),
@@ -625,11 +647,38 @@ export class CalendarStatsCard extends LitElement {
     this._applyRange(stepped);
   };
 
-  private _onRangeSelected(e: CustomEvent): void {
+  /**
+   * Waits for the earliest-data probe, under the loading overlay. Only the
+   * 'all' preset needs it: every other range is anchored on today, so it can
+   * be applied before the probe reports.
+   */
+  private async _awaitEarliest(): Promise<void> {
+    if (!this._earliestProbe) return;
+    this._viewState = { ...this._viewState, isLoading: true };
+    try {
+      await this._earliestProbe;
+    } finally {
+      this._viewState = { ...this._viewState, isLoading: false };
+    }
+  }
+
+  private _applyEarliest(anchor: MonthAnchor): void {
+    this._viewState = {
+      ...this._viewState,
+      earliestDataYear: anchor.year,
+      earliestDataMonth: anchor.month,
+    };
+  }
+
+  private async _onRangeSelected(e: CustomEvent): Promise<void> {
     const d = e.detail as { preset?: RangePreset; start?: MonthAnchor; end?: MonthAnchor };
     const gran = this._granularity();
     let range: DateRange;
     if (d.preset) {
+      // Without the earliest year, 'all' would silently collapse to the current year.
+      if (d.preset === 'all' && this._viewState.earliestDataYear === null) {
+        await this._awaitEarliest();
+      }
       range = gran === 'year'
         ? yearPresetToRange(d.preset, this._currentYearMonth().year, this._viewState.earliestDataYear)
         : presetToRange(d.preset, this._currentYearMonth());
