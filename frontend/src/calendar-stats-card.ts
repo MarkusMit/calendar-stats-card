@@ -12,6 +12,7 @@ import { resolvePredecessorData } from './services/predecessor-resolver';
 import { resolveEntityMetadata } from './services/entity-metadata';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
 import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor, msUntilNextMidnight } from './services/date-range';
+import { statisticsSignature } from './services/config-signature';
 import { localize } from './localize/localize';
 import { buildCellStyle } from './services/threshold-resolver';
 import { ContrastResolver } from './services/readable-text';
@@ -62,6 +63,8 @@ export class CalendarStatsCard extends LitElement {
   /** The in-flight (or settled) earliest-data probe, awaited by the 'all' preset. */
   private _earliestProbe: Promise<void> | null = null;
   private _warnedPredecessors = new Set<string>();
+  /** Identity of the row list the cached statistics were fetched for. */
+  private _statisticsSignature: string | null = null;
   /** Shared auto-contrast text-color resolver, so legend swatches match data cells. */
   private _contrast = new ContrastResolver();
   private readonly _emptyDailyValues = new DailyValueIndex();
@@ -279,7 +282,31 @@ export class CalendarStatsCard extends LitElement {
     if (!Array.isArray(config.entities)) {
       throw new Error('calendar-stats-card: "entities" must be an array');
     }
+    const signature = statisticsSignature(config.entities);
+    const staleCache = this._config !== null && signature !== this._statisticsSignature;
+    this._statisticsSignature = signature;
     this._config = config;
+    if (staleCache) this._discardStatistics();
+  }
+
+  /**
+   * Drops everything derived from the previous row list. Monthly summaries are
+   * keyed by row index and daily values by entity id, so a cache kept across an
+   * edited row list would render one configuration's numbers under another's
+   * labels. Editing only colors or precision leaves the signature alone.
+   */
+  private _discardStatistics(): void {
+    this._viewState = {
+      ...this._viewState,
+      statisticsByYear: new Map(),
+      entityErrors: new Set(),
+      earliestDataYear: null,
+      earliestDataMonth: null,
+    };
+    this._warnedPredecessors.clear();
+    this._earliestProbed = false;
+    this._earliestProbe = null;
+    void this._fetchRange(this._viewState.range);
   }
 
   set hass(hass: HomeAssistant) {
