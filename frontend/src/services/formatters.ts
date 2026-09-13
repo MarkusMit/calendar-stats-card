@@ -10,9 +10,11 @@ const percentFormatters = new Map<string, Intl.NumberFormat>();
 const monthNameFormatters = new Map<string, Intl.DateTimeFormat>();
 const monthShortFormatters = new Map<string, Intl.DateTimeFormat>();
 const zonedDateFormatters = new Map<string, Intl.DateTimeFormat>();
-const zonedDateStrings = new Map<string, string>();
+/** Converted dates, newest generation first; see `zonedDateString`. */
+let zonedDateStrings = new Map<string, string>();
+let previousZonedDateStrings = new Map<string, string>();
 
-/** Above this many cached conversions the map is dropped rather than grown. */
+/** Conversions held per generation; two are kept, so twice this at most. */
 const MAX_CACHED_DATES = 20000;
 
 /** Number formatter with a fixed number of decimals. */
@@ -89,14 +91,27 @@ export function zonedDateFormatter(timeZone: string): Intl.DateTimeFormat {
  * Statistics arrive as thousands of timestamps that share a handful of day
  * boundaries, and zone-aware formatting is expensive, so both the formatter
  * and the converted strings are cached.
+ *
+ * The cache keeps two generations rather than emptying itself at the cap:
+ * dropping everything at once means a working set just over the cap misses
+ * every single time, which is worse than having no cache at all.
  */
 export function zonedDateString(timestampMs: number, timeZone: string): string {
   const key = `${timeZone}:${timestampMs}`;
   const cached = zonedDateStrings.get(key);
   if (cached !== undefined) return cached;
 
+  const older = previousZonedDateStrings.get(key);
+  if (older !== undefined) {
+    zonedDateStrings.set(key, older);
+    return older;
+  }
+
   const value = zonedDateFormatter(timeZone).format(new Date(timestampMs));
-  if (zonedDateStrings.size >= MAX_CACHED_DATES) zonedDateStrings.clear();
+  if (zonedDateStrings.size >= MAX_CACHED_DATES) {
+    previousZonedDateStrings = zonedDateStrings;
+    zonedDateStrings = new Map();
+  }
   zonedDateStrings.set(key, value);
   return value;
 }

@@ -3,6 +3,7 @@ import { CalendarStatsCard } from '../../src/calendar-stats-card';
 import type { HomeAssistant } from '../../src/types/ha-types';
 import { autoContrastText } from '../../src/services/readable-text';
 import type { CardConfig, ThresholdRule } from '../../src/types/card-config';
+import { EARLIEST_PROBE_START } from '../../src/services/statistics-service';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -476,12 +477,12 @@ describe('CalendarStatsCard — monthly fetch range (feature 011 T018)', () => {
 
     await createCard(config, hass);
 
-    // Exclude the wide earliest-data probe (start_time 2000-01-01) — only the
+    // Exclude the wide earliest-data probe (start_time EARLIEST_PROBE_START) — only the
     // per-year monthly summary fetch is under test here.
     const nonProbeMonthly = () => sendMessagePromise.mock.calls.filter((c: unknown[]) => {
       const msg = c[0] as Record<string, unknown>;
       return msg?.type === 'recorder/statistics_during_period' && msg?.period === 'month'
-        && msg?.start_time !== '2000-01-01T00:00:00Z';
+        && msg?.start_time !== EARLIEST_PROBE_START;
     });
 
     await vi.waitFor(() => {

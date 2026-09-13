@@ -5,6 +5,7 @@ import {
   presetToRange,
   stepRange,
   rangeYears,
+  retainedYears,
   visibleMonthsForYear,
   atRangeStart,
   atRangeEnd,
@@ -213,5 +214,17 @@ describe('visibleMonthsForYear — current month hidden on the first of the mont
   it('past years are unaffected by nowDay', () => {
     const r: DateRange = { start: a(2025, 8), end: a(2026, 7), preset: 'custom' };
     expect(visibleMonthsForYear(r, 2025, now, null, 1)).toEqual([8, 9, 10, 11, 12]);
+  });
+});
+
+describe('retainedYears', () => {
+  it('keeps the range years plus one on either side, so a step back stays cached', () => {
+    expect([...retainedYears({ start: a(2026, 1), end: a(2026, 7), preset: 'this_year' })].sort())
+      .toEqual([2025, 2026, 2027]);
+  });
+
+  it('keeps every year a multi-year range spans', () => {
+    expect([...retainedYears({ start: a(2020, 3), end: a(2026, 2), preset: 'custom' })].sort())
+      .toEqual([2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027]);
   });
 });

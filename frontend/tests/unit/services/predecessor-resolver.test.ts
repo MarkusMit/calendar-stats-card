@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { resolvePredecessorData } from '../../../src/services/predecessor-resolver';
 import type { EntityConfig, EntityRowConfig } from '../../../src/types/card-config';
 import type { DailyValue, EntityMetadata, MeasurementDailyValue, CumulativeDailyValue } from '../../../src/types/statistics';
+import type { DailyValueIndex } from '../../../src/services/daily-value-index';
+import { dailyIndex } from '../../helpers/daily-values';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -43,8 +45,8 @@ function makeEntityConfig(entity: string, predecessors: EntityRowConfig['predece
   return { entity, predecessors };
 }
 
-function buildMap(entries: [string, DailyValue][]): Map<string, DailyValue> {
-  return new Map(entries);
+function buildMap(entries: [string, DailyValue][]): DailyValueIndex {
+  return dailyIndex(entries);
 }
 
 // ─── US1: Date-Based Predecessor ────────────────────────────────────────────
@@ -69,7 +71,7 @@ describe('resolvePredecessorData — date-based predecessor (US1)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::2024-10-15`);
+    const resolved = result.get(MAIN, '2024-10-15');
     expect(resolved?.kind).toBe('measurement');
     expect((resolved as MeasurementDailyValue).mean).toBe(20);
   });
@@ -85,7 +87,7 @@ describe('resolvePredecessorData — date-based predecessor (US1)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::${REPLACED_ON}`);
+    const resolved = result.get(MAIN, REPLACED_ON);
     expect(resolved?.kind).toBe('measurement');
     expect((resolved as MeasurementDailyValue).mean).toBe(15);
   });
@@ -99,7 +101,7 @@ describe('resolvePredecessorData — date-based predecessor (US1)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::2024-11-05`);
+    const resolved = result.get(MAIN, '2024-11-05');
     expect((resolved as MeasurementDailyValue).mean).toBe(15);
   });
 
@@ -112,7 +114,7 @@ describe('resolvePredecessorData — date-based predecessor (US1)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    expect(result.has(`${MAIN}::2024-11-05`)).toBe(false);
+    expect((result.get(MAIN, '2024-11-05') !== undefined)).toBe(false);
   });
 
   it('resolved DailyValue.entityId equals main entity ID', () => {
@@ -124,7 +126,7 @@ describe('resolvePredecessorData — date-based predecessor (US1)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::2024-10-01`);
+    const resolved = result.get(MAIN, '2024-10-01');
     expect(resolved?.entityId).toBe(MAIN);
   });
 
@@ -145,7 +147,7 @@ describe('resolvePredecessorData — date-based predecessor (US1)', () => {
     let count = 0;
     for (let day = 1; day <= 31; day++) {
       const date = `2024-10-${String(day).padStart(2, '0')}`;
-      const v = result.get(`${MAIN}::${date}`);
+      const v = result.get(MAIN, date);
       if (v?.kind === 'measurement') count++;
     }
     expect(count).toBe(31);
@@ -162,7 +164,7 @@ describe('resolvePredecessorData — date-based predecessor (US1)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, cumMetadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::2024-10-15`);
+    const resolved = result.get(MAIN, '2024-10-15');
     expect(resolved?.kind).toBe('cumulative');
     expect((resolved as CumulativeDailyValue).sum).toBe(7);
     expect(resolved?.entityId).toBe(MAIN);
@@ -191,7 +193,7 @@ describe('resolvePredecessorData — fallback predecessor (US2)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::2024-03-10`);
+    const resolved = result.get(MAIN, '2024-03-10');
     expect(resolved?.kind).toBe('measurement');
     expect((resolved as MeasurementDailyValue).mean).toBe(25);
     expect(resolved?.entityId).toBe(MAIN);
@@ -206,7 +208,7 @@ describe('resolvePredecessorData — fallback predecessor (US2)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::2024-03-10`);
+    const resolved = result.get(MAIN, '2024-03-10');
     expect(resolved?.kind).toBe('measurement');
     expect((resolved as MeasurementDailyValue).mean).toBe(25);
   });
@@ -222,7 +224,7 @@ describe('resolvePredecessorData — fallback predecessor (US2)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::2024-03-10`);
+    const resolved = result.get(MAIN, '2024-03-10');
     expect((resolved as MeasurementDailyValue).mean).toBe(15);
   });
 
@@ -235,7 +237,7 @@ describe('resolvePredecessorData — fallback predecessor (US2)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::2024-03-10`);
+    const resolved = result.get(MAIN, '2024-03-10');
     expect(resolved?.kind).toBe('empty');
   });
 
@@ -248,7 +250,7 @@ describe('resolvePredecessorData — fallback predecessor (US2)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    expect(result.get(`${MAIN}::2024-03-10`)?.kind).toBe('measurement');
+    expect(result.get(MAIN, '2024-03-10')?.kind).toBe('measurement');
   });
 });
 
@@ -278,7 +280,7 @@ describe('resolvePredecessorData — chained predecessors (US3)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::2022-12-31`);
+    const resolved = result.get(MAIN, '2022-12-31');
     expect((resolved as MeasurementDailyValue).mean).toBe(2);
     expect(resolved?.entityId).toBe(MAIN);
   });
@@ -290,7 +292,7 @@ describe('resolvePredecessorData — chained predecessors (US3)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::2023-06-15`);
+    const resolved = result.get(MAIN, '2023-06-15');
     expect((resolved as MeasurementDailyValue).mean).toBe(1);
   });
 
@@ -301,7 +303,7 @@ describe('resolvePredecessorData — chained predecessors (US3)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const resolved = result.get(`${MAIN}::2024-07-01`);
+    const resolved = result.get(MAIN, '2024-07-01');
     expect((resolved as MeasurementDailyValue).mean).toBe(50);
   });
 
@@ -311,7 +313,7 @@ describe('resolvePredecessorData — chained predecessors (US3)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    expect(result.has(`${MAIN}::2022-06-01`)).toBe(false);
+    expect((result.get(MAIN, '2022-06-01') !== undefined)).toBe(false);
   });
 
   it('three-predecessor chain resolves at each boundary', () => {
@@ -341,10 +343,10 @@ describe('resolvePredecessorData — chained predecessors (US3)', () => {
 
     const result = resolvePredecessorData([cfg3], dailyValues, metaWith3, warned);
 
-    expect((result.get(`${MAIN}::2021-06-15`) as MeasurementDailyValue).mean).toBe(3);
-    expect((result.get(`${MAIN}::2022-06-15`) as MeasurementDailyValue).mean).toBe(2);
-    expect((result.get(`${MAIN}::2023-06-15`) as MeasurementDailyValue).mean).toBe(1);
-    expect((result.get(`${MAIN}::2024-07-01`) as MeasurementDailyValue).mean).toBe(0);
+    expect((result.get(MAIN, '2021-06-15') as MeasurementDailyValue).mean).toBe(3);
+    expect((result.get(MAIN, '2022-06-15') as MeasurementDailyValue).mean).toBe(2);
+    expect((result.get(MAIN, '2023-06-15') as MeasurementDailyValue).mean).toBe(1);
+    expect((result.get(MAIN, '2024-07-01') as MeasurementDailyValue).mean).toBe(0);
   });
 });
 
@@ -374,7 +376,7 @@ describe('resolvePredecessorData — compatibility check (FR-011/FR-012)', () =>
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    expect(result.has(`${MAIN}::2024-03-10`)).toBe(false);
+    expect((result.get(MAIN, '2024-03-10') !== undefined)).toBe(false);
   });
 
   it('predecessor with different unitOfMeasurement is skipped', () => {
@@ -389,7 +391,7 @@ describe('resolvePredecessorData — compatibility check (FR-011/FR-012)', () =>
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    expect(result.has(`${MAIN}::2024-03-10`)).toBe(false);
+    expect((result.get(MAIN, '2024-03-10') !== undefined)).toBe(false);
   });
 
   it('console.warn called with predecessor ID when skipped for incompatibility', () => {
@@ -438,7 +440,7 @@ describe('resolvePredecessorData — compatibility check (FR-011/FR-012)', () =>
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    expect(result.get(`${MAIN}::2024-03-10`)?.kind).toBe('measurement');
+    expect(result.get(MAIN, '2024-03-10')?.kind).toBe('measurement');
     expect(console.warn).not.toHaveBeenCalled();
   });
 
@@ -483,7 +485,7 @@ describe('resolvePredecessorData — multiple undated predecessors (FR-005/FR-00
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    expect((result.get(`${MAIN}::2024-03-10`) as MeasurementDailyValue).mean).toBe(10);
+    expect((result.get(MAIN, '2024-03-10') as MeasurementDailyValue).mean).toBe(10);
   });
 
   it('second predecessor used when first has no data for that day', () => {
@@ -495,7 +497,7 @@ describe('resolvePredecessorData — multiple undated predecessors (FR-005/FR-00
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    expect((result.get(`${MAIN}::2024-03-10`) as MeasurementDailyValue).mean).toBe(99);
+    expect((result.get(MAIN, '2024-03-10') as MeasurementDailyValue).mean).toBe(99);
   });
 
   it('cell empty when no undated predecessor has data', () => {
@@ -504,7 +506,7 @@ describe('resolvePredecessorData — multiple undated predecessors (FR-005/FR-00
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    expect(result.has(`${MAIN}::2024-03-10`)).toBe(false);
+    expect((result.get(MAIN, '2024-03-10') !== undefined)).toBe(false);
   });
 });
 
@@ -530,7 +532,7 @@ describe('resolvePredecessorData — factor scaling (FR-015)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    expect(result.has(`${MAIN}::2024-03-10`)).toBe(true);
+    expect((result.get(MAIN, '2024-03-10') !== undefined)).toBe(true);
   });
 
   it('state_class mismatch still blocks even when factor is set', () => {
@@ -546,7 +548,7 @@ describe('resolvePredecessorData — factor scaling (FR-015)', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    expect(result.has(`${MAIN}::2024-03-10`)).toBe(false);
+    expect((result.get(MAIN, '2024-03-10') !== undefined)).toBe(false);
   });
 
   it('factor applied to CumulativeDailyValue: sum multiplied by factor', () => {
@@ -561,7 +563,7 @@ describe('resolvePredecessorData — factor scaling (FR-015)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const merged = result.get(`${MAIN}::2024-03-10`) as CumulativeDailyValue;
+    const merged = result.get(MAIN, '2024-03-10') as CumulativeDailyValue;
     expect(merged.kind).toBe('cumulative');
     expect(merged.sum).toBeCloseTo(5);
   });
@@ -579,7 +581,7 @@ describe('resolvePredecessorData — factor scaling (FR-015)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const merged = result.get(`${MAIN}::2024-03-10`) as MeasurementDailyValue;
+    const merged = result.get(MAIN, '2024-03-10') as MeasurementDailyValue;
     expect(merged.kind).toBe('measurement');
     expect(merged.mean).toBeCloseTo(0.1);
     expect(merged.min).toBeCloseTo(0.099);
@@ -598,7 +600,7 @@ describe('resolvePredecessorData — factor scaling (FR-015)', () => {
 
     const result = resolvePredecessorData([cfg], dailyValues, metadataMap, warned);
 
-    const merged = result.get(`${MAIN}::2024-03-10`) as CumulativeDailyValue;
+    const merged = result.get(MAIN, '2024-03-10') as CumulativeDailyValue;
     expect(merged.sum).toBe(6);
   });
 });

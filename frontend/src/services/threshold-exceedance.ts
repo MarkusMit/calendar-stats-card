@@ -1,7 +1,7 @@
-import type { CellRole, EntityConfig, ThresholdRule } from '../types/card-config';
+import type { CellRole, EntityConfig, ThresholdOperator, ThresholdRule } from '../types/card-config';
 import { rowKey } from '../types/card-config';
 import type { DailyValue, YearStatistics } from '../types/statistics';
-import { matchingThresholds, resolveThreshold } from './threshold-resolver';
+import { matchingThresholds, resolveThreshold, EMPTY_THRESHOLDS } from './threshold-resolver';
 import { rowLabel } from './row-label';
 
 /** The same two counts restricted to one year of the viewed range. */
@@ -33,6 +33,19 @@ export interface MonthSpan {
   year: number;
   months: number[];
 }
+
+/**
+ * Row order tie-break for two rules on the same value: an exclusive bound sits
+ * just inside its own range, so "< v" ranks below "≤ v" and "> v" above "≥ v".
+ */
+const BOUND_NUDGE: Record<ThresholdOperator, number> = {
+  'below': -1,
+  'above': 1,
+  'equals-below': 0,
+  'equals-above': 0,
+  'not-below': 0,
+  'not-above': 0,
+};
 
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
@@ -81,7 +94,7 @@ export function countExceedances(
   const groups: ExceedanceGroup[] = [];
 
   for (const cfg of entities) {
-    const thresholds = cfg.thresholds ?? [];
+    const thresholds = cfg.thresholds ?? EMPTY_THRESHOLDS;
     if (thresholds.length === 0) continue;
 
     const key = rowKey(cfg);
@@ -91,6 +104,10 @@ export function countExceedances(
     // Per year, the same two tallies — every segment year gets an entry, even
     // one without data, so the yearly view can show a column for it.
     const perYear = new Map<number, { band: Map<ThresholdRule, number>; cumulative: Map<ThresholdRule, number> }>();
+    // Reused across every day of the row: a fresh pair per day would be two
+    // sets for each of up to 366 days, per entity.
+    const dayCumulative = new Set<ThresholdRule>();
+    const dayBand = new Set<ThresholdRule>();
     let meta;
 
     for (const seg of segments) {
@@ -99,14 +116,15 @@ export function countExceedances(
       const yearStats = statisticsByYear.get(seg.year);
       if (!yearStats) continue;
       meta ??= yearStats.entityMetadata.get(key);
+      const row = yearStats.dailyValues.row(key);
 
       for (const month of seg.months) {
         for (let d = 1; d <= daysInMonth(seg.year, month); d++) {
-          const val = yearStats.dailyValues.get(`${key}::${dateKey(seg.year, month, d)}`);
+          const val = row?.get(dateKey(seg.year, month, d));
           if (!val || val.kind === 'empty') continue;
 
-          const dayCumulative = new Set<ThresholdRule>();
-          const dayBand = new Set<ThresholdRule>();
+          dayCumulative.clear();
+          dayBand.clear();
 
           for (const [value, role] of dayCandidates(val, cfg, factor)) {
             for (const rule of matchingThresholds(value, thresholds, role, 'day')) dayCumulative.add(rule);
@@ -131,7 +149,7 @@ export function countExceedances(
     // but they have nothing to label a row with.
     const rows = thresholds
       .filter((r) => r.name && r.value != null && (r.text_color || r.background_color))
-      .sort((a, b) => a.value! - b.value!)
+      .sort((a, b) => (a.value! - b.value!) || (BOUND_NUDGE[a.operator] - BOUND_NUDGE[b.operator]))
       .map((rule) => ({
         rule,
         band: band.get(rule) ?? 0,

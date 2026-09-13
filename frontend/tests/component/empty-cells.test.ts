@@ -2,8 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { YearTable } from '../../src/components/year-table';
 import { YearSummaryTable } from '../../src/components/year-summary-table';
 import { MonthComparisonTable } from '../../src/components/month-comparison-table';
-import type { EntityMetadata, MonthlySummary, CumulativeDailyValue, DailyValue } from '../../src/types/statistics';
+import type { EntityMetadata, MonthlySummary, CumulativeDailyValue } from '../../src/types/statistics';
 import { rowSummaryKey } from '../../src/services/data-transform';
+import { dailyIndex } from '../helpers/daily-values';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -39,7 +40,7 @@ describe('empty cells render a non-breaking space (borders via td.data-cell)', (
       kind: 'cumulative', entityId: RAIN_ID, date: '2025-01-01',
       sum: 12,
     };
-    el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
+    el.dailyValues = dailyIndex([[`${RAIN_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[RAIN_ID, rainMeta]]);
     el.entityErrors = new Set();
@@ -63,7 +64,7 @@ describe('empty cells render a non-breaking space (borders via td.data-cell)', (
       year: 2025,
       visibleMonths: [1, 2],
       monthlySummaries: summaries,
-      dailyValues: new Map<string, DailyValue>(),
+      dailyValues: dailyIndex(),
       entityMetadata: new Map([[RAIN_ID, rainMeta]]),
     }];
     el.entityErrors = new Set();
@@ -82,7 +83,7 @@ describe('empty cells render a non-breaking space (borders via td.data-cell)', (
       year: 2024,
       visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1),
       monthlySummaries,
-      dailyValues: new Map<string, DailyValue>(),
+      dailyValues: dailyIndex(),
       entityMetadata: new Map([[RAIN_ID, rainMeta]]),
     }];
     el.entityConfigs = [{ entity: RAIN_ID }];

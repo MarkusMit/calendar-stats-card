@@ -104,14 +104,9 @@ Releases are GitHub Releases with the built bundle attached; HACS installs and u
 1. On `dev`: set the new version in `frontend/package.json`.
 2. In `CHANGELOG.md`: rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a fresh empty `## [Unreleased]` above it, and add the compare link at the bottom.
 3. Commit as `docs(changelog): release X.Y.Z`.
-4. Merge `dev` into `main` with `merge(release): vX.Y.Z`.
-5. Tag and push:
-
-   ```bash
-   git tag vX.Y.Z main
-   git push origin main vX.Y.Z
-   ```
-
+4. Open a pull request from `dev` to `main` and merge it with `merge(release): vX.Y.Z`.
+5. The `Tag release` workflow tags the merge commit `vX.Y.Z` and starts the `Release` workflow.
+   It fails the merge when `frontend/package.json` carries no new version or `CHANGELOG.md` has no section for it — every merge to `main` is a release.
 6. The `Release` workflow validates the tag, checks that `package.json` matches it, runs lint/typecheck/tests, builds the bundle, and publishes the GitHub Release with `calendar-stats-card.js` and the CHANGELOG section as notes.
 
 A release for an existing tag can be re-published from the Actions tab (`Release` → Run workflow → tag).

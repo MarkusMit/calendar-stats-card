@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { countExceedances } from '../../../src/services/threshold-exceedance';
 import type { EntityConfig, ThresholdRule } from '../../../src/types/card-config';
-import type { DailyValue, EntityMetadata, YearStatistics } from '../../../src/types/statistics';
+import type { EntityMetadata, YearStatistics } from '../../../src/types/statistics';
+import { dailyIndex } from '../../helpers/daily-values';
 
 const RAIN_META: EntityMetadata = {
   entityId: 'sensor.rain',
@@ -18,10 +19,10 @@ function day(n: number): string {
 
 /** One year of cumulative daily sums for sensor.rain, keyed by day-of-month. */
 function rainYear(sums: Record<number, number | null>, meta: EntityMetadata = RAIN_META): Map<number, YearStatistics> {
-  const dailyValues = new Map<string, DailyValue>();
+  const dailyValues = dailyIndex();
   for (const [d, sum] of Object.entries(sums)) {
     const date = day(Number(d));
-    dailyValues.set(`sensor.rain::${date}`, sum === null
+    dailyValues.set('sensor.rain', date, sum === null
       ? { kind: 'empty', entityId: 'sensor.rain', date }
       : { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
   }
@@ -123,6 +124,24 @@ describe('countExceedances — which rules qualify', () => {
     const groups = countExceedances([rainRow([heavy, WET])], JAN_2025, stats);
     expect(groups[0]!.rows.map((r) => r.rule.name)).toEqual(['Wet day', 'Heavy day']);
   });
+
+  it('orders a strict lower bound before an inclusive one on the same value', () => {
+    // "< 0" ends just below 0, "≤ 0" includes it, so the stricter rule is the colder band.
+    const iceDay: ThresholdRule = { operator: 'not-above', value: 0, name: 'Ice day', background_color: 'cyan' };
+    const belowZero: ThresholdRule = { operator: 'below', value: 0, name: 'Below zero', background_color: 'blue' };
+    const stats = rainYear({ 1: -1 });
+    const groups = countExceedances([rainRow([iceDay, belowZero])], JAN_2025, stats);
+    expect(groups[0]!.rows.map((r) => r.rule.name)).toEqual(['Below zero', 'Ice day']);
+  });
+
+  it('orders a strict upper bound after an inclusive one on the same value', () => {
+    // "> 25" starts just above 25, "≥ 25" at it, so the stricter rule is the warmer band.
+    const above: ThresholdRule = { operator: 'above', value: 25, name: 'Summer day', background_color: 'orange' };
+    const equalsAbove: ThresholdRule = { operator: 'equals-above', value: 25, name: 'Warm day', background_color: 'yellow' };
+    const stats = rainYear({ 1: 30 });
+    const groups = countExceedances([rainRow([above, equalsAbove])], JAN_2025, stats);
+    expect(groups[0]!.rows.map((r) => r.rule.name)).toEqual(['Warm day', 'Summer day']);
+  });
 });
 
 describe('countExceedances — grouping', () => {
@@ -210,10 +229,10 @@ const TEMP_META: EntityMetadata = {
 
 /** One year of measurement days for sensor.temp, keyed by day-of-month. */
 function tempYear(days: Record<number, [number, number, number] | null>): Map<number, YearStatistics> {
-  const dailyValues = new Map<string, DailyValue>();
+  const dailyValues = dailyIndex();
   for (const [d, triple] of Object.entries(days)) {
     const date = day(Number(d));
-    dailyValues.set(`sensor.temp::${date}`, triple === null
+    dailyValues.set('sensor.temp', date, triple === null
       ? { kind: 'empty', entityId: 'sensor.temp', date }
       : { kind: 'measurement', entityId: 'sensor.temp', date, min: triple[0], mean: triple[1], max: triple[2] });
   }
@@ -296,9 +315,9 @@ describe('countExceedances — range coverage', () => {
   function statsFor(byYear: Record<number, Record<string, number>>): Map<number, YearStatistics> {
     const out = new Map<number, YearStatistics>();
     for (const [year, days] of Object.entries(byYear)) {
-      const dailyValues = new Map<string, DailyValue>();
+      const dailyValues = dailyIndex();
       for (const [date, sum] of Object.entries(days)) {
-        dailyValues.set(`sensor.rain::${date}`, { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
+        dailyValues.set('sensor.rain', date, { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
       }
       out.set(Number(year), { dailyValues, monthlySummaries: new Map(), entityMetadata: new Map([['sensor.rain', RAIN_META]]) });
     }
@@ -352,9 +371,9 @@ describe('countExceedances — per-year breakdown', () => {
   function statsMulti(byYear: Record<number, Record<string, number>>): Map<number, YearStatistics> {
     const out = new Map<number, YearStatistics>();
     for (const [year, days] of Object.entries(byYear)) {
-      const dailyValues = new Map<string, DailyValue>();
+      const dailyValues = dailyIndex();
       for (const [date, sum] of Object.entries(days)) {
-        dailyValues.set(`sensor.rain::${date}`, { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
+        dailyValues.set('sensor.rain', date, { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
       }
       out.set(Number(year), { dailyValues, monthlySummaries: new Map(), entityMetadata: new Map([['sensor.rain', RAIN_META]]) });
     }
@@ -419,5 +438,39 @@ describe('countExceedances — per-year breakdown', () => {
     const stats = rainYear({ 1: 12 });
     const row = countExceedances([rainRow([WET])], [], stats)[0]!.rows[0]!;
     expect(row.byYear).toEqual([]);
+  });
+});
+
+/** Counts `new Set(...)` while the given work runs. */
+function countSetConstructions(work: () => void): number {
+  const RealSet = globalThis.Set;
+  let count = 0;
+  globalThis.Set = new Proxy(RealSet, {
+    construct(target, args) {
+      count++;
+      return Reflect.construct(target, args);
+    },
+  }) as SetConstructor;
+  try {
+    work();
+  } finally {
+    globalThis.Set = RealSet;
+  }
+  return count;
+}
+
+describe('countExceedances — allocation per day', () => {
+  it('reuses its per-day rule sets instead of building a pair for every day', () => {
+    const sums: Record<number, number> = {};
+    for (let d = 1; d <= 31; d++) sums[d] = d;
+    const stats = rainYear(sums);
+    const entities = [rainRow([WET])];
+
+    const constructions = countSetConstructions(() => {
+      countExceedances(entities, JAN_2025, stats);
+    });
+
+    // A pair per day would be 62 for January alone.
+    expect(constructions).toBeLessThanOrEqual(4);
   });
 });

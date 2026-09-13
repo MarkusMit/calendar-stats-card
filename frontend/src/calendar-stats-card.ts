@@ -5,16 +5,19 @@ import type { CardConfig, ThresholdRule, ThresholdLegendGroup, CumulativeStateCl
 import type { HomeAssistant } from './types/ha-types';
 import type { ViewState, YearStatistics, DateRange, RangePreset, MonthAnchor, ViewMode } from './types/statistics';
 import { StatisticsService } from './services/statistics-service';
+import { earliestCacheKey, readCachedEarliest, writeCachedEarliest } from './services/earliest-cache';
 import { transformDailyStats, transformMonthlyStats, collectDailySums, computeMonthlySummaryFromDailyValues, rowSummaryKey, wrapMonth } from './services/data-transform';
 import { rowKey } from './types/card-config';
 import { resolvePredecessorData } from './services/predecessor-resolver';
 import { resolveEntityMetadata } from './services/entity-metadata';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
-import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor, msUntilNextMidnight } from './services/date-range';
+import { presetToRange, stepRange, rangeYears, retainedYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor, msUntilNextMidnight } from './services/date-range';
+import { statisticsSignature } from './services/config-signature';
 import { localize } from './localize/localize';
 import { buildCellStyle } from './services/threshold-resolver';
 import { ContrastResolver } from './services/readable-text';
 import { zonedDateFormatter, zonedDateString, monthNameFormatter } from './services/formatters';
+import { DailyValueIndex } from './services/daily-value-index';
 import { countExceedances } from './services/threshold-exceedance';
 import type { ExceedanceGroup, MonthSpan } from './services/threshold-exceedance';
 import './components/loading-overlay';
@@ -27,6 +30,11 @@ import './components/range-navigator';
 import './components/exceedance-table';
 import './components/calendar-stats-card-editor';
 
+/** Hosts that mean the card is being previewed inside the Lovelace editor. */
+const EDITOR_TAGS: ReadonlySet<string> = new Set([
+  'hui-card-element-editor', 'hui-dialog-edit-card', 'ha-dialog',
+]);
+
 @customElement('calendar-stats-card')
 export class CalendarStatsCard extends LitElement {
   @state() private _config: CardConfig | null = null;
@@ -36,7 +44,10 @@ export class CalendarStatsCard extends LitElement {
   /** The parts of `hass` the template actually reads — these do trigger a render. */
   @state() private _lang = 'en';
   @state() private _timeZone: string | null = null;
+  /** Merged legend groups of every table on screen; see `_onThresholdsApplied`. */
   @state() private _thresholdGroups: ThresholdLegendGroup[] = [];
+  /** What each reporting table last found, so one table cannot hide another's rules. */
+  private _groupsBySource = new Map<Element, ThresholdLegendGroup[]>();
   @state() private _legendOpen = false;
   @state() private _inEditor = false;
   @state() private _viewState: ViewState = {
@@ -56,10 +67,15 @@ export class CalendarStatsCard extends LitElement {
   private _fetchAbortFlag = 0;
   /** True once the earliest-data probe ran (whether or not it found data). */
   private _earliestProbed = false;
+
+  /** The in-flight (or settled) earliest-data probe, awaited by the 'all' preset. */
+  private _earliestProbe: Promise<void> | null = null;
   private _warnedPredecessors = new Set<string>();
+  /** Identity of the row list the cached statistics were fetched for. */
+  private _statisticsSignature: string | null = null;
   /** Shared auto-contrast text-color resolver, so legend swatches match data cells. */
   private _contrast = new ContrastResolver();
-  private readonly _emptyDailyValues = new Map();
+  private readonly _emptyDailyValues = new DailyValueIndex();
   private readonly _emptyMonthlySummaries = new Map();
   private readonly _emptyEntityMetadata = new Map();
 
@@ -240,16 +256,24 @@ export class CalendarStatsCard extends LitElement {
     return this._granularity() === 'year' ? { year: earliest.year, month: 1 } : earliest;
   }
 
+  /**
+   * Home Assistant detaches and reattaches cards when a dashboard view is
+   * switched or a card is dragged, so everything torn down on disconnect is
+   * set up again here — including the editor context, which a move can change.
+   */
   connectedCallback(): void {
     super.connectedCallback();
-    // Walk the composed DOM tree (crossing shadow root boundaries) to detect editor context.
-    // :host-context() cannot cross shadow DOM boundaries, so JS traversal is required.
-    const editorTags = new Set(['hui-card-element-editor', 'hui-dialog-edit-card', 'ha-dialog']);
+    this._inEditor = this._hasEditorAncestor();
+    this._scheduleMidnightRefresh();
+  }
+
+  /** Walks the composed tree for an editor host. `:host-context()` cannot
+   *  cross shadow DOM boundaries, so the traversal is done in JS. */
+  private _hasEditorAncestor(): boolean {
     let ancestor: Node | null = this.parentNode;
     while (ancestor) {
-      if (ancestor instanceof Element && editorTags.has(ancestor.tagName.toLowerCase())) {
-        this._inEditor = true;
-        return;
+      if (ancestor instanceof Element && EDITOR_TAGS.has(ancestor.tagName.toLowerCase())) {
+        return true;
       }
       const parent: Node | null = ancestor.parentNode;
       if (parent) {
@@ -260,6 +284,7 @@ export class CalendarStatsCard extends LitElement {
         break;
       }
     }
+    return false;
   }
 
   static getConfigElement(): HTMLElement {
@@ -274,7 +299,31 @@ export class CalendarStatsCard extends LitElement {
     if (!Array.isArray(config.entities)) {
       throw new Error('calendar-stats-card: "entities" must be an array');
     }
+    const signature = statisticsSignature(config.entities);
+    const staleCache = this._config !== null && signature !== this._statisticsSignature;
+    this._statisticsSignature = signature;
     this._config = config;
+    if (staleCache) this._discardStatistics();
+  }
+
+  /**
+   * Drops everything derived from the previous row list. Monthly summaries are
+   * keyed by row index and daily values by entity id, so a cache kept across an
+   * edited row list would render one configuration's numbers under another's
+   * labels. Editing only colors or precision leaves the signature alone.
+   */
+  private _discardStatistics(): void {
+    this._viewState = {
+      ...this._viewState,
+      statisticsByYear: new Map(),
+      entityErrors: new Set(),
+      earliestDataYear: null,
+      earliestDataMonth: null,
+    };
+    this._warnedPredecessors.clear();
+    this._earliestProbed = false;
+    this._earliestProbe = null;
+    void this._fetchRange(this._viewState.range);
   }
 
   set hass(hass: HomeAssistant) {
@@ -370,6 +419,7 @@ export class CalendarStatsCard extends LitElement {
     if (!this._hass || !this._config) return;
 
     const token = ++this._fetchAbortFlag;
+    this._pruneStatistics(range);
     this._viewState = { ...this._viewState, isLoading: true };
     this.requestUpdate();
 
@@ -382,6 +432,56 @@ export class CalendarStatsCard extends LitElement {
     if (token !== this._fetchAbortFlag) return;
     this._viewState = { ...this._viewState, isLoading: false };
     this.requestUpdate();
+  }
+
+  /** Drops cached years the range no longer needs; see `retainedYears`. */
+  private _pruneStatistics(range: DateRange): void {
+    const cached = this._viewState.statisticsByYear;
+    const keep = retainedYears(range);
+    let evicts = false;
+    for (const year of cached.keys()) {
+      if (!keep.has(year)) {
+        evicts = true;
+        break;
+      }
+    }
+    if (!evicts) return;
+    const kept = new Map<number, YearStatistics>();
+    for (const [year, stats] of cached) {
+      if (keep.has(year)) kept.set(year, stats);
+    }
+    this._viewState = { ...this._viewState, statisticsByYear: kept };
+  }
+
+  /**
+   * Resolves the first recorded data point once, from the earliest monthly
+   * statistics bucket (HA metadata carries no earliest-data timestamp). The
+   * probe scans every recorded month, so it runs beside the year fetch rather
+   * than ahead of it: what it bounds — the months before data starts and how
+   * far back paging goes — only matters after the first table is on screen.
+   */
+  private _probeEarliest(entityIds: string[]): void {
+    if (this._earliestProbed || !this._hass) return;
+    this._earliestProbed = true;
+    // A cached answer renders the correct bounds at once; the probe below still
+    // runs and overwrites it, so a stale entry survives at most one load.
+    const cacheKey = earliestCacheKey(entityIds);
+    const cached = readCachedEarliest(cacheKey);
+    if (cached) this._applyEarliest(cached);
+    const hass = this._hass;
+    this._earliestProbe = this._service.findEarliestDataPoint(hass, entityIds)
+      .then((meta) => {
+        // The earliest data point does not depend on the viewed range, so a
+        // range change while the probe is in flight does not invalidate it.
+        if (!meta) return;
+        const anchor = { year: meta.earliestYear, month: meta.earliestMonth };
+        writeCachedEarliest(cacheKey, anchor);
+        this._applyEarliest(anchor);
+      })
+      .catch(() => {
+        // A failed probe leaves the range unbounded; the year fetch reports
+        // entity errors on its own.
+      });
   }
 
   private async _fetchOneYear(year: number, token: number): Promise<boolean> {
@@ -403,22 +503,9 @@ export class CalendarStatsCard extends LitElement {
     const monthlyStartTime = `${year - 1}-12-01T00:00:00Z`;
     const endTime = `${year + 1}-01-01T00:00:00Z`;
 
-    try {
-      // Resolve the first recorded data point once, from the earliest monthly
-      // statistics bucket (HA metadata carries no earliest-data timestamp).
-      if (!this._earliestProbed) {
-        const meta = await this._service.findEarliestDataPoint(this._hass, entityIds);
-        if (token !== this._fetchAbortFlag) return false;
-        this._earliestProbed = true;
-        if (meta) {
-          this._viewState = {
-            ...this._viewState,
-            earliestDataYear: meta.earliestYear,
-            earliestDataMonth: meta.earliestMonth,
-          };
-        }
-      }
+    this._probeEarliest(entityIds);
 
+    try {
       const [dailyRaw, monthlyRaw, statMeta] = await Promise.all([
         this._service.fetchDailyStats(this._hass, entityIds, dailyStartTime, endTime),
         this._service.fetchMonthlyStats(this._hass, entityIds, monthlyStartTime, endTime),
@@ -484,21 +571,20 @@ export class CalendarStatsCard extends LitElement {
           const daysInMonth = new Date(year, m, 0).getDate();
           for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            const key = `${cfg.expression}::${dateStr}`;
             if (dateStr >= todayStr) {
-              dailyValues.set(key, { kind: 'empty', entityId: cfg.expression, date: dateStr });
+              dailyValues.set(cfg.expression, dateStr, { kind: 'empty', entityId: cfg.expression, date: dateStr });
               continue;
             }
             const context: Record<string, number> = {};
             let hasData = false;
             for (const id of exprEntityIds) {
-              const v = dailyValues.get(`${id}::${dateStr}`);
+              const v = dailyValues.get(id, dateStr);
               if (v?.kind === 'cumulative') { context[id] = v.sum; hasData = true; }
               else if (v?.kind === 'measurement') { context[id] = v.mean; hasData = true; }
               else { context[id] = 0; }
             }
             if (hasData) {
-              dailyValues.set(key, {
+              dailyValues.set(cfg.expression, dateStr, {
                 kind: 'cumulative',
                 entityId: cfg.expression,
                 date: dateStr,
@@ -625,11 +711,38 @@ export class CalendarStatsCard extends LitElement {
     this._applyRange(stepped);
   };
 
-  private _onRangeSelected(e: CustomEvent): void {
+  /**
+   * Waits for the earliest-data probe, under the loading overlay. Only the
+   * 'all' preset needs it: every other range is anchored on today, so it can
+   * be applied before the probe reports.
+   */
+  private async _awaitEarliest(): Promise<void> {
+    if (!this._earliestProbe) return;
+    this._viewState = { ...this._viewState, isLoading: true };
+    try {
+      await this._earliestProbe;
+    } finally {
+      this._viewState = { ...this._viewState, isLoading: false };
+    }
+  }
+
+  private _applyEarliest(anchor: MonthAnchor): void {
+    this._viewState = {
+      ...this._viewState,
+      earliestDataYear: anchor.year,
+      earliestDataMonth: anchor.month,
+    };
+  }
+
+  private async _onRangeSelected(e: CustomEvent): Promise<void> {
     const d = e.detail as { preset?: RangePreset; start?: MonthAnchor; end?: MonthAnchor };
     const gran = this._granularity();
     let range: DateRange;
     if (d.preset) {
+      // Without the earliest year, 'all' would silently collapse to the current year.
+      if (d.preset === 'all' && this._viewState.earliestDataYear === null) {
+        await this._awaitEarliest();
+      }
       range = gran === 'year'
         ? yearPresetToRange(d.preset, this._currentYearMonth().year, this._viewState.earliestDataYear)
         : presetToRange(d.preset, this._currentYearMonth());
@@ -654,11 +767,50 @@ export class CalendarStatsCard extends LitElement {
     return total || 1;
   }
 
+  /**
+   * A table reports the rules its own cells triggered. The comparison view
+   * shows two tables at once, so the reports are merged by row label — keeping
+   * only the latest would drop whichever table reported first.
+   */
   private _onThresholdsApplied(e: CustomEvent<{ groups: ThresholdLegendGroup[] }>): void {
-    this._thresholdGroups = e.detail.groups ?? [];
+    const source = e.target;
+    if (!(source instanceof Element)) return;
+    this._groupsBySource.set(source, e.detail.groups ?? []);
+    this._thresholdGroups = this._mergedGroups();
     if (this._displayGroups().length === 0 && this._legendOpen) {
       this._setLegendOpen(false);
     }
+  }
+
+  override updated(): void {
+    // A table that left the view never reports again, so its rules are dropped
+    // here rather than lingering in the legend until some other table reports.
+    if (this._forgetDetachedSources()) this._thresholdGroups = this._mergedGroups();
+  }
+
+  /** Forgets sources no longer in the DOM; true when any were dropped. */
+  private _forgetDetachedSources(): boolean {
+    let dropped = false;
+    for (const source of this._groupsBySource.keys()) {
+      if (!source.isConnected) {
+        this._groupsBySource.delete(source);
+        dropped = true;
+      }
+    }
+    return dropped;
+  }
+
+  /** Every reporting table's groups, concatenated per row label in report order. */
+  private _mergedGroups(): ThresholdLegendGroup[] {
+    const byLabel = new Map<string, ThresholdRule[]>();
+    for (const groups of this._groupsBySource.values()) {
+      for (const g of groups) {
+        const rules = byLabel.get(g.label);
+        if (rules) rules.push(...g.rules);
+        else byLabel.set(g.label, [...g.rules]);
+      }
+    }
+    return [...byLabel].map(([label, rules]) => ({ label, rules }));
   }
 
   /** Groups with rules deduped by name (first-seen wins); groups with no named rule dropped. */

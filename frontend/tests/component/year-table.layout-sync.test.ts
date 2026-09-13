@@ -3,6 +3,7 @@ import { YearTable } from '../../src/components/year-table';
 import '../../src/components/year-summary-table';
 import '../../src/components/month-comparison-table';
 import type { EntityMetadata } from '../../src/types/statistics';
+import { dailyIndex } from '../helpers/daily-values';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -109,7 +110,7 @@ const segment = () => ({
   year: 2025,
   visibleMonths: [6],
   monthlySummaries: new Map(),
-  dailyValues: new Map(),
+  dailyValues: dailyIndex(),
   entityMetadata: new Map([['sensor.rain', rainMeta]]),
 });
 

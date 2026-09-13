@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-09-13
+
+### Changed
+
+- Performance improvements.
+
+### Fixed
+
+- Threshold days table: two rules on the same value now order by their bound, so `< 0` precedes `≤ 0` and `> 25` follows `≥ 25`.
+- Bugfixes.
+
 ## [0.8.1] - 2026-09-12
 
 ### Fixed
@@ -199,7 +210,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Threshold coloring is no longer applied to a cumulative row's total column; the total uses the static color only.
 - Table text can now be selected (for copying) in the macOS Home Assistant app by adding `-webkit-user-select` for WKWebView.
 
-[Unreleased]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/MarkusMit/calendar-stats-card/compare/v0.6.0...v0.7.0

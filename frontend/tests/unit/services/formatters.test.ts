@@ -78,6 +78,44 @@ describe('zonedDateString', () => {
     expect(constructions).toBeLessThanOrEqual(2);
   });
 
+  /** Counts `format` calls on any DateTimeFormat built while `work` runs. */
+  function countFormatCalls(work: () => void): number {
+    const Real = Intl.DateTimeFormat;
+    let calls = 0;
+    // @ts-expect-error test double for a call count
+    Intl.DateTimeFormat = function (...args: unknown[]) {
+      const instance = new (Real as unknown as new (...a: unknown[]) => Intl.DateTimeFormat)(...args);
+      const format = instance.format.bind(instance);
+      // `format` is a prototype getter, so it cannot be patched on the instance;
+      // callers only ever call it, so a stand-in carrying it is enough.
+      return { format: (date?: Date | number) => { calls++; return format(date); } } as unknown as Intl.DateTimeFormat;
+    };
+    try {
+      work();
+    } finally {
+      Intl.DateTimeFormat = Real;
+    }
+    return calls;
+  }
+
+  it('still hits for a working set larger than one cache generation', () => {
+    // A cache that empties itself at the cap drops to a zero hit rate as soon
+    // as the working set outgrows it — the opposite of what it is there for.
+    const TZ = 'Pacific/Chatham';
+    const DAY = 86_400_000;
+    const base = Date.UTC(1990, 0, 1);
+    const OVERFLOW = 25_000; // above the cap
+
+    const calls = countFormatCalls(() => {
+      for (let i = 0; i < OVERFLOW; i++) zonedDateString(base + i * DAY, TZ);
+      // Re-read the oldest keys: they must not all have been thrown away.
+      for (let i = 0; i < 1000; i++) zonedDateString(base + i * DAY, TZ);
+    });
+
+    // The cold pass is unavoidable; the 1000 re-reads must cost nothing.
+    expect(calls).toBe(OVERFLOW);
+  });
+
   it('converts a repeated timestamp without formatting it again', () => {
     const stamp = Date.UTC(2032, 2, 3, 10);
     const first = zonedDateString(stamp, 'Europe/Vienna');

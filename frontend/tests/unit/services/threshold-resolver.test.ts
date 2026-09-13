@@ -394,6 +394,25 @@ describe('buildCellStyle', () => {
     expect(buildCellStyle(undefined, undefined, rule)).toBe('background-color:red');
   });
 
+  it('threshold without colors and no statics → undefined', () => {
+    const rule: ThresholdRule = { operator: 'above', value: 10 };
+    expect(buildCellStyle(undefined, undefined, rule)).toBeUndefined();
+  });
+
+  // An empty-string background is *defined*, so it still opts the cell into
+  // auto-contrast text even though it renders nothing itself.
+  it('empty-string background with auto-contrast → text color only', () => {
+    expect(buildCellStyle(undefined, '', undefined, '#000000')).toBe('color:#000000');
+  });
+
+  it('empty-string colors with no auto-contrast → undefined', () => {
+    expect(buildCellStyle('', '', undefined)).toBeUndefined();
+  });
+
+  it('auto-contrast is ignored when no background is set', () => {
+    expect(buildCellStyle(undefined, undefined, undefined, '#ffffff')).toBeUndefined();
+  });
+
   it('static text only, no threshold → only text in style', () => {
     expect(buildCellStyle('green', undefined, undefined)).toBe('color:green');
   });

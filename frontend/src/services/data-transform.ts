@@ -1,5 +1,4 @@
 import type {
-  DailyValue,
   MeasurementDailyValue,
   CumulativeDailyValue,
   EmptyDailyValue,
@@ -13,6 +12,7 @@ import type { EntityConfig } from '../types/card-config';
 import type { RawStats, RawStatEntry } from './statistics-service';
 import { isCompatiblePredecessor } from './predecessor-resolver';
 import { zonedDateString } from './formatters';
+import { DailyValueIndex } from './daily-value-index';
 
 function dateStringInTz(timestampMs: number, timeZone: string): string {
   return zonedDateString(timestampMs, timeZone);
@@ -28,16 +28,16 @@ function yearMonthInTz(timestampMs: number, timeZone: string): { year: number; m
 }
 
 /**
- * Transform raw HA daily-period statistics into a map of DailyValue entries.
- * Key format: `${entityId}::${date}` (date in HA server timezone, YYYY-MM-DD)
+ * Transform raw HA daily-period statistics into a `DailyValueIndex`, addressed
+ * by entity id and calendar date (date in HA server timezone, YYYY-MM-DD).
  */
 export function transformDailyStats(
   rawStats: RawStats,
   metadataMap: Record<string, EntityMetadata>,
   timeZone: string,
   nowMs: number,
-): Map<string, DailyValue> {
-  const result = new Map<string, DailyValue>();
+): DailyValueIndex {
+  const result = new DailyValueIndex();
   const todayStr = todayStringInTz(timeZone, nowMs);
 
   for (const [entityId, entries] of Object.entries(rawStats)) {
@@ -52,12 +52,11 @@ export function transformDailyStats(
     for (let i = 0; i < sorted.length; i++) {
       const entry = sorted[i]!;
       const dateStr = dateStringInTz(entry.start, timeZone);
-      const key = `${entityId}::${dateStr}`;
 
       // Today and future → empty
       if (dateStr >= todayStr) {
         const empty: EmptyDailyValue = { kind: 'empty', entityId, date: dateStr };
-        result.set(key, empty);
+        result.set(entityId, dateStr, empty);
         continue;
       }
 
@@ -70,7 +69,7 @@ export function transformDailyStats(
           mean: entry.mean ?? 0,
           max: entry.max ?? 0,
         };
-        result.set(key, dayVal);
+        result.set(entityId, dateStr, dayVal);
       } else {
         // Cumulative. HA's `change` is the delta against the previous row even when
         // that row lies before the fetch window (sparse imported statistics); the
@@ -88,7 +87,7 @@ export function transformDailyStats(
           date: dateStr,
           sum: delta,
         };
-        result.set(key, dayVal);
+        result.set(entityId, dateStr, dayVal);
       }
     }
   }
@@ -102,7 +101,7 @@ export function computeMonthlySummaryFromDailyValues(
   month: number,
   isMeasurement: boolean,
   excludeZero: boolean,
-  dailyValues: Map<string, DailyValue>,
+  dailyValues: DailyValueIndex,
 ): MonthlySummary | null {
   if (isMeasurement) {
     // HA monthly stats return min/max of period means, not true min/max of the month.
@@ -111,9 +110,10 @@ export function computeMonthlySummaryFromDailyValues(
     const means: number[] = [];
     const maxes: number[] = [];
     const daysInMonth = new Date(year, month, 0).getDate();
+    const row = dailyValues.row(entityId);
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const dayVal = dailyValues.get(`${entityId}::${dateStr}`);
+      const dayVal = row?.get(dateStr);
       if (dayVal?.kind === 'measurement') {
         mins.push(dayVal.min);
         means.push(dayVal.mean);
@@ -167,7 +167,7 @@ export function rowSummaryKey(rowIndex: number, rowKey: string, year: number, mo
 export function transformMonthlyStats(
   rawStats: RawStats,
   metadataMap: Record<string, EntityMetadata>,
-  dailyValues: Map<string, DailyValue>,
+  dailyValues: DailyValueIndex,
   entityConfigs: EntityConfig[],
   viewingYear: number,
   timeZone: string,
@@ -334,11 +334,12 @@ export function computeMeasurementYearRollup(
   year: number,
   visibleMonths: number[],
   monthlySummaries: Map<string, MonthlySummary>,
-  dailyValues: Map<string, DailyValue>,
+  dailyValues: DailyValueIndex,
 ): YearlyRollup {
   const mins: number[] = [];
   const maxes: number[] = [];
   const dayMeans: number[] = [];
+  const row = dailyValues.row(entityId);
 
   for (const month of visibleMonths) {
     const summary = monthlySummaries.get(rowSummaryKey(rowIndex, entityId, year, month));
@@ -348,7 +349,7 @@ export function computeMeasurementYearRollup(
     const daysInMonth = new Date(year, month, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const dayVal = dailyValues.get(`${entityId}::${dateStr}`);
+      const dayVal = row?.get(dateStr);
       if (dayVal?.kind === 'measurement') dayMeans.push(dayVal.mean);
     }
   }
@@ -457,15 +458,16 @@ export function collectDailySums(
   entityId: string,
   year: number,
   month: number,
-  dailyValues: Map<string, DailyValue>,
+  dailyValues: DailyValueIndex,
   excludeZero: boolean,
 ): number[] {
   const sums: number[] = [];
   const daysInMonth = new Date(year, month, 0).getDate();
+  const row = dailyValues.row(entityId);
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const entry = dailyValues.get(`${entityId}::${dateStr}`);
+    const entry = row?.get(dateStr);
     if (entry?.kind === 'cumulative') {
       if (!excludeZero || entry.sum !== 0) {
         sums.push(entry.sum);

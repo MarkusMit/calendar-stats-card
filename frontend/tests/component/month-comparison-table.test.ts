@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { MonthComparisonTable } from '../../src/components/month-comparison-table';
 import type { EntityConfig, ThresholdLegendGroup } from '../../src/types/card-config';
-import type { MonthlySummary, EntityMetadata, DailyValue } from '../../src/types/statistics';
+import type { MonthlySummary, EntityMetadata } from '../../src/types/statistics';
 import { rowSummaryKey } from '../../src/services/data-transform';
+import { dailyIndex } from '../helpers/daily-values';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -48,7 +49,7 @@ function makeSegments(specs: SegmentSpec[]) {
       year: spec.year,
       visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1),
       monthlySummaries,
-      dailyValues: new Map<string, DailyValue>(),
+      dailyValues: dailyIndex(),
       entityMetadata: new Map([['sensor.temp', tempMeta], ['sensor.rain', rainMeta]]),
     };
   });

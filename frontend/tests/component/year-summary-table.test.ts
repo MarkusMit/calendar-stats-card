@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { YearSummaryTable } from '../../src/components/year-summary-table';
 import type { EntityConfig } from '../../src/types/card-config';
-import type { MonthlySummary, EntityMetadata, DailyValue } from '../../src/types/statistics';
+import type { MonthlySummary, EntityMetadata } from '../../src/types/statistics';
 import { rowSummaryKey } from '../../src/services/data-transform';
+import { dailyIndex } from '../helpers/daily-values';
+import type { DailyValueIndex } from '../../src/services/daily-value-index';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -45,7 +47,7 @@ async function renderTable(overrides: Partial<{
   entityConfigs: EntityConfig[];
   monthlySummaries: Map<string, MonthlySummary>;
   entityMetadata: Map<string, EntityMetadata>;
-  dailyValues: Map<string, DailyValue>;
+  dailyValues: DailyValueIndex;
   visibleMonths: number[];
   lang: string;
 }> = {}): Promise<YearSummaryTable> {
@@ -54,7 +56,7 @@ async function renderTable(overrides: Partial<{
     year: YEAR,
     visibleMonths: overrides.visibleMonths ?? Array.from({ length: 12 }, (_, i) => i + 1),
     monthlySummaries: overrides.monthlySummaries ?? new Map(),
-    dailyValues: overrides.dailyValues ?? new Map(),
+    dailyValues: overrides.dailyValues ?? dailyIndex(),
     entityMetadata: overrides.entityMetadata ?? new Map([['sensor.temp', tempMeta]]),
   }];
   el.entityConfigs = overrides.entityConfigs ?? [{ entity: 'sensor.temp' }];
@@ -153,8 +155,8 @@ describe('YearSummaryTable — grid structure (T004)', () => {
     const el = new YearSummaryTable();
     const meta = new Map([['sensor.rain', rainMeta]]);
     el.segments = [
-      { year: YEAR - 1, visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1), monthlySummaries: new Map(), dailyValues: new Map(), entityMetadata: meta },
-      { year: YEAR, visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1), monthlySummaries: new Map(), dailyValues: new Map(), entityMetadata: meta },
+      { year: YEAR - 1, visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1), monthlySummaries: new Map(), dailyValues: dailyIndex(), entityMetadata: meta },
+      { year: YEAR, visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1), monthlySummaries: new Map(), dailyValues: dailyIndex(), entityMetadata: meta },
     ];
     el.entityConfigs = [{ entity: 'sensor.rain' }];
     el.entityErrors = new Set();

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { YearSummaryTable } from '../../src/components/year-summary-table';
-import type { MonthlySummary, EntityMetadata, DailyValue, MeasurementDailyValue } from '../../src/types/statistics';
+import type { MonthlySummary, EntityMetadata, MeasurementDailyValue } from '../../src/types/statistics';
 import { rowSummaryKey } from '../../src/services/data-transform';
+import { dailyIndex } from '../helpers/daily-values';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -56,7 +57,7 @@ async function renderMixed(): Promise<YearSummaryTable> {
     visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1),
     monthlySummaries: summaries,
     // temp: 3 days at 10 in Jan, 1 day at 30 in Jul → day-weighted avg = 15
-    dailyValues: new Map<string, DailyValue>([
+    dailyValues: dailyIndex([
       dailyTemp(1, 1, 10), dailyTemp(1, 2, 10), dailyTemp(1, 3, 10),
       dailyTemp(7, 1, 30),
     ]),

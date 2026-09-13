@@ -175,6 +175,16 @@ export function rangeYears(range: DateRange): number[] {
 }
 
 /**
+ * Years whose fetched statistics are worth keeping for `range`: the years it
+ * spans, plus one on either side so stepping one page back or forward does not
+ * refetch. Everything else is dropped — a dashboard paged far back would
+ * otherwise hold every year it ever visited.
+ */
+export function retainedYears(range: DateRange): Set<number> {
+  return new Set([range.start.year - 1, ...rangeYears(range), range.end.year + 1]);
+}
+
+/**
  * Months of `year` visible for the range, clamped so nothing after `now` and
  * nothing before `earliest` shows. Returns an empty array for years fully
  * outside the available window.

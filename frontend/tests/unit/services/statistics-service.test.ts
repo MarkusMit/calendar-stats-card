@@ -68,6 +68,29 @@ describe('StatisticsService.findEarliestDataPoint', () => {
     expect(result).toEqual({ earliestYear: 2021, earliestMonth: 9 });
   });
 
+  it('probes back to 1900 so imported historical statistics are not cut off', async () => {
+    const send = vi.fn().mockResolvedValue({});
+    const hass = makeHass('2026.5.0', send);
+    const svc = new StatisticsService();
+    await svc.findEarliestDataPoint(hass, ENTITY_IDS);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ start_time: '1900-01-01T00:00:00Z' }),
+    );
+  });
+
+  it('resolves a pre-1970 bucket, whose timestamp is negative', async () => {
+    const t = Date.UTC(1950, 5, 1); // Jun 1950 — negative epoch milliseconds
+    const send = vi.fn().mockResolvedValue({
+      'sensor.temp': [{ start: t, end: t + 1, mean: 5 }],
+    });
+    const hass = makeHass('2026.5.0', send);
+    const svc = new StatisticsService();
+    expect(await svc.findEarliestDataPoint(hass, ENTITY_IDS)).toEqual({
+      earliestYear: 1950,
+      earliestMonth: 6,
+    });
+  });
+
   it('returns null when no entity has any statistics', async () => {
     const send = vi.fn().mockResolvedValue({});
     const hass = makeHass('2026.5.0', send);
