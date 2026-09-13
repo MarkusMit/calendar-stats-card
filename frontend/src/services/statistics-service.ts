@@ -34,6 +34,13 @@ export type StatisticsMetadataResult = {
 };
 
 
+/**
+ * Lower bound of the earliest-data probe. Recorder filters on an indexed
+ * start_ts, so a bound below the earliest row costs nothing and keeps
+ * imported historical series in range.
+ */
+export const EARLIEST_PROBE_START = '1900-01-01T00:00:00Z';
+
 export class StatisticsService {
   /** Metadata responses keyed by sorted, deduplicated id list. */
   private readonly _metadataCache = new Map<string, Promise<Map<string, StatisticMetaEntry>>>();
@@ -121,7 +128,7 @@ export class StatisticsService {
     const stats = await this.fetchMonthlyStats(
       hass,
       entityIds,
-      '2000-01-01T00:00:00Z',
+      EARLIEST_PROBE_START,
       new Date().toISOString(),
     );
 

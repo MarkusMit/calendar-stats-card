@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { CalendarStatsCard } from '../../src/calendar-stats-card';
 import type { HomeAssistant } from '../../src/types/ha-types';
 import type { CardConfig } from '../../src/types/card-config';
+import { EARLIEST_PROBE_START } from '../../src/services/statistics-service';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -46,7 +47,7 @@ function makeHassWithStalledProbe(): { hass: HomeAssistant; probeCalls: () => nu
     connection: {
       sendMessagePromise: vi.fn().mockImplementation((msg: Record<string, unknown>) => {
         if (msg['type'] === 'recorder/get_statistics_metadata') return Promise.resolve([]);
-        if (msg['start_time'] === '2000-01-01T00:00:00Z') {
+        if (msg['start_time'] === EARLIEST_PROBE_START) {
           probes++;
           return new Promise(() => {});
         }
@@ -76,7 +77,7 @@ function makeHassWithDeferredProbe(earliestYear: number): {
     connection: {
       sendMessagePromise: vi.fn().mockImplementation(async (msg: Record<string, unknown>) => {
         if (msg['type'] === 'recorder/get_statistics_metadata') return [];
-        if (msg['start_time'] === '2000-01-01T00:00:00Z') {
+        if (msg['start_time'] === EARLIEST_PROBE_START) {
           await gate;
           return { [TEMP]: [{ start: earliestStart, end: earliestStart + 1, sum: 1 }] };
         }
@@ -168,7 +169,7 @@ describe('CalendarStatsCard — the earliest data point is cached across card in
       connection: {
         sendMessagePromise: vi.fn().mockImplementation((msg: Record<string, unknown>) => {
           if (msg['type'] === 'recorder/get_statistics_metadata') return Promise.resolve([]);
-          if (msg['start_time'] === '2000-01-01T00:00:00Z') {
+          if (msg['start_time'] === EARLIEST_PROBE_START) {
             return stall
               ? new Promise(() => {})
               : Promise.resolve({ [TEMP]: [{ start: earliestStart, end: earliestStart + 1, sum: 1 }] });
