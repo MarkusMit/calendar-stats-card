@@ -498,6 +498,21 @@ export class YearTable extends LitElement {
     return keys;
   }
 
+  private _dayKeysMemo: { sections: MonthSegment[]; value: string[][] } | null = null;
+
+  /**
+   * Every section's day keys, rebuilt only when the section list itself
+   * changes. The dates a section covers do not depend on anything else, and
+   * rebuilding them per render is 31 strings per month on the render path.
+   */
+  private _sectionDayKeys(sections: MonthSegment[]): string[][] {
+    const memo = this._dayKeysMemo;
+    if (memo && memo.sections === sections) return memo.value;
+    const value = sections.map((sec) => this.dayKeys(sec.year, sec.month));
+    this._dayKeysMemo = { sections, value };
+    return value;
+  }
+
   private _columnTextMemo: { deps: readonly unknown[]; value: ColumnText } | null = null;
 
   /**
@@ -523,8 +538,9 @@ export class YearTable extends LitElement {
     const total: ColumnExtremes = new Map();
     let label = '';
 
-    for (const sec of sections) {
-      const dayKeys = this.dayKeys(sec.year, sec.month);
+    const dayKeysBySection = this._sectionDayKeys(sections);
+    sections.forEach((sec, sectionIndex) => {
+      const dayKeys = dayKeysBySection[sectionIndex]!;
       this.entityConfigs.forEach((cfg, rowIndex) => {
         const key = rowKey(cfg);
         const meta = sec.entityMetadata.get(key);
@@ -553,7 +569,7 @@ export class YearTable extends LitElement {
         if (summary.max != null) note(high, precision, summary.max * f);
         if (summary.total != null) note(total, precision, summary.total * f);
       });
-    }
+    });
 
     const value: ColumnText = {
       label,
@@ -808,6 +824,7 @@ export class YearTable extends LitElement {
     const hasCumulative = this.hasCumulative(sections);
     const hasMeasurement = this.hasMeasurement(sections);
     const rowCount = this._sectionRowCount(sections);
+    const dayKeysBySection = this._sectionDayKeys(sections);
     this._rowCount = rowCount;
     this._resetMountedSections(sections, rowCount);
     // Cross-year section mode always shows the year in the month header.
@@ -818,7 +835,7 @@ export class YearTable extends LitElement {
         <table>
           ${sections.map((sec, sectionIndex) => {
             const days = this.daysInMonth(sec.year, sec.month);
-            const dayKeys = this.dayKeys(sec.year, sec.month);
+            const dayKeys = dayKeysBySection[sectionIndex]!;
             // Weekday of the 1st, then count forward — one Date per month instead of one per day.
             const firstWeekday = new Date(sec.year, sec.month - 1, 1).getDay();
             const dayHeaders = [];

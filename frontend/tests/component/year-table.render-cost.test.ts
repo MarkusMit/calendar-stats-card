@@ -173,3 +173,29 @@ describe('YearTable — section list identity', () => {
     expect(inner._sections()).toBe(first);
   });
 });
+
+describe('YearTable — day key cost per render', () => {
+  it('builds the day keys of a section once, not again on every render', async () => {
+    const el = document.createElement('calendar-stats-year-table') as YearTable;
+    Object.assign(el, { year: YEAR, visibleMonths: MONTHS, entityConfigs: [...CONFIGS], ...buildData() });
+    document.body.appendChild(el);
+    await el.updateComplete;
+
+    const proto = Object.getPrototypeOf(el) as { dayKeys: (y: number, m: number) => string[] };
+    const original = proto.dayKeys;
+    let calls = 0;
+    proto.dayKeys = function (this: YearTable, y: number, m: number) {
+      calls++;
+      return original.call(this, y, m);
+    };
+    try {
+      el.lang = 'de';
+      await el.updateComplete;
+    } finally {
+      proto.dayKeys = original;
+    }
+
+    // The sections did not change, so their date strings did not either.
+    expect(calls).toBe(0);
+  });
+});
