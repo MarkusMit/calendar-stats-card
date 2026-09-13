@@ -30,6 +30,11 @@ import './components/range-navigator';
 import './components/exceedance-table';
 import './components/calendar-stats-card-editor';
 
+/** Hosts that mean the card is being previewed inside the Lovelace editor. */
+const EDITOR_TAGS: ReadonlySet<string> = new Set([
+  'hui-card-element-editor', 'hui-dialog-edit-card', 'ha-dialog',
+]);
+
 @customElement('calendar-stats-card')
 export class CalendarStatsCard extends LitElement {
   @state() private _config: CardConfig | null = null;
@@ -251,16 +256,24 @@ export class CalendarStatsCard extends LitElement {
     return this._granularity() === 'year' ? { year: earliest.year, month: 1 } : earliest;
   }
 
+  /**
+   * Home Assistant detaches and reattaches cards when a dashboard view is
+   * switched or a card is dragged, so everything torn down on disconnect is
+   * set up again here — including the editor context, which a move can change.
+   */
   connectedCallback(): void {
     super.connectedCallback();
-    // Walk the composed DOM tree (crossing shadow root boundaries) to detect editor context.
-    // :host-context() cannot cross shadow DOM boundaries, so JS traversal is required.
-    const editorTags = new Set(['hui-card-element-editor', 'hui-dialog-edit-card', 'ha-dialog']);
+    this._inEditor = this._hasEditorAncestor();
+    this._scheduleMidnightRefresh();
+  }
+
+  /** Walks the composed tree for an editor host. `:host-context()` cannot
+   *  cross shadow DOM boundaries, so the traversal is done in JS. */
+  private _hasEditorAncestor(): boolean {
     let ancestor: Node | null = this.parentNode;
     while (ancestor) {
-      if (ancestor instanceof Element && editorTags.has(ancestor.tagName.toLowerCase())) {
-        this._inEditor = true;
-        return;
+      if (ancestor instanceof Element && EDITOR_TAGS.has(ancestor.tagName.toLowerCase())) {
+        return true;
       }
       const parent: Node | null = ancestor.parentNode;
       if (parent) {
@@ -271,6 +284,7 @@ export class CalendarStatsCard extends LitElement {
         break;
       }
     }
+    return false;
   }
 
   static getConfigElement(): HTMLElement {
