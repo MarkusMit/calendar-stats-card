@@ -422,3 +422,37 @@ describe('countExceedances — per-year breakdown', () => {
     expect(row.byYear).toEqual([]);
   });
 });
+
+/** Counts `new Set(...)` while the given work runs. */
+function countSetConstructions(work: () => void): number {
+  const RealSet = globalThis.Set;
+  let count = 0;
+  globalThis.Set = new Proxy(RealSet, {
+    construct(target, args) {
+      count++;
+      return Reflect.construct(target, args);
+    },
+  }) as SetConstructor;
+  try {
+    work();
+  } finally {
+    globalThis.Set = RealSet;
+  }
+  return count;
+}
+
+describe('countExceedances — allocation per day', () => {
+  it('reuses its per-day rule sets instead of building a pair for every day', () => {
+    const sums: Record<number, number> = {};
+    for (let d = 1; d <= 31; d++) sums[d] = d;
+    const stats = rainYear(sums);
+    const entities = [rainRow([WET])];
+
+    const constructions = countSetConstructions(() => {
+      countExceedances(entities, JAN_2025, stats);
+    });
+
+    // A pair per day would be 62 for January alone.
+    expect(constructions).toBeLessThanOrEqual(4);
+  });
+});

@@ -91,6 +91,10 @@ export function countExceedances(
     // Per year, the same two tallies — every segment year gets an entry, even
     // one without data, so the yearly view can show a column for it.
     const perYear = new Map<number, { band: Map<ThresholdRule, number>; cumulative: Map<ThresholdRule, number> }>();
+    // Reused across every day of the row: a fresh pair per day would be two
+    // sets for each of up to 366 days, per entity.
+    const dayCumulative = new Set<ThresholdRule>();
+    const dayBand = new Set<ThresholdRule>();
     let meta;
 
     for (const seg of segments) {
@@ -106,8 +110,8 @@ export function countExceedances(
           const val = row?.get(dateKey(seg.year, month, d));
           if (!val || val.kind === 'empty') continue;
 
-          const dayCumulative = new Set<ThresholdRule>();
-          const dayBand = new Set<ThresholdRule>();
+          dayCumulative.clear();
+          dayBand.clear();
 
           for (const [value, role] of dayCandidates(val, cfg, factor)) {
             for (const rule of matchingThresholds(value, thresholds, role, 'day')) dayCumulative.add(rule);
