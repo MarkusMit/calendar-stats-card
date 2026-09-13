@@ -1,4 +1,4 @@
-import type { CellRole, EntityConfig, ThresholdRule } from '../types/card-config';
+import type { CellRole, EntityConfig, ThresholdOperator, ThresholdRule } from '../types/card-config';
 import { rowKey } from '../types/card-config';
 import type { DailyValue, YearStatistics } from '../types/statistics';
 import { matchingThresholds, resolveThreshold, EMPTY_THRESHOLDS } from './threshold-resolver';
@@ -33,6 +33,19 @@ export interface MonthSpan {
   year: number;
   months: number[];
 }
+
+/**
+ * Row order tie-break for two rules on the same value: an exclusive bound sits
+ * just inside its own range, so "< v" ranks below "≤ v" and "> v" above "≥ v".
+ */
+const BOUND_NUDGE: Record<ThresholdOperator, number> = {
+  'below': -1,
+  'above': 1,
+  'equals-below': 0,
+  'equals-above': 0,
+  'not-below': 0,
+  'not-above': 0,
+};
 
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
@@ -136,7 +149,7 @@ export function countExceedances(
     // but they have nothing to label a row with.
     const rows = thresholds
       .filter((r) => r.name && r.value != null && (r.text_color || r.background_color))
-      .sort((a, b) => a.value! - b.value!)
+      .sort((a, b) => (a.value! - b.value!) || (BOUND_NUDGE[a.operator] - BOUND_NUDGE[b.operator]))
       .map((rule) => ({
         rule,
         band: band.get(rule) ?? 0,

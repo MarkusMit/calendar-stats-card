@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Threshold days table: two rules on the same value now order by their bound, so `< 0` precedes `≤ 0` and `> 25` follows `≥ 25`.
 - Bugfixes.
 
 ## [0.8.1] - 2026-09-12

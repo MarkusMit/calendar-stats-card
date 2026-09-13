@@ -124,6 +124,24 @@ describe('countExceedances — which rules qualify', () => {
     const groups = countExceedances([rainRow([heavy, WET])], JAN_2025, stats);
     expect(groups[0]!.rows.map((r) => r.rule.name)).toEqual(['Wet day', 'Heavy day']);
   });
+
+  it('orders a strict lower bound before an inclusive one on the same value', () => {
+    // "< 0" ends just below 0, "≤ 0" includes it, so the stricter rule is the colder band.
+    const iceDay: ThresholdRule = { operator: 'not-above', value: 0, name: 'Ice day', background_color: 'cyan' };
+    const belowZero: ThresholdRule = { operator: 'below', value: 0, name: 'Below zero', background_color: 'blue' };
+    const stats = rainYear({ 1: -1 });
+    const groups = countExceedances([rainRow([iceDay, belowZero])], JAN_2025, stats);
+    expect(groups[0]!.rows.map((r) => r.rule.name)).toEqual(['Below zero', 'Ice day']);
+  });
+
+  it('orders a strict upper bound after an inclusive one on the same value', () => {
+    // "> 25" starts just above 25, "≥ 25" at it, so the stricter rule is the warmer band.
+    const above: ThresholdRule = { operator: 'above', value: 25, name: 'Summer day', background_color: 'orange' };
+    const equalsAbove: ThresholdRule = { operator: 'equals-above', value: 25, name: 'Warm day', background_color: 'yellow' };
+    const stats = rainYear({ 1: 30 });
+    const groups = countExceedances([rainRow([above, equalsAbove])], JAN_2025, stats);
+    expect(groups[0]!.rows.map((r) => r.rule.name)).toEqual(['Warm day', 'Summer day']);
+  });
 });
 
 describe('countExceedances — grouping', () => {
