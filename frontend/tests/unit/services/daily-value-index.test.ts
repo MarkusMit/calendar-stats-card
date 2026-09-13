@@ -38,7 +38,7 @@ describe('DailyValueIndex', () => {
     expect(index.row('sensor.missing')).toBeUndefined();
   });
 
-  it('keeps row keys that contain the separator of the old flat key format', () => {
+  it('keeps a row key that contains :: itself, as expression row keys do', () => {
     const index = new DailyValueIndex();
     index.set('a::b + c::d', '2025-06-01', cumulative('a::b + c::d', '2025-06-01', 2));
     expect(index.get('a::b + c::d', '2025-06-01')?.kind).toBe('cumulative');

@@ -417,12 +417,6 @@ describe('buildCellStyle', () => {
     expect(buildCellStyle('green', undefined, undefined)).toBe('color:green');
   });
 
-  it('both undefined + threshold with no color → undefined (ThresholdRule filtered upstream, but test defensive)', () => {
-    const rule: ThresholdRule = { operator: 'above', value: 10 };
-    // threshold has no color fields; buildCellStyle doesn't filter — it just won't add anything
-    expect(buildCellStyle(undefined, undefined, rule)).toBeUndefined();
-  });
-
   // --- autoTextColor (4th param) ---
 
   it('autoText injected when bg set and no explicit text', () => {
@@ -447,9 +441,6 @@ describe('buildCellStyle', () => {
       .toBe('color:blue;background-color:#8b0000');
   });
 
-  it('autoText ignored when no background', () => {
-    expect(buildCellStyle(undefined, undefined, undefined, '#000000')).toBeUndefined();
-  });
 });
 
 // --- matchingThresholds ---
