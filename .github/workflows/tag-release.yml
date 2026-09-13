@@ -1,0 +1,73 @@
+name: Tag release
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+# No default token permissions; the job declares exactly what it needs.
+permissions: {}
+
+concurrency:
+  group: tag-release-${{ github.event.pull_request.merge_commit_sha }}
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Tag the merge commit and start the release
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the tag ref on main
+      actions: write # dispatch the Release workflow
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+    steps:
+      - name: Check out the merge commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          persist-credentials: false
+
+      - name: Read the version to release
+        working-directory: frontend
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::package.json version '$VERSION' is not of the form MAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=v$VERSION" >> "$GITHUB_ENV"
+
+      - name: Check CHANGELOG.md has a section for the version
+        run: |
+          awk -v ver="$VERSION" '
+            index($0, "## [" ver "]") == 1 { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > changelog-section.md
+          if [[ ! -s changelog-section.md ]]; then
+            echo "::error::CHANGELOG.md has no section for version $VERSION. Every merge to main releases: bump frontend/package.json and add the CHANGELOG section."
+            exit 1
+          fi
+
+      - name: Check the tag does not exist yet
+        run: |
+          if gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $RELEASE_TAG already exists, so this merge carries no new version."
+            exit 1
+          fi
+
+      - name: Create the tag
+        run: |
+          gh api "repos/$GH_REPO/git/refs" \
+            -f "ref=refs/tags/$RELEASE_TAG" \
+            -f "sha=$MERGE_SHA"
+
+      - name: Start the Release workflow
+        run: gh workflow run release.yml --ref main -f "tag=$RELEASE_TAG"
