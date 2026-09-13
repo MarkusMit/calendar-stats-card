@@ -325,7 +325,8 @@ export class MonthComparisonTable extends LitElement {
   }
 
   render() {
-    this._legend.reset();
+    this._legend.keepSections(1);
+    this._legend.beginSection(0);
     const hasMeasurement = this.hasMeasurement();
     const monthName = monthNameFormatter(this.lang).format(new Date(2020, this.month - 1, 1));
 

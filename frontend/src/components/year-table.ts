@@ -1,6 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { guard } from 'lit/directives/guard.js';
 import type { EntityConfig } from '../types/card-config';
 import { rowKey } from '../types/card-config';
 import type { MonthlySummary, EntityMetadata } from '../types/statistics';
@@ -143,7 +144,6 @@ export class YearTable extends LitElement {
 
   /** Triggered threshold rules grouped by entity row index (preserves config order). */
   private _legend = new ThresholdLegendCollector();
-
   /** Shared auto-contrast text-color resolver for threshold-colored cells. */
   private _contrast = new ContrastResolver();
 
@@ -539,6 +539,7 @@ export class YearTable extends LitElement {
     let label = '';
 
     const dayKeysBySection = this._sectionDayKeys(sections);
+    this._legend.keepSections(sections.length);
     sections.forEach((sec, sectionIndex) => {
       const dayKeys = dayKeysBySection[sectionIndex]!;
       this.entityConfigs.forEach((cfg, rowIndex) => {
@@ -817,7 +818,6 @@ export class YearTable extends LitElement {
   }
 
   render() {
-    this._legend.reset();
     // One scan of the sections feeds every column decision below; recomputing
     // it per row would rescan every section for every row.
     const sections = this._sections();
@@ -834,40 +834,65 @@ export class YearTable extends LitElement {
       <div class="table-container">
         <table>
           ${sections.map((sec, sectionIndex) => {
-            const days = this.daysInMonth(sec.year, sec.month);
-            const dayKeys = dayKeysBySection[sectionIndex]!;
-            // Weekday of the 1st, then count forward — one Date per month instead of one per day.
-            const firstWeekday = new Date(sec.year, sec.month - 1, 1).getDay();
-            const dayHeaders = [];
-            for (let d = 1; d <= TOTAL_DAYS; d++) {
-              if (d > days) {
-                dayHeaders.push(html`<th class="pad-cell"></th>`);
-              } else {
-                const isSunday = (firstWeekday + d - 1) % 7 === 0;
-                dayHeaders.push(html`<th class="${isSunday ? 'sunday' : ''}">${d}</th>`);
-              }
-            }
-            return html`
-              <thead>
-                <tr class="month-header-row">
-                  <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this.monthName(sec.month)}${withYear ? ` ${sec.year}` : ''}</th>
-                  ${dayHeaders}
-                  <th class="summary-column">${localize('table.summary', this.lang)}</th>
-                  ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
-                </tr>
-              </thead>
-              <tbody data-section="${sectionIndex}" ?data-placeholder=${!this._mountedSections.has(sectionIndex)}>
-                ${this._mountedSections.has(sectionIndex)
-                  ? this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, sec, days, hasMeasurement, hasCumulative, dayKeys))
-                  : this.renderSectionPlaceholder(sections, rowCount, hasMeasurement, hasCumulative)}
-              </tbody>
-            `;
+            const mounted = this._mountedSections.has(sectionIndex);
+            // Re-render a section only when something about it changed: a mount
+            // would otherwise rebuild every other mounted section with it, which
+            // makes scrolling cost more the more of the table is on screen.
+            return guard([
+              sec, mounted, rowCount, hasMeasurement, hasCumulative, withYear,
+              this.lang, this.entityConfigs, this.entityErrors, this._rowHeight,
+            ], () => this._renderSection(
+              sec, sectionIndex, mounted, dayKeysBySection[sectionIndex]!,
+              sections, rowCount, hasMeasurement, hasCumulative, withYear,
+            ));
           })}
         </table>
       </div>
       <div class="sticky-scrollbar">
         <div class="sticky-scrollbar-spacer"></div>
       </div>
+    `;
+  }
+
+  /** One month section: its header row and either its rows or a placeholder. */
+  private _renderSection(
+    sec: MonthSegment,
+    sectionIndex: number,
+    mounted: boolean,
+    dayKeys: string[],
+    sections: MonthSegment[],
+    rowCount: number,
+    hasMeasurement: boolean,
+    hasCumulative: boolean,
+    withYear: boolean,
+  ) {
+    this._legend.beginSection(sectionIndex);
+    const days = this.daysInMonth(sec.year, sec.month);
+    // Weekday of the 1st, then count forward — one Date per month instead of one per day.
+    const firstWeekday = new Date(sec.year, sec.month - 1, 1).getDay();
+    const dayHeaders = [];
+    for (let d = 1; d <= TOTAL_DAYS; d++) {
+      if (d > days) {
+        dayHeaders.push(html`<th class="pad-cell"></th>`);
+      } else {
+        const isSunday = (firstWeekday + d - 1) % 7 === 0;
+        dayHeaders.push(html`<th class="${isSunday ? 'sunday' : ''}">${d}</th>`);
+      }
+    }
+    return html`
+      <thead>
+        <tr class="month-header-row">
+          <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this.monthName(sec.month)}${withYear ? ` ${sec.year}` : ''}</th>
+          ${dayHeaders}
+          <th class="summary-column">${localize('table.summary', this.lang)}</th>
+          ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
+        </tr>
+      </thead>
+      <tbody data-section="${sectionIndex}" ?data-placeholder=${!mounted}>
+        ${mounted
+          ? this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, sec, days, hasMeasurement, hasCumulative, dayKeys))
+          : this.renderSectionPlaceholder(sections, rowCount, hasMeasurement, hasCumulative)}
+      </tbody>
     `;
   }
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import '../../src/components/year-table';
 import type { YearTable } from '../../src/components/year-table';
-import type { EntityConfig } from '../../src/types/card-config';
+import type { EntityConfig, ThresholdRule, ThresholdLegendGroup } from '../../src/types/card-config';
 import type { MonthlySummary, EntityMetadata } from '../../src/types/statistics';
 import { DailyValueIndex } from '../../src/services/daily-value-index';
 
@@ -150,6 +150,32 @@ describe('YearTable — lazily rendered month sections', () => {
     expect(placeholder(el, 7)).toBeNull();
   });
 
+  it('renders only the section that changed, not every mounted one', async () => {
+    // Cost per mount must not grow with how much is already on screen.
+    let near = 1;
+    stubSectionRects((i) => (i <= near ? 0 : 500_000));
+    const el = await renderTable();
+
+    const proto = Object.getPrototypeOf(el) as { renderEntityRows: (...args: never[]) => unknown };
+    const original = proto.renderEntityRows;
+    let rowRenders = 0;
+    proto.renderEntityRows = function (this: YearTable, ...args: never[]) {
+      rowRenders++;
+      return original.apply(this, args);
+    };
+    try {
+      near = 2;
+      window.dispatchEvent(new Event('scroll'));
+      await nextFrame();
+      await el.updateComplete;
+    } finally {
+      proto.renderEntityRows = original;
+    }
+
+    // One newly mounted section, one configured row.
+    expect(rowRenders).toBe(1);
+  });
+
   it('releases a section again once scrolling takes it far away', async () => {
     let far = false;
     stubSectionRects((i) => (i === 0 || !far ? 0 : 500_000));
@@ -162,6 +188,36 @@ describe('YearTable — lazily rendered month sections', () => {
     await el.updateComplete;
 
     expect(placeholder(el, 7)).not.toBeNull();
+  });
+
+  it('keeps the thresholds of sections that were skipped when another mounts', async () => {
+    // Mounting re-renders the table, but unchanged sections are skipped and
+    // never re-report what they triggered. Their rules have to survive that.
+    const wet: ThresholdRule = { operator: 'above', value: 10, name: 'Wet', background_color: 'blue' };
+    let near = 2;
+    stubSectionRects((i) => (i <= near ? 0 : 500_000));
+
+    const el = document.createElement('calendar-stats-year-table') as YearTable;
+    const reported: ThresholdLegendGroup[][] = [];
+    el.addEventListener('thresholds-applied', (e) => reported.push((e as CustomEvent).detail.groups));
+    Object.assign(el, {
+      year: YEAR, visibleMonths: MONTHS, lang: 'en',
+      entityConfigs: [{ entity: RAIN, thresholds: [wet] }], ...buildData(),
+    });
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await nextFrame();
+    await el.updateComplete;
+
+    // March holds the only value above the threshold and is already mounted;
+    // bringing later sections in must not drop its rule from the legend.
+    near = 6;
+    window.dispatchEvent(new Event('scroll'));
+    await nextFrame();
+    await el.updateComplete;
+
+    expect(reported.length).toBeGreaterThan(0);
+    expect(reported.at(-1)!.flatMap((g) => g.rules)).toContain(wet);
   });
 
   it('stops answering the viewport once removed from the document', async () => {

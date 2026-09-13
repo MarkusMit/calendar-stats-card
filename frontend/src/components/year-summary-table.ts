@@ -427,7 +427,8 @@ export class YearSummaryTable extends LitElement {
   }
 
   render() {
-    this._legend.reset();
+    this._legend.keepSections(1);
+    this._legend.beginSection(0);
     const hasMeasurement = this.hasMeasurement();
     const hasCumulative = this.hasCumulative();
     // Data presence is a cross-segment property — a month with data in ANY
