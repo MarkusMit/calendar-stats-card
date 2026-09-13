@@ -91,6 +91,12 @@ export function buildCellStyle(
   threshold: ThresholdRule | undefined,
   autoTextColor?: string,
 ): string | undefined {
+  // Uncolored cells are the common case and are asked for once per cell — leave
+  // before any allocation. Without statics and without a rule, nothing below can
+  // produce a color: auto-contrast needs a defined background.
+  if (staticTextColor === undefined && staticBgColor === undefined && threshold === undefined) {
+    return undefined;
+  }
   let text = staticTextColor;
   let bg = staticBgColor;
   if (threshold) {
@@ -102,8 +108,8 @@ export function buildCellStyle(
   if (text === undefined && bg !== undefined && autoTextColor !== undefined) {
     text = autoTextColor;
   }
-  const parts: string[] = [];
-  if (text) parts.push(`color:${text}`);
-  if (bg) parts.push(`background-color:${bg}`);
-  return parts.length ? parts.join(';') : undefined;
+  if (text && bg) return `color:${text};background-color:${bg}`;
+  if (text) return `color:${text}`;
+  if (bg) return `background-color:${bg}`;
+  return undefined;
 }
