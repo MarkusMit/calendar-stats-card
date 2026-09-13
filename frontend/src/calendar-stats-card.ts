@@ -11,7 +11,7 @@ import { rowKey } from './types/card-config';
 import { resolvePredecessorData } from './services/predecessor-resolver';
 import { resolveEntityMetadata } from './services/entity-metadata';
 import { extractEntityIds, evaluate } from './services/expression-evaluator';
-import { presetToRange, stepRange, rangeYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor, msUntilNextMidnight } from './services/date-range';
+import { presetToRange, stepRange, rangeYears, retainedYears, visibleMonthsForYear, atRangeStart, atRangeEnd, yearPresetToRange, snapRangeToYears, stepRangeByYears, clampRangeToFloor, msUntilNextMidnight } from './services/date-range';
 import { statisticsSignature } from './services/config-signature';
 import { localize } from './localize/localize';
 import { buildCellStyle } from './services/threshold-resolver';
@@ -402,6 +402,7 @@ export class CalendarStatsCard extends LitElement {
     if (!this._hass || !this._config) return;
 
     const token = ++this._fetchAbortFlag;
+    this._pruneStatistics(range);
     this._viewState = { ...this._viewState, isLoading: true };
     this.requestUpdate();
 
@@ -414,6 +415,25 @@ export class CalendarStatsCard extends LitElement {
     if (token !== this._fetchAbortFlag) return;
     this._viewState = { ...this._viewState, isLoading: false };
     this.requestUpdate();
+  }
+
+  /** Drops cached years the range no longer needs; see `retainedYears`. */
+  private _pruneStatistics(range: DateRange): void {
+    const cached = this._viewState.statisticsByYear;
+    const keep = retainedYears(range);
+    let evicts = false;
+    for (const year of cached.keys()) {
+      if (!keep.has(year)) {
+        evicts = true;
+        break;
+      }
+    }
+    if (!evicts) return;
+    const kept = new Map<number, YearStatistics>();
+    for (const [year, stats] of cached) {
+      if (keep.has(year)) kept.set(year, stats);
+    }
+    this._viewState = { ...this._viewState, statisticsByYear: kept };
   }
 
   /**
