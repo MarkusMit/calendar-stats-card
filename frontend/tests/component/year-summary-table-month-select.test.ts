@@ -3,6 +3,7 @@ import { YearSummaryTable } from '../../src/components/year-summary-table';
 import type { EntityConfig } from '../../src/types/card-config';
 import type { MonthlySummary, EntityMetadata } from '../../src/types/statistics';
 import { rowSummaryKey } from '../../src/services/data-transform';
+import { dailyIndex } from '../helpers/daily-values';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -39,7 +40,7 @@ async function renderTable(dataMonths: number[], overrides: Partial<{
     year: YEAR,
     visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1),
     monthlySummaries: summariesFor('sensor.rain', dataMonths),
-    dailyValues: new Map(),
+    dailyValues: dailyIndex(),
     entityMetadata: new Map([['sensor.rain', rainMeta]]),
   }];
   el.entityConfigs = overrides.entityConfigs ?? [{ entity: 'sensor.rain' }];
@@ -99,7 +100,7 @@ describe('YearSummaryTable — clickable month headers (spec 014 FR-001/FR-016)'
           entityId: 'sensor.rain', year: YEAR + 1, month: 7,
           min: null, mean: null, max: null, total: 2,
         }]]),
-        dailyValues: new Map(),
+        dailyValues: dailyIndex(),
         entityMetadata: new Map([['sensor.rain', rainMeta]]),
       },
     ];

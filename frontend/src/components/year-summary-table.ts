@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { EntityConfig, ThresholdRule, ThresholdLegendGroup } from '../types/card-config';
 import { rowKey } from '../types/card-config';
-import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
+import type { MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle, EMPTY_THRESHOLDS } from '../services/threshold-resolver';
 import { NBSP } from './year-table';
@@ -12,6 +12,7 @@ import { FrameScheduler } from '../services/frame-scheduler';
 import { rowSummaryKey, computeMeasurementYearRollup, computeCumulativeYearRollup } from '../services/data-transform';
 import { resolvePrecision } from './year-table';
 import { numberFormatter, monthShortFormatter } from '../services/formatters';
+import type { DailyValueIndex } from '../services/daily-value-index';
 
 const ALL_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 
@@ -20,7 +21,7 @@ export interface YearSummarySegment {
   year: number;
   visibleMonths: number[];
   monthlySummaries: Map<string, MonthlySummary>;
-  dailyValues: Map<string, DailyValue>;
+  dailyValues: DailyValueIndex;
   entityMetadata: Map<string, EntityMetadata>;
 }
 

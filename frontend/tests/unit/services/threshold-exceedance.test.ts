@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { countExceedances } from '../../../src/services/threshold-exceedance';
 import type { EntityConfig, ThresholdRule } from '../../../src/types/card-config';
-import type { DailyValue, EntityMetadata, YearStatistics } from '../../../src/types/statistics';
+import type { EntityMetadata, YearStatistics } from '../../../src/types/statistics';
+import { dailyIndex } from '../../helpers/daily-values';
 
 const RAIN_META: EntityMetadata = {
   entityId: 'sensor.rain',
@@ -18,10 +19,10 @@ function day(n: number): string {
 
 /** One year of cumulative daily sums for sensor.rain, keyed by day-of-month. */
 function rainYear(sums: Record<number, number | null>, meta: EntityMetadata = RAIN_META): Map<number, YearStatistics> {
-  const dailyValues = new Map<string, DailyValue>();
+  const dailyValues = dailyIndex();
   for (const [d, sum] of Object.entries(sums)) {
     const date = day(Number(d));
-    dailyValues.set(`sensor.rain::${date}`, sum === null
+    dailyValues.set('sensor.rain', date, sum === null
       ? { kind: 'empty', entityId: 'sensor.rain', date }
       : { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
   }
@@ -210,10 +211,10 @@ const TEMP_META: EntityMetadata = {
 
 /** One year of measurement days for sensor.temp, keyed by day-of-month. */
 function tempYear(days: Record<number, [number, number, number] | null>): Map<number, YearStatistics> {
-  const dailyValues = new Map<string, DailyValue>();
+  const dailyValues = dailyIndex();
   for (const [d, triple] of Object.entries(days)) {
     const date = day(Number(d));
-    dailyValues.set(`sensor.temp::${date}`, triple === null
+    dailyValues.set('sensor.temp', date, triple === null
       ? { kind: 'empty', entityId: 'sensor.temp', date }
       : { kind: 'measurement', entityId: 'sensor.temp', date, min: triple[0], mean: triple[1], max: triple[2] });
   }
@@ -296,9 +297,9 @@ describe('countExceedances — range coverage', () => {
   function statsFor(byYear: Record<number, Record<string, number>>): Map<number, YearStatistics> {
     const out = new Map<number, YearStatistics>();
     for (const [year, days] of Object.entries(byYear)) {
-      const dailyValues = new Map<string, DailyValue>();
+      const dailyValues = dailyIndex();
       for (const [date, sum] of Object.entries(days)) {
-        dailyValues.set(`sensor.rain::${date}`, { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
+        dailyValues.set('sensor.rain', date, { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
       }
       out.set(Number(year), { dailyValues, monthlySummaries: new Map(), entityMetadata: new Map([['sensor.rain', RAIN_META]]) });
     }
@@ -352,9 +353,9 @@ describe('countExceedances — per-year breakdown', () => {
   function statsMulti(byYear: Record<number, Record<string, number>>): Map<number, YearStatistics> {
     const out = new Map<number, YearStatistics>();
     for (const [year, days] of Object.entries(byYear)) {
-      const dailyValues = new Map<string, DailyValue>();
+      const dailyValues = dailyIndex();
       for (const [date, sum] of Object.entries(days)) {
-        dailyValues.set(`sensor.rain::${date}`, { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
+        dailyValues.set('sensor.rain', date, { kind: 'cumulative', entityId: 'sensor.rain', date, sum });
       }
       out.set(Number(year), { dailyValues, monthlySummaries: new Map(), entityMetadata: new Map([['sensor.rain', RAIN_META]]) });
     }

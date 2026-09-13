@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { EntityConfig, ThresholdRule, ThresholdLegendGroup } from '../types/card-config';
 import { rowKey } from '../types/card-config';
-import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
+import type { MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
 import { resolveThreshold, buildCellStyle, EMPTY_THRESHOLDS } from '../services/threshold-resolver';
 import { ContrastResolver } from '../services/readable-text';
@@ -11,6 +11,7 @@ import { rowSummaryKey } from '../services/data-transform';
 import { rowLabel } from '../services/row-label';
 import { FrameScheduler } from '../services/frame-scheduler';
 import { numberFormatter, monthNameFormatter } from '../services/formatters';
+import { DailyValueIndex } from '../services/daily-value-index';
 
 const TOTAL_DAYS = 31;
 
@@ -33,7 +34,7 @@ export function resolvePrecision(cfg: { precision?: number }): number {
 export interface MonthSegment {
   year: number;
   month: number;
-  dailyValues: Map<string, DailyValue>;
+  dailyValues: DailyValueIndex;
   monthlySummaries: Map<string, MonthlySummary>;
   entityMetadata: Map<string, EntityMetadata>;
 }
@@ -48,7 +49,7 @@ export class YearTable extends LitElement {
    *  monthlySummaries/entityMetadata; each section's header names month AND year. */
   @property({ attribute: false }) monthSegments: MonthSegment[] | null = null;
   @property({ attribute: false }) entityConfigs: EntityConfig[] = [];
-  @property({ attribute: false }) dailyValues: Map<string, DailyValue> = new Map();
+  @property({ attribute: false }) dailyValues: DailyValueIndex = new DailyValueIndex();
   @property({ attribute: false }) monthlySummaries: Map<string, MonthlySummary> = new Map();
   @property({ attribute: false }) entityMetadata: Map<string, EntityMetadata> = new Map();
   @property({ attribute: false }) entityErrors: Set<string> = new Set();
@@ -365,6 +366,8 @@ export class YearTable extends LitElement {
     const precision = resolvePrecision(cfg);
     const nf = numberFormatter(this.lang, precision);
     const meta = sec.entityMetadata.get(key);
+    // One lookup for the row's whole month — day cells read the inner map directly.
+    const dayRow = sec.dailyValues.row(key);
     const groupLabel = rowLabel(cfg, meta);
     const f = ('factor' in cfg && cfg.factor != null) ? cfg.factor : 1;
     const hasStats = meta?.hasStatistics ?? true;
@@ -400,7 +403,7 @@ export class YearTable extends LitElement {
           maxCells.push(html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`);
           continue;
         }
-        const val = sec.dailyValues.get(`${key}::${dayKeys[d - 1]}`);
+        const val = dayRow?.get(dayKeys[d - 1]!);
         if (val?.kind === 'measurement') {
           const showZero = cfg.show_zero !== false;
           const minV = val.min * f;
@@ -495,7 +498,7 @@ export class YearTable extends LitElement {
         dayCells.push(html`<td class="pad-cell" style=${ifDefined(staticStyle)}></td>`);
         continue;
       }
-      const val = sec.dailyValues.get(`${key}::${dayKeys[d - 1]}`);
+      const val = dayRow?.get(dayKeys[d - 1]!);
       let cellContent = '';
       let numericValue: number | undefined;
       if (hasError) {

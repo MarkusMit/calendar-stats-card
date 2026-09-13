@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { YearTable } from '../../src/components/year-table';
 import type { EntityConfig, ThresholdRule } from '../../src/types/card-config';
 import type { CumulativeDailyValue, MeasurementDailyValue, MonthlySummary, EntityMetadata } from '../../src/types/statistics';
+import { dailyIndex } from '../helpers/daily-values';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -36,7 +37,7 @@ async function renderYearTable(overrides: Partial<{
   el.year = 2025;
   el.visibleMonths = [1];
   el.entityConfigs = overrides.entityConfigs ?? [{ entity: ENTITY_ID }];
-  el.dailyValues = new Map();
+  el.dailyValues = dailyIndex();
   el.monthlySummaries = new Map();
   el.entityMetadata = overrides.entityMetadata ?? new Map([[ENTITY_ID, tempMeta]]);
   el.entityErrors = new Set();
@@ -137,7 +138,7 @@ describe('YearTable — show_zero (cumulative)', () => {
       date: '2025-01-01',
       sum,
     };
-    el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
+    el.dailyValues = dailyIndex([[`${RAIN_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
     el.entityErrors = new Set();
@@ -182,7 +183,7 @@ describe('YearTable — show_zero (cumulative)', () => {
       date: '2025-01-01',
       sum: 0,
     };
-    el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
+    el.dailyValues = dailyIndex([[`${RAIN_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
     el.entityErrors = new Set();
@@ -214,7 +215,7 @@ describe('YearTable — show_zero (measurement)', () => {
       mean,
       max,
     };
-    el.dailyValues = new Map([[`${ENTITY_ID}::2025-01-05`, dayVal]]);
+    el.dailyValues = dailyIndex([[`${ENTITY_ID}::2025-01-05`, dayVal]]);
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
     el.entityErrors = new Set();
@@ -281,7 +282,7 @@ describe('YearTable — measurement sub-row visibility', () => {
     el.year = 2025;
     el.visibleMonths = [1];
     el.entityConfigs = [cfg as unknown as EntityConfig];
-    el.dailyValues = new Map();
+    el.dailyValues = dailyIndex();
     el.monthlySummaries = summary ? new Map([[`0::${ENTITY_ID}::2025-1`, summary]]) : new Map();
     el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
     el.entityErrors = new Set();
@@ -372,7 +373,7 @@ describe('YearTable — cumulative summary visibility', () => {
     el.year = 2025;
     el.visibleMonths = [1];
     el.entityConfigs = [cfg as unknown as EntityConfig];
-    el.dailyValues = new Map();
+    el.dailyValues = dailyIndex();
     el.monthlySummaries = new Map([[`0::${RAIN_ID}::2025-1`, rainSummary]]);
     el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
     el.entityErrors = new Set();
@@ -448,7 +449,7 @@ describe('YearTable — label cell colors (EntityRowConfig)', () => {
     el.year = 2025;
     el.visibleMonths = [1];
     el.entityConfigs = cfgs;
-    el.dailyValues = new Map();
+    el.dailyValues = dailyIndex();
     el.monthlySummaries = new Map();
     el.entityMetadata = metadata ?? new Map([[ENTITY_ID, tempMeta]]);
     el.entityErrors = new Set();
@@ -537,7 +538,7 @@ describe('YearTable — Sunday header highlighting', () => {
     el.year = 2025;
     el.visibleMonths = [month];
     el.entityConfigs = [{ entity: ENTITY_ID }];
-    el.dailyValues = new Map();
+    el.dailyValues = dailyIndex();
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
     el.entityErrors = new Set();
@@ -569,7 +570,7 @@ describe('YearTable — Sunday header highlighting', () => {
     el.year = 2025;
     el.visibleMonths = [1, 2];
     el.entityConfigs = [{ entity: ENTITY_ID }];
-    el.dailyValues = new Map();
+    el.dailyValues = dailyIndex();
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
     el.entityErrors = new Set();
@@ -598,7 +599,7 @@ describe('YearTable — day headers present on every month', () => {
     el.year = 2025;
     el.visibleMonths = visibleMonths;
     el.entityConfigs = [{ entity: ENTITY_ID }];
-    el.dailyValues = new Map();
+    el.dailyValues = dailyIndex();
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
     el.entityErrors = new Set();
@@ -641,7 +642,7 @@ describe('YearTable — label cell colors (ExpressionRowConfig)', () => {
     el.year = 2025;
     el.visibleMonths = [1];
     el.entityConfigs = [cfg];
-    el.dailyValues = new Map();
+    el.dailyValues = dailyIndex();
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map();
     el.entityErrors = new Set();
@@ -702,7 +703,7 @@ describe('YearTable — scalar threshold coloring', () => {
       kind: 'cumulative', entityId: RAIN_ID, date: '2025-01-01',
       sum: value,
     };
-    el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
+    el.dailyValues = dailyIndex([[`${RAIN_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
     el.entityErrors = new Set();
@@ -813,7 +814,7 @@ describe('YearTable — scalar threshold coloring', () => {
       entity: RAIN_ID, background_color: 'gray',
       thresholds: [{ operator: 'above', value: 0, background_color: 'red' }],
     }];
-    el.dailyValues = new Map();
+    el.dailyValues = dailyIndex();
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
     el.entityErrors = new Set();
@@ -839,7 +840,7 @@ describe('YearTable — scalar threshold coloring', () => {
       entity: RAIN_ID, background_color: 'gray',
       thresholds: [{ operator: 'above', value: 0, background_color: 'red' }],
     }];
-    el.dailyValues = new Map(); // no data
+    el.dailyValues = dailyIndex(); // no data
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
     el.entityErrors = new Set();
@@ -874,7 +875,7 @@ describe('YearTable — measurement threshold coloring', () => {
       kind: 'measurement', entityId: ENTITY_ID, date: '2025-01-01',
       min: minV, mean: avgV, max: maxV,
     };
-    el.dailyValues = new Map([[`${ENTITY_ID}::2025-01-01`, dayVal]]);
+    el.dailyValues = dailyIndex([[`${ENTITY_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
     el.entityErrors = new Set();
@@ -955,7 +956,7 @@ describe('YearTable — measurement threshold coloring', () => {
     el.year = 2025;
     el.visibleMonths = [1];
     el.entityConfigs = [{ entity: ENTITY_ID, thresholds: [rule] }];
-    el.dailyValues = new Map();
+    el.dailyValues = dailyIndex();
     el.monthlySummaries = new Map([[`0::${ENTITY_ID}::2025-1`, summary]]);
     el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
     el.entityErrors = new Set();
@@ -980,7 +981,7 @@ describe('YearTable — measurement threshold coloring', () => {
     el.year = 2025;
     el.visibleMonths = [1];
     el.entityConfigs = [{ entity: ENTITY_ID, thresholds: [nb, na] }];
-    el.dailyValues = new Map();
+    el.dailyValues = dailyIndex();
     el.monthlySummaries = new Map([[`0::${ENTITY_ID}::2025-1`, summary]]);
     el.entityMetadata = new Map([[ENTITY_ID, tempMeta]]);
     el.entityErrors = new Set();
@@ -1012,7 +1013,7 @@ describe('YearTable — cumulative total column ignores thresholds', () => {
       ...(staticBg ? { background_color: staticBg } : {}),
       thresholds,
     }];
-    el.dailyValues = new Map();
+    el.dailyValues = dailyIndex();
     el.monthlySummaries = new Map([[
       `0::${RAIN_ID}::2025-1`,
       { entityId: RAIN_ID, year: 2025, month: 1, min: 1, mean: 5, max: 9, total },
@@ -1062,7 +1063,7 @@ describe('YearTable — auto-contrast text color', () => {
       kind: 'cumulative', entityId: RAIN_ID, date: '2025-01-01',
       sum: dayValue,
     };
-    el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
+    el.dailyValues = dailyIndex([[`${RAIN_ID}::2025-01-01`, dayVal]]);
     el.monthlySummaries = new Map();
     el.entityMetadata = new Map([[RAIN_ID, precipMeta]]);
     el.entityErrors = new Set();

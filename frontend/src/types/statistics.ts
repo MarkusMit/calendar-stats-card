@@ -1,3 +1,5 @@
+import type { DailyValueIndex } from '../services/daily-value-index';
+
 export interface EntityMetadata {
   entityId: string;
   stateClass: 'measurement' | 'total_increasing' | 'total' | 'unknown';
@@ -42,7 +44,7 @@ export interface MonthlySummary {
 }
 
 export interface YearStatistics {
-  dailyValues: Map<string, DailyValue>;
+  dailyValues: DailyValueIndex;
   monthlySummaries: Map<string, MonthlySummary>;
   entityMetadata: Map<string, EntityMetadata>;
 }

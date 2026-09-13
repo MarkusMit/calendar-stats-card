@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeMeasurementYearRollup, rowSummaryKey } from '../../../src/services/data-transform';
-import type { MonthlySummary, DailyValue, MeasurementDailyValue } from '../../../src/types/statistics';
+import type { MonthlySummary, MeasurementDailyValue } from '../../../src/types/statistics';
+import { dailyIndex } from '../../helpers/daily-values';
 
 const YEAR = 2025;
 const ID = 'sensor.temp';
@@ -30,7 +31,7 @@ describe('computeMeasurementYearRollup (T010, FR-005)', () => {
       1: { min: -5, mean: 0, max: 4 },
       7: { min: 12, mean: 20, max: 33 },
     });
-    const dailyValues = new Map<string, DailyValue>([daily(1, 1, 0), daily(7, 1, 20)]);
+    const dailyValues = dailyIndex([daily(1, 1, 0), daily(7, 1, 20)]);
     const r = computeMeasurementYearRollup(0, ID, YEAR, [1, 7], summaries, dailyValues);
     expect(r.min).toBe(-5);
     expect(r.max).toBe(33);
@@ -44,7 +45,7 @@ describe('computeMeasurementYearRollup (T010, FR-005)', () => {
       1: { min: 9, mean: 10, max: 11 },
       7: { min: 29, mean: 30, max: 31 },
     });
-    const dailyValues = new Map<string, DailyValue>([
+    const dailyValues = dailyIndex([
       daily(1, 1, 10), daily(1, 2, 10), daily(1, 3, 10),
       daily(7, 1, 30),
     ]);
@@ -57,14 +58,14 @@ describe('computeMeasurementYearRollup (T010, FR-005)', () => {
       1: { min: -5, mean: 0, max: 4 },
       12: { min: -20, mean: -10, max: 0 },
     });
-    const dailyValues = new Map<string, DailyValue>([daily(1, 1, 0), daily(12, 1, -10)]);
+    const dailyValues = dailyIndex([daily(1, 1, 0), daily(12, 1, -10)]);
     const r = computeMeasurementYearRollup(0, ID, YEAR, [1], summaries, dailyValues);
     expect(r.min).toBe(-5); // December's -20 not considered
     expect(r.mean).toBe(0); // only January's day
   });
 
   it('no data at all → all null', () => {
-    const r = computeMeasurementYearRollup(0, ID, YEAR, [1, 2, 3], new Map(), new Map());
+    const r = computeMeasurementYearRollup(0, ID, YEAR, [1, 2, 3], new Map(), dailyIndex());
     expect(r).toEqual({ min: null, mean: null, max: null, total: null });
   });
 });

@@ -3,6 +3,7 @@ import { YearSummaryTable } from '../../src/components/year-summary-table';
 import type { MonthlySummary, EntityMetadata } from '../../src/types/statistics';
 import type { ThresholdRule } from '../../src/types/card-config';
 import { rowSummaryKey } from '../../src/services/data-transform';
+import { dailyIndex } from '../helpers/daily-values';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -43,7 +44,7 @@ async function renderRain(thresholds: ThresholdRule[]): Promise<YearSummaryTable
     year: YEAR,
     visibleMonths: Array.from({ length: 12 }, (_, i) => i + 1),
     monthlySummaries: summaries,
-    dailyValues: new Map(),
+    dailyValues: dailyIndex(),
     entityMetadata: new Map([['sensor.rain', rainMeta]]),
   }];
   el.entityErrors = new Set();
@@ -68,7 +69,7 @@ async function renderTemp(thresholds: ThresholdRule[]): Promise<YearSummaryTable
     year: YEAR,
     visibleMonths: [1],
     monthlySummaries: summaries,
-    dailyValues: new Map(),
+    dailyValues: dailyIndex(),
     entityMetadata: new Map([['sensor.temp', tempMeta]]),
   }];
   el.entityErrors = new Set();
@@ -154,7 +155,7 @@ describe('YearSummaryTable — month-scope rules color monthly totals (015/US2)'
       year: YEAR,
       visibleMonths: [1],
       monthlySummaries: summaries,
-      dailyValues: new Map(),
+      dailyValues: dailyIndex(),
       entityMetadata: new Map([['sensor.rain', rainMeta]]),
     }];
     el.entityErrors = new Set();

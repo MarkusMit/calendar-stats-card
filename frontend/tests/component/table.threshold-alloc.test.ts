@@ -26,6 +26,7 @@ import type { YearTable } from '../../src/components/year-table';
 import type { YearSummaryTable } from '../../src/components/year-summary-table';
 import type { EntityConfig } from '../../src/types/card-config';
 import type { DailyValue, MonthlySummary, EntityMetadata } from '../../src/types/statistics';
+import { dailyIndex } from '../helpers/daily-values';
 
 const YEAR = 2024;
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -40,7 +41,7 @@ function pad(n: number): string {
 }
 
 function buildData() {
-  const dailyValues = new Map<string, DailyValue>();
+  const dailyValues = dailyIndex();
   const monthlySummaries = new Map<string, MonthlySummary>();
   const entityMetadata = new Map<string, EntityMetadata>();
   CONFIGS.forEach((cfg, i) => {
@@ -51,7 +52,7 @@ function buildData() {
       monthlySummaries.set(`${i}::${cfg.entity}::${YEAR}-${pad(m)}`,
         { min: 1, mean: 5, max: 9, total: 100 } as MonthlySummary);
       for (let d = 1; d <= 31; d++) {
-        dailyValues.set(`${cfg.entity}::${YEAR}-${pad(m)}-${pad(d)}`,
+        dailyValues.set(cfg.entity, `${YEAR}-${pad(m)}-${pad(d)}`,
           { kind: 'measurement', min: d, mean: d + 1, max: d + 2 } as DailyValue);
       }
     }

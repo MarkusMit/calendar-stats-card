@@ -16,6 +16,7 @@ import { localize } from './localize/localize';
 import { buildCellStyle } from './services/threshold-resolver';
 import { ContrastResolver } from './services/readable-text';
 import { zonedDateFormatter, zonedDateString, monthNameFormatter } from './services/formatters';
+import { DailyValueIndex } from './services/daily-value-index';
 import { countExceedances } from './services/threshold-exceedance';
 import type { ExceedanceGroup, MonthSpan } from './services/threshold-exceedance';
 import './components/loading-overlay';
@@ -63,7 +64,7 @@ export class CalendarStatsCard extends LitElement {
   private _warnedPredecessors = new Set<string>();
   /** Shared auto-contrast text-color resolver, so legend swatches match data cells. */
   private _contrast = new ContrastResolver();
-  private readonly _emptyDailyValues = new Map();
+  private readonly _emptyDailyValues = new DailyValueIndex();
   private readonly _emptyMonthlySummaries = new Map();
   private readonly _emptyEntityMetadata = new Map();
 
@@ -506,21 +507,20 @@ export class CalendarStatsCard extends LitElement {
           const daysInMonth = new Date(year, m, 0).getDate();
           for (let d = 1; d <= daysInMonth; d++) {
             const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            const key = `${cfg.expression}::${dateStr}`;
             if (dateStr >= todayStr) {
-              dailyValues.set(key, { kind: 'empty', entityId: cfg.expression, date: dateStr });
+              dailyValues.set(cfg.expression, dateStr, { kind: 'empty', entityId: cfg.expression, date: dateStr });
               continue;
             }
             const context: Record<string, number> = {};
             let hasData = false;
             for (const id of exprEntityIds) {
-              const v = dailyValues.get(`${id}::${dateStr}`);
+              const v = dailyValues.get(id, dateStr);
               if (v?.kind === 'cumulative') { context[id] = v.sum; hasData = true; }
               else if (v?.kind === 'measurement') { context[id] = v.mean; hasData = true; }
               else { context[id] = 0; }
             }
             if (hasData) {
-              dailyValues.set(key, {
+              dailyValues.set(cfg.expression, dateStr, {
                 kind: 'cumulative',
                 entityId: cfg.expression,
                 date: dateStr,

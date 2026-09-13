@@ -99,10 +99,11 @@ export function countExceedances(
       const yearStats = statisticsByYear.get(seg.year);
       if (!yearStats) continue;
       meta ??= yearStats.entityMetadata.get(key);
+      const row = yearStats.dailyValues.row(key);
 
       for (const month of seg.months) {
         for (let d = 1; d <= daysInMonth(seg.year, month); d++) {
-          const val = yearStats.dailyValues.get(`${key}::${dateKey(seg.year, month, d)}`);
+          const val = row?.get(dateKey(seg.year, month, d));
           if (!val || val.kind === 'empty') continue;
 
           const dayCumulative = new Set<ThresholdRule>();

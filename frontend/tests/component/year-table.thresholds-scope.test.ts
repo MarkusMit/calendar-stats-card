@@ -3,6 +3,7 @@ import { YearTable } from '../../src/components/year-table';
 import type { ThresholdRule } from '../../src/types/card-config';
 import type { EntityMetadata, MonthlySummary, CumulativeDailyValue } from '../../src/types/statistics';
 import { rowSummaryKey } from '../../src/services/data-transform';
+import { dailyIndex } from '../helpers/daily-values';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -29,7 +30,7 @@ async function renderRain(thresholds: ThresholdRule[]): Promise<YearTable> {
     kind: 'cumulative', entityId: RAIN_ID, date: '2025-01-01',
     sum: 12,
   };
-  el.dailyValues = new Map([[`${RAIN_ID}::2025-01-01`, dayVal]]);
+  el.dailyValues = dailyIndex([[`${RAIN_ID}::2025-01-01`, dayVal]]);
   const summary: MonthlySummary = {
     entityId: RAIN_ID, year: 2025, month: 1, min: 12, mean: 12, max: 12, total: 160,
   };

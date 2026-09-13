@@ -1,5 +1,6 @@
 import type { EntityConfig, PredecessorConfig } from '../types/card-config';
 import type { DailyValue, EntityMetadata } from '../types/statistics';
+import type { DailyValueIndex } from './daily-value-index';
 
 /**
  * A predecessor is usable when its statistics kind matches the main row's and
@@ -19,11 +20,11 @@ export function isCompatiblePredecessor(
 
 export function resolvePredecessorData(
   entityConfigs: EntityConfig[],
-  dailyValues: Map<string, DailyValue>,
+  dailyValues: DailyValueIndex,
   metadataMap: Record<string, EntityMetadata>,
   warnedPredecessors: Set<string>,
-): Map<string, DailyValue> {
-  const result = new Map(dailyValues);
+): DailyValueIndex {
+  const result = dailyValues.clone();
 
   for (const cfg of entityConfigs) {
     if (!('entity' in cfg) || !cfg.predecessors?.length) continue;
@@ -53,16 +54,12 @@ export function resolvePredecessorData(
       .sort((a, b) => a.replaced_on!.localeCompare(b.replaced_on!));
     const undated = compatible.filter((p) => p.replaced_on == null);
 
-    const predIds = new Set(compatible.map((p) => p.entity));
-
     // Collect all dates touched by predecessor entries or main entity entries
     const dates = new Set<string>();
-    for (const key of result.keys()) {
-      const sep = key.indexOf('::');
-      if (sep === -1) continue;
-      const entityId = key.slice(0, sep);
-      const date = key.slice(sep + 2);
-      if (predIds.has(entityId) || entityId === mainId) dates.add(date);
+    for (const entityId of [mainId, ...compatible.map((p) => p.entity)]) {
+      const row = result.row(entityId);
+      if (!row) continue;
+      for (const date of row.keys()) dates.add(date);
     }
 
     const applyFactor = (v: DailyValue, factor: number | undefined): DailyValue => {
@@ -77,19 +74,19 @@ export function resolvePredecessorData(
       const activeDated = dated.find((p) => p.replaced_on! > date);
 
       if (activeDated) {
-        const predValue = result.get(`${activeDated.entity}::${date}`);
+        const predValue = result.get(activeDated.entity, date);
         if (predValue && predValue.kind !== 'empty') {
-          result.set(`${mainId}::${date}`, { ...applyFactor(predValue, activeDated.factor), entityId: mainId });
+          result.set(mainId, date, { ...applyFactor(predValue, activeDated.factor), entityId: mainId });
         }
         // If dated predecessor has no data → leave main key unchanged (no fallback)
       } else {
         // Main entity range: use main data unless missing/empty, then try undated fallbacks
-        const mainValue = result.get(`${mainId}::${date}`);
+        const mainValue = result.get(mainId, date);
         if (!mainValue || mainValue.kind === 'empty') {
           for (const pred of undated) {
-            const predValue = result.get(`${pred.entity}::${date}`);
+            const predValue = result.get(pred.entity, date);
             if (predValue && predValue.kind !== 'empty') {
-              result.set(`${mainId}::${date}`, { ...applyFactor(predValue, pred.factor), entityId: mainId });
+              result.set(mainId, date, { ...applyFactor(predValue, pred.factor), entityId: mainId });
               break;
             }
           }
