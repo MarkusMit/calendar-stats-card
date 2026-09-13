@@ -154,3 +154,22 @@ describe('YearTable — daily lookup cost per render', () => {
     expect(getCalls).toBe(0);
   });
 });
+
+describe('YearTable — section list identity', () => {
+  it('hands out the same section list while its inputs are unchanged', async () => {
+    const el = document.createElement('calendar-stats-year-table') as YearTable;
+    Object.assign(el, { year: YEAR, visibleMonths: MONTHS, entityConfigs: [...CONFIGS], ...buildData() });
+    document.body.appendChild(el);
+    await el.updateComplete;
+
+    // Downstream memos (placeholder column widths, row-type flags) key on this
+    // array, so a fresh one per render would put a full data walk back on the
+    // render path.
+    const inner = el as unknown as { _sections: () => unknown };
+    const first = inner._sections();
+    el.lang = 'de';
+    await el.updateComplete;
+
+    expect(inner._sections()).toBe(first);
+  });
+});

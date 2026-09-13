@@ -15,6 +15,53 @@ import { DailyValueIndex } from '../services/daily-value-index';
 
 const TOTAL_DAYS = 31;
 
+/** Distance, in viewport heights, at which a section is rendered / released. */
+const MOUNT_VIEWPORTS = 2;
+const UNMOUNT_VIEWPORTS = 4;
+
+/** Row and header heights assumed until a rendered section has been measured. */
+const ESTIMATED_ROW_HEIGHT = 19;
+const ESTIMATED_HEADER_HEIGHT = 24;
+
+/** Viewport height, or 0 when the document cannot say — a hidden tab reports none. */
+function viewportHeight(): number {
+  return window.innerHeight || document.documentElement?.clientHeight || 0;
+}
+
+/** Largest and smallest value a column holds, per row precision. */
+type ColumnExtremes = Map<number, { max: number; min: number }>;
+
+function note(extremes: ColumnExtremes, precision: number, value: number): void {
+  const seen = extremes.get(precision);
+  if (!seen) {
+    extremes.set(precision, { max: value, min: value });
+    return;
+  }
+  if (value > seen.max) seen.max = value;
+  if (value < seen.min) seen.min = value;
+}
+
+/** The longest text the column's extremes format to — its natural width. */
+function widestText(extremes: ColumnExtremes, lang: string): string {
+  let widest = '';
+  for (const [precision, { max, min }] of extremes) {
+    const nf = numberFormatter(lang, precision);
+    for (const value of [max, min]) {
+      const text = nf.format(value);
+      if (text.length > widest.length) widest = text;
+    }
+  }
+  return widest;
+}
+
+/** Widest text every column of the table would render, across all sections. */
+interface ColumnText {
+  label: string;
+  days: string[];
+  summary: { mean: string; min: string; max: string };
+  total: string;
+}
+
 /** Empty cells hold a non-breaking space so they keep height and borders. */
 export const NBSP = ' ';
 
@@ -55,16 +102,33 @@ export class YearTable extends LitElement {
   @property({ attribute: false }) entityErrors: Set<string> = new Set();
   @property({ type: String }) lang = 'en';
 
-  /** Normalized section list — single-year (monthly view) or cross-year (comparison). */
+  private _sectionsMemo: { deps: readonly unknown[]; value: MonthSegment[] } | null = null;
+
+  /**
+   * Normalized section list — single-year (monthly view) or cross-year
+   * (comparison). Reused while the inputs are identical: callers key their own
+   * memos on this array, and the single-year branch would otherwise hand out a
+   * fresh one on every render.
+   */
   private _sections(): MonthSegment[] {
-    if (this.monthSegments && this.monthSegments.length > 0) return this.monthSegments;
-    return this.visibleMonths.map((month) => ({
-      year: this.year,
-      month,
-      dailyValues: this.dailyValues,
-      monthlySummaries: this.monthlySummaries,
-      entityMetadata: this.entityMetadata,
-    }));
+    const deps = [
+      this.monthSegments, this.visibleMonths, this.year,
+      this.dailyValues, this.monthlySummaries, this.entityMetadata,
+    ] as const;
+    const memo = this._sectionsMemo;
+    if (memo && memo.deps.every((d, i) => d === deps[i])) return memo.value;
+
+    const value = this.monthSegments && this.monthSegments.length > 0
+      ? this.monthSegments
+      : this.visibleMonths.map((month) => ({
+        year: this.year,
+        month,
+        dailyValues: this.dailyValues,
+        monthlySummaries: this.monthlySummaries,
+        entityMetadata: this.entityMetadata,
+      }));
+    this._sectionsMemo = { deps, value };
+    return value;
   }
 
   /** Metadata lookup across all sections (column structure must match everywhere). */
@@ -91,12 +155,38 @@ export class YearTable extends LitElement {
   /** Shared auto-contrast text-color resolver for threshold-colored cells. */
   private _contrast = new ContrastResolver();
 
+  /** Sections rendered in full; the rest stand in as one hidden placeholder row. */
+  private _mountedSections = new Set<number>();
+  /** Identity of the section list the mounted set belongs to. */
+  private _sectionsKey = '';
+  /** Measured height of one data row, until then an estimate. */
+  private _rowHeight = ESTIMATED_ROW_HEIGHT;
+  private _viewportFrame = new FrameScheduler();
+
+  /**
+   * Scrolling never updates the component, so the section pass is driven from
+   * the viewport itself. Capture phase: a Lovelace view may scroll an ancestor
+   * element rather than the document, and scroll events do not bubble.
+   */
+  override connectedCallback(): void {
+    super.connectedCallback();
+    window.addEventListener('scroll', this._onViewportChange, { passive: true, capture: true });
+    window.addEventListener('resize', this._onViewportChange, { passive: true });
+  }
+
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    window.removeEventListener('scroll', this._onViewportChange, { capture: true });
+    window.removeEventListener('resize', this._onViewportChange);
     this._layoutFrame.cancel();
     this._scrollFrame.cancel();
+    this._viewportFrame.cancel();
     this._contrast.dispose();
   }
+
+  private _onViewportChange = (): void => {
+    this._viewportFrame.schedule(() => this._syncVisibleSections());
+  };
 
   static styles = css`
     :host {
@@ -234,6 +324,12 @@ export class YearTable extends LitElement {
     th.sunday {
       font-weight: bold;
     }
+    /* Stands in for a section that is out of view: hidden, but still sized, so
+       the table's auto-laid-out columns keep the widths they would have with
+       every section rendered. */
+    tr.section-placeholder {
+      visibility: hidden;
+    }
   `;
 
   private _lastDispatchedGroups: ThresholdLegendGroup[] = [];
@@ -275,6 +371,69 @@ export class YearTable extends LitElement {
   private _lastLabelWidth = '';
   private _lastSpacerWidth = '';
 
+  private _rowCount = 0;
+
+  /**
+   * Starts the mounted set over when the section list itself changed. Before
+   * anything is laid out the estimate decides — a short table mounts whole, a
+   * long one mounts its first screenful — and the frame pass corrects it
+   * against real positions.
+   */
+  private _resetMountedSections(sections: MonthSegment[], rowCount: number): void {
+    const key = sections.map((sec) => `${sec.year}-${sec.month}`).join(',');
+    if (key === this._sectionsKey) return;
+    this._sectionsKey = key;
+    this._mountedSections = new Set();
+    const viewport = viewportHeight();
+    const sectionHeight = Math.max(ESTIMATED_HEADER_HEIGHT + rowCount * this._rowHeight, 1);
+    // A viewport of zero means the document cannot place anything yet, which
+    // rules nothing out: render it all rather than guess at one section.
+    const initial = viewport > 0
+      ? Math.max(1, Math.ceil((viewport * (1 + MOUNT_VIEWPORTS)) / sectionHeight))
+      : sections.length;
+    for (let i = 0; i < Math.min(sections.length, initial); i++) this._mountedSections.add(i);
+  }
+
+  /**
+   * Renders the sections near the viewport and releases those far outside it.
+   * A layout that reports nothing — every rect at the origin — rules nothing
+   * out, so everything stays rendered.
+   */
+  private _syncVisibleSections(): void {
+    const bodies = this.shadowRoot?.querySelectorAll<HTMLElement>('tbody[data-section]');
+    if (!bodies || bodies.length === 0) return;
+    const viewport = viewportHeight();
+    if (viewport === 0) return;
+    const mount = viewport * MOUNT_VIEWPORTS;
+    const release = viewport * UNMOUNT_VIEWPORTS;
+    let changed = false;
+    for (const body of bodies) {
+      const index = Number(body.dataset.section);
+      const rect = body.getBoundingClientRect();
+      const mounted = this._mountedSections.has(index);
+      if (!mounted && rect.top <= viewport + mount && rect.bottom >= -mount) {
+        this._mountedSections.add(index);
+        changed = true;
+      } else if (mounted && (rect.top > viewport + release || rect.bottom < -release)) {
+        this._mountedSections.delete(index);
+        changed = true;
+      }
+    }
+    if (changed) this.requestUpdate();
+  }
+
+  /** Learns the real row height from a rendered section so placeholders match it. */
+  private _measureRowHeight(): void {
+    if (this._rowCount === 0) return;
+    const rendered = this.shadowRoot?.querySelector<HTMLElement>('tbody[data-section]:not([data-placeholder])');
+    if (!rendered) return;
+    const height = rendered.getBoundingClientRect().height / this._rowCount;
+    if (height > 0 && Math.abs(height - this._rowHeight) > 0.5) {
+      this._rowHeight = height;
+      this.requestUpdate();
+    }
+  }
+
   /**
    * Measures the sticky column and the scroll width. Runs on an animation
    * frame, not in `updated()`, so a table of thousands of cells is not laid
@@ -300,7 +459,11 @@ export class YearTable extends LitElement {
   }
 
   override updated() {
-    this._layoutFrame.schedule(() => this._syncWidths());
+    this._layoutFrame.schedule(() => {
+      this._syncVisibleSections();
+      this._measureRowHeight();
+      this._syncWidths();
+    });
     const current: ThresholdLegendGroup[] = [...this._triggeredGroups.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([, g]) => ({ label: g.label, rules: [...g.rules] }));
@@ -358,6 +521,108 @@ export class YearTable extends LitElement {
     const keys: string[] = [];
     for (let d = 1; d <= TOTAL_DAYS; d++) keys.push(this.dateStr(year, month, d));
     return keys;
+  }
+
+  private _columnTextMemo: { deps: readonly unknown[]; value: ColumnText } | null = null;
+
+  /**
+   * Widest text each column of the whole table would render. A placeholder row
+   * carries these, so a column is exactly as wide as it would be with every
+   * section rendered — mounting a section never shifts the layout.
+   *
+   * Values are compared as numbers and only the winners are formatted: doing it
+   * the other way round would format every cell of every section, which is the
+   * work the placeholders exist to avoid.
+   */
+  private _columnText(sections: MonthSegment[]): ColumnText {
+    const deps = [sections, this.entityConfigs, this.lang, this.entityErrors] as const;
+    const memo = this._columnTextMemo;
+    if (memo && memo.deps.length === deps.length && memo.deps.every((d, i) => d === deps[i])) {
+      return memo.value;
+    }
+
+    const days: ColumnExtremes[] = Array.from({ length: TOTAL_DAYS }, () => new Map());
+    const mean: ColumnExtremes = new Map();
+    const low: ColumnExtremes = new Map();
+    const high: ColumnExtremes = new Map();
+    const total: ColumnExtremes = new Map();
+    let label = '';
+
+    for (const sec of sections) {
+      const dayKeys = this.dayKeys(sec.year, sec.month);
+      this.entityConfigs.forEach((cfg, rowIndex) => {
+        const key = rowKey(cfg);
+        const meta = sec.entityMetadata.get(key);
+        const precision = resolvePrecision(cfg);
+        const f = ('factor' in cfg && cfg.factor != null) ? cfg.factor : 1;
+        const text = `${meta?.hasStatistics ?? true ? '' : '⚠ '}${rowLabel(cfg, meta)}`;
+        if (text.length > label.length) label = text;
+
+        const dayRow = sec.dailyValues.row(key);
+        if (dayRow) {
+          for (let d = 0; d < TOTAL_DAYS; d++) {
+            const val = dayRow.get(dayKeys[d]!);
+            if (val?.kind === 'cumulative') note(days[d]!, precision, val.sum * f);
+            else if (val?.kind === 'measurement') {
+              note(days[d]!, precision, val.min * f);
+              note(days[d]!, precision, val.mean * f);
+              note(days[d]!, precision, val.max * f);
+            }
+          }
+        }
+
+        const summary = sec.monthlySummaries.get(rowSummaryKey(rowIndex, key, sec.year, sec.month));
+        if (!summary) return;
+        if (summary.mean != null) note(mean, precision, summary.mean * f);
+        if (summary.min != null) note(low, precision, summary.min * f);
+        if (summary.max != null) note(high, precision, summary.max * f);
+        if (summary.total != null) note(total, precision, summary.total * f);
+      });
+    }
+
+    const value: ColumnText = {
+      label,
+      days: days.map((extremes) => widestText(extremes, this.lang)),
+      summary: {
+        mean: widestText(mean, this.lang),
+        min: widestText(low, this.lang),
+        max: widestText(high, this.lang),
+      },
+      total: widestText(total, this.lang),
+    };
+    this._columnTextMemo = { deps, value };
+    return value;
+  }
+
+  /** Number of rows a fully rendered section occupies. */
+  private _sectionRowCount(sections: MonthSegment[]): number {
+    return this.entityConfigs.reduce((rows, cfg) => {
+      const meta = this._metaFor(sections, rowKey(cfg));
+      if (meta?.stateClass !== 'measurement') return rows + 1;
+      const erc = 'entity' in cfg ? cfg : null;
+      const subRows = (erc?.show_min !== false ? 1 : 0)
+        + (erc?.show_avg !== false ? 1 : 0)
+        + (erc?.show_max !== false ? 1 : 0);
+      return rows + Math.max(subRows, 1);
+    }, 0);
+  }
+
+  /** The hidden stand-in for a section that is out of view. */
+  private renderSectionPlaceholder(sections: MonthSegment[], rowCount: number, hasMeasurement: boolean, hasCumulative: boolean) {
+    const text = this._columnText(sections);
+    return html`
+      <tr class="section-placeholder" aria-hidden="true" style="height:${rowCount * this._rowHeight}px">
+        <td class="label-column" colspan="${hasMeasurement ? 2 : 1}">${text.label || NBSP}</td>
+        ${text.days.map((day) => html`<td class="data-cell">${day || NBSP}</td>`)}
+        <td class="summary-column">${hasCumulative
+          ? html`<div class="cumul-summary">
+              <div>Ø${text.summary.mean}</div>
+              <div class="cumul-minmax"><span>↓${text.summary.min}</span><span>↑${text.summary.max}</span></div>
+            </div>`
+          : (text.summary.mean || NBSP)}</td>
+        ${hasCumulative ? html`<td class="summary-column">${text.total || NBSP}</td>` : ''}
+      </tr>
+    `;
   }
 
   private renderEntityRows(cfg: EntityConfig, rowIndex: number, sec: MonthSegment, days: number, hasMeasurement: boolean, hasCumulative: boolean, dayKeys: string[]) {
@@ -567,13 +832,16 @@ export class YearTable extends LitElement {
     const sections = this._sections();
     const hasCumulative = this.hasCumulative(sections);
     const hasMeasurement = this.hasMeasurement(sections);
+    const rowCount = this._sectionRowCount(sections);
+    this._rowCount = rowCount;
+    this._resetMountedSections(sections, rowCount);
     // Cross-year section mode always shows the year in the month header.
     const withYear = this.showYear || (this.monthSegments?.length ?? 0) > 0;
 
     return html`
       <div class="table-container">
         <table>
-          ${sections.map((sec) => {
+          ${sections.map((sec, sectionIndex) => {
             const days = this.daysInMonth(sec.year, sec.month);
             const dayKeys = this.dayKeys(sec.year, sec.month);
             // Weekday of the 1st, then count forward — one Date per month instead of one per day.
@@ -596,8 +864,10 @@ export class YearTable extends LitElement {
                   ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}
                 </tr>
               </thead>
-              <tbody>
-                ${this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, sec, days, hasMeasurement, hasCumulative, dayKeys))}
+              <tbody data-section="${sectionIndex}" ?data-placeholder=${!this._mountedSections.has(sectionIndex)}>
+                ${this._mountedSections.has(sectionIndex)
+                  ? this.entityConfigs.map((cfg, i) => this.renderEntityRows(cfg, i, sec, days, hasMeasurement, hasCumulative, dayKeys))
+                  : this.renderSectionPlaceholder(sections, rowCount, hasMeasurement, hasCumulative)}
               </tbody>
             `;
           })}
