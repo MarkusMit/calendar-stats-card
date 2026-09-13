@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { EntityConfig, ThresholdRule, ThresholdLegendGroup } from '../types/card-config';
+import type { EntityConfig } from '../types/card-config';
 import { rowKey } from '../types/card-config';
 import type { MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
@@ -10,6 +10,7 @@ import { ContrastResolver } from '../services/readable-text';
 import { rowSummaryKey } from '../services/data-transform';
 import { rowLabel } from '../services/row-label';
 import { FrameScheduler } from '../services/frame-scheduler';
+import { ThresholdLegendCollector } from '../services/threshold-legend';
 import { numberFormatter, monthNameFormatter } from '../services/formatters';
 import { DailyValueIndex } from '../services/daily-value-index';
 
@@ -141,16 +142,7 @@ export class YearTable extends LitElement {
   }
 
   /** Triggered threshold rules grouped by entity row index (preserves config order). */
-  private _triggeredGroups = new Map<number, { label: string; rules: Set<ThresholdRule> }>();
-
-  private _addTriggered(rowIndex: number, label: string, rule: ThresholdRule): void {
-    let g = this._triggeredGroups.get(rowIndex);
-    if (!g) {
-      g = { label, rules: new Set() };
-      this._triggeredGroups.set(rowIndex, g);
-    }
-    g.rules.add(rule);
-  }
+  private _legend = new ThresholdLegendCollector();
 
   /** Shared auto-contrast text-color resolver for threshold-colored cells. */
   private _contrast = new ContrastResolver();
@@ -332,7 +324,6 @@ export class YearTable extends LitElement {
     }
   `;
 
-  private _lastDispatchedGroups: ThresholdLegendGroup[] = [];
 
   /** Both scroll containers, resolved once — the template never replaces them. */
   private _container: HTMLElement | null = null;
@@ -464,30 +455,14 @@ export class YearTable extends LitElement {
       this._measureRowHeight();
       this._syncWidths();
     });
-    const current: ThresholdLegendGroup[] = [...this._triggeredGroups.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([, g]) => ({ label: g.label, rules: [...g.rules] }));
-    if (this._groupsChanged(current, this._lastDispatchedGroups)) {
-      this._lastDispatchedGroups = current;
+    const groups = this._legend.changes();
+    if (groups) {
       this.dispatchEvent(new CustomEvent('thresholds-applied', {
         bubbles: true,
         composed: true,
-        detail: { groups: current },
+        detail: { groups },
       }));
     }
-  }
-
-  private _groupsChanged(a: ThresholdLegendGroup[], b: ThresholdLegendGroup[]): boolean {
-    if (a.length !== b.length) return true;
-    for (let i = 0; i < a.length; i++) {
-      const ga = a[i]!;
-      const gb = b[i]!;
-      if (ga.label !== gb.label || ga.rules.length !== gb.rules.length) return true;
-      for (let j = 0; j < ga.rules.length; j++) {
-        if (ga.rules[j] !== gb.rules[j]) return true;
-      }
-    }
-    return false;
   }
 
   private daysInMonth(year: number, month: number): number {
@@ -679,7 +654,7 @@ export class YearTable extends LitElement {
             minCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
           } else {
             const minRule = resolveThreshold(minV, cfg.thresholds ?? EMPTY_THRESHOLDS, 'min', 'day');
-            if (minRule) this._addTriggered(rowIndex, groupLabel, minRule);
+            if (minRule) this._legend.add(rowIndex, groupLabel, minRule);
             const minStyle = buildCellStyle(cfg.text_color, cfg.background_color, minRule, this._contrast.textFor(minRule?.background_color ?? cfg.background_color));
             minCells.push(html`<td class="data-cell has-data" style=${ifDefined(minStyle)}>${nf.format(minV)}</td>`);
           }
@@ -688,7 +663,7 @@ export class YearTable extends LitElement {
             meanCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
           } else {
             const avgRule = resolveThreshold(meanV, cfg.thresholds ?? EMPTY_THRESHOLDS, 'avg', 'day');
-            if (avgRule) this._addTriggered(rowIndex, groupLabel, avgRule);
+            if (avgRule) this._legend.add(rowIndex, groupLabel, avgRule);
             const avgStyle = buildCellStyle(cfg.text_color, cfg.background_color, avgRule, this._contrast.textFor(avgRule?.background_color ?? cfg.background_color));
             meanCells.push(html`<td class="data-cell has-data" style=${ifDefined(avgStyle)}>${nf.format(meanV)}</td>`);
           }
@@ -697,7 +672,7 @@ export class YearTable extends LitElement {
             maxCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
           } else {
             const maxRule = resolveThreshold(maxV, cfg.thresholds ?? EMPTY_THRESHOLDS, 'max', 'day');
-            if (maxRule) this._addTriggered(rowIndex, groupLabel, maxRule);
+            if (maxRule) this._legend.add(rowIndex, groupLabel, maxRule);
             const maxStyle = buildCellStyle(cfg.text_color, cfg.background_color, maxRule, this._contrast.textFor(maxRule?.background_color ?? cfg.background_color));
             maxCells.push(html`<td class="data-cell has-data" style=${ifDefined(maxStyle)}>${nf.format(maxV)}</td>`);
           }
@@ -739,7 +714,7 @@ export class YearTable extends LitElement {
           if (v != null) {
             const role = row === 'min' ? 'summary-min' : row === 'avg' ? 'summary-avg' : 'summary-max';
             const rule = resolveThreshold(v, cfg.thresholds ?? EMPTY_THRESHOLDS, role, 'day');
-            if (rule) this._addTriggered(rowIndex, groupLabel, rule);
+            if (rule) this._legend.add(rowIndex, groupLabel, rule);
             summaryStyles[row] = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
           }
         }
@@ -780,7 +755,7 @@ export class YearTable extends LitElement {
       let cellStyle = staticStyle;
       if (numericValue !== undefined) {
         const rule = resolveThreshold(numericValue, cfg.thresholds ?? EMPTY_THRESHOLDS, 'scalar', 'day');
-        if (rule) this._addTriggered(rowIndex, groupLabel, rule);
+        if (rule) this._legend.add(rowIndex, groupLabel, rule);
         cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
       }
       dayCells.push(html`<td class="data-cell ${cellContent ? 'has-data' : ''}" style=${ifDefined(cellStyle)}>${cellContent || NBSP}</td>`);
@@ -806,12 +781,12 @@ export class YearTable extends LitElement {
     let cumulTotalStyle = staticStyle;
     if (summary?.total != null) {
       const rule = resolveThreshold(summary.total * f, cfg.thresholds ?? EMPTY_THRESHOLDS, 'scalar', 'month');
-      if (rule) this._addTriggered(rowIndex, groupLabel, rule);
+      if (rule) this._legend.add(rowIndex, groupLabel, rule);
       cumulTotalStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
     }
     if (summary?.mean != null && (showMin || showAvg || showMax)) {
       const rule = resolveThreshold(summary.mean * f, cfg.thresholds ?? EMPTY_THRESHOLDS, 'summary-scalar', 'day');
-      if (rule) this._addTriggered(rowIndex, groupLabel, rule);
+      if (rule) this._legend.add(rowIndex, groupLabel, rule);
       cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
     }
 
@@ -826,7 +801,7 @@ export class YearTable extends LitElement {
   }
 
   render() {
-    this._triggeredGroups.clear();
+    this._legend.reset();
     // One scan of the sections feeds every column decision below; recomputing
     // it per row would rescan every section for every row.
     const sections = this._sections();
