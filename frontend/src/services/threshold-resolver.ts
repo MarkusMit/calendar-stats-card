@@ -1,5 +1,10 @@
 import type { ThresholdRule, CellRole, ThresholdScope } from '../types/card-config';
 
+/** Shared stand-in for an unconfigured `thresholds` list. Rendering asks for a
+ *  row's rules once per cell, so a fresh `[]` per miss would be thousands of
+ *  throwaway arrays per table. */
+export const EMPTY_THRESHOLDS: readonly ThresholdRule[] = Object.freeze([]);
+
 const NOT_BELOW_EXCLUDED: ReadonlySet<CellRole> = new Set(['avg', 'max', 'summary-avg', 'summary-max']);
 const NOT_ABOVE_EXCLUDED: ReadonlySet<CellRole> = new Set(['min', 'avg', 'summary-min', 'summary-avg']);
 
@@ -39,7 +44,7 @@ function applicableValue(
 /** All applicable rules, not just the winning one — used for cumulative exceedance counts. */
 export function matchingThresholds(
   cellValue: number,
-  thresholds: ThresholdRule[],
+  thresholds: readonly ThresholdRule[],
   cellRole: CellRole,
   cellScope: ThresholdScope = 'day',
 ): ThresholdRule[] {
@@ -57,7 +62,7 @@ export function matchingThresholds(
  */
 export function resolveThreshold(
   cellValue: number,
-  thresholds: ThresholdRule[],
+  thresholds: readonly ThresholdRule[],
   cellRole: CellRole,
   cellScope: ThresholdScope = 'day',
 ): ThresholdRule | undefined {

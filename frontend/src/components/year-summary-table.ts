@@ -5,7 +5,7 @@ import type { EntityConfig, ThresholdRule, ThresholdLegendGroup } from '../types
 import { rowKey } from '../types/card-config';
 import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
-import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
+import { resolveThreshold, buildCellStyle, EMPTY_THRESHOLDS } from '../services/threshold-resolver';
 import { NBSP } from './year-table';
 import { ContrastResolver } from '../services/readable-text';
 import { FrameScheduler } from '../services/frame-scheduler';
@@ -336,7 +336,7 @@ export class YearSummaryTable extends LitElement {
           return html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`;
         }
         const v = raw * f;
-        const rule = resolveThreshold(v, cfg.thresholds ?? [], row, 'day');
+        const rule = resolveThreshold(v, cfg.thresholds ?? EMPTY_THRESHOLDS, row, 'day');
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
         const style = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
         return html`<td class="data-cell has-data" style=${ifDefined(style)}>${nf.format(v)}</td>`;
@@ -358,7 +358,7 @@ export class YearSummaryTable extends LitElement {
         const v = rollupVals[row];
         if (v != null) {
           const role = row === 'min' ? 'summary-min' : row === 'avg' ? 'summary-avg' : 'summary-max';
-          const rule = resolveThreshold(v, cfg.thresholds ?? [], role, 'day');
+          const rule = resolveThreshold(v, cfg.thresholds ?? EMPTY_THRESHOLDS, role, 'day');
           if (rule) this._addTriggered(rowIndex, groupLabel, rule);
           summaryStyles[row] = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
         }
@@ -402,7 +402,7 @@ export class YearSummaryTable extends LitElement {
       let cellStyle = staticStyle;
       if (numericValue !== undefined && cellContent) {
         // Monthly totals are month-scale sums — gated by month-scope rules (015).
-        const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar', 'month');
+        const rule = resolveThreshold(numericValue, cfg.thresholds ?? EMPTY_THRESHOLDS, 'scalar', 'month');
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
         cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
       }
@@ -429,13 +429,13 @@ export class YearSummaryTable extends LitElement {
     // Yearly total is a year-scale sum — colorable by year-scope rules (015).
     let cumulTotalStyle = staticStyle;
     if (rollup.total != null) {
-      const rule = resolveThreshold(rollup.total * f, cfg.thresholds ?? [], 'scalar', 'year');
+      const rule = resolveThreshold(rollup.total * f, cfg.thresholds ?? EMPTY_THRESHOLDS, 'scalar', 'year');
       if (rule) this._addTriggered(rowIndex, groupLabel, rule);
       cumulTotalStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
     }
     if (rollup.mean != null && (showMin || showAvg || showMax)) {
       // Rollup over monthly totals inherits their month scale (015).
-      const rule = resolveThreshold(rollup.mean * f, cfg.thresholds ?? [], 'summary-scalar', 'month');
+      const rule = resolveThreshold(rollup.mean * f, cfg.thresholds ?? EMPTY_THRESHOLDS, 'summary-scalar', 'month');
       if (rule) this._addTriggered(rowIndex, groupLabel, rule);
       cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
     }

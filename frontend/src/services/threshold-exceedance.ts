@@ -1,7 +1,7 @@
 import type { CellRole, EntityConfig, ThresholdRule } from '../types/card-config';
 import { rowKey } from '../types/card-config';
 import type { DailyValue, YearStatistics } from '../types/statistics';
-import { matchingThresholds, resolveThreshold } from './threshold-resolver';
+import { matchingThresholds, resolveThreshold, EMPTY_THRESHOLDS } from './threshold-resolver';
 import { rowLabel } from './row-label';
 
 /** The same two counts restricted to one year of the viewed range. */
@@ -81,7 +81,7 @@ export function countExceedances(
   const groups: ExceedanceGroup[] = [];
 
   for (const cfg of entities) {
-    const thresholds = cfg.thresholds ?? [];
+    const thresholds = cfg.thresholds ?? EMPTY_THRESHOLDS;
     if (thresholds.length === 0) continue;
 
     const key = rowKey(cfg);

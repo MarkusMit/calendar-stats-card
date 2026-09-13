@@ -5,7 +5,7 @@ import type { EntityConfig, ThresholdRule, ThresholdLegendGroup } from '../types
 import { rowKey } from '../types/card-config';
 import type { DailyValue, MonthlySummary, EntityMetadata } from '../types/statistics';
 import { localize } from '../localize/localize';
-import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
+import { resolveThreshold, buildCellStyle, EMPTY_THRESHOLDS } from '../services/threshold-resolver';
 import { ContrastResolver } from '../services/readable-text';
 import { rowSummaryKey } from '../services/data-transform';
 import { rowLabel } from '../services/row-label';
@@ -393,7 +393,7 @@ export class YearTable extends LitElement {
           if (minV === 0 && !showZero) {
             minCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
           } else {
-            const minRule = resolveThreshold(minV, cfg.thresholds ?? [], 'min', 'day');
+            const minRule = resolveThreshold(minV, cfg.thresholds ?? EMPTY_THRESHOLDS, 'min', 'day');
             if (minRule) this._addTriggered(rowIndex, groupLabel, minRule);
             const minStyle = buildCellStyle(cfg.text_color, cfg.background_color, minRule, this._contrast.textFor(minRule?.background_color ?? cfg.background_color));
             minCells.push(html`<td class="data-cell has-data" style=${ifDefined(minStyle)}>${nf.format(minV)}</td>`);
@@ -402,7 +402,7 @@ export class YearTable extends LitElement {
           if (meanV === 0 && !showZero) {
             meanCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
           } else {
-            const avgRule = resolveThreshold(meanV, cfg.thresholds ?? [], 'avg', 'day');
+            const avgRule = resolveThreshold(meanV, cfg.thresholds ?? EMPTY_THRESHOLDS, 'avg', 'day');
             if (avgRule) this._addTriggered(rowIndex, groupLabel, avgRule);
             const avgStyle = buildCellStyle(cfg.text_color, cfg.background_color, avgRule, this._contrast.textFor(avgRule?.background_color ?? cfg.background_color));
             meanCells.push(html`<td class="data-cell has-data" style=${ifDefined(avgStyle)}>${nf.format(meanV)}</td>`);
@@ -411,7 +411,7 @@ export class YearTable extends LitElement {
           if (maxV === 0 && !showZero) {
             maxCells.push(html`<td class="data-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`);
           } else {
-            const maxRule = resolveThreshold(maxV, cfg.thresholds ?? [], 'max', 'day');
+            const maxRule = resolveThreshold(maxV, cfg.thresholds ?? EMPTY_THRESHOLDS, 'max', 'day');
             if (maxRule) this._addTriggered(rowIndex, groupLabel, maxRule);
             const maxStyle = buildCellStyle(cfg.text_color, cfg.background_color, maxRule, this._contrast.textFor(maxRule?.background_color ?? cfg.background_color));
             maxCells.push(html`<td class="data-cell has-data" style=${ifDefined(maxStyle)}>${nf.format(maxV)}</td>`);
@@ -453,7 +453,7 @@ export class YearTable extends LitElement {
           const v = rawSummaryVals[row];
           if (v != null) {
             const role = row === 'min' ? 'summary-min' : row === 'avg' ? 'summary-avg' : 'summary-max';
-            const rule = resolveThreshold(v, cfg.thresholds ?? [], role, 'day');
+            const rule = resolveThreshold(v, cfg.thresholds ?? EMPTY_THRESHOLDS, role, 'day');
             if (rule) this._addTriggered(rowIndex, groupLabel, rule);
             summaryStyles[row] = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
           }
@@ -494,7 +494,7 @@ export class YearTable extends LitElement {
       }
       let cellStyle = staticStyle;
       if (numericValue !== undefined) {
-        const rule = resolveThreshold(numericValue, cfg.thresholds ?? [], 'scalar', 'day');
+        const rule = resolveThreshold(numericValue, cfg.thresholds ?? EMPTY_THRESHOLDS, 'scalar', 'day');
         if (rule) this._addTriggered(rowIndex, groupLabel, rule);
         cellStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
       }
@@ -520,12 +520,12 @@ export class YearTable extends LitElement {
     // Monthly total is a month-scale sum — colorable by month-scope rules (015).
     let cumulTotalStyle = staticStyle;
     if (summary?.total != null) {
-      const rule = resolveThreshold(summary.total * f, cfg.thresholds ?? [], 'scalar', 'month');
+      const rule = resolveThreshold(summary.total * f, cfg.thresholds ?? EMPTY_THRESHOLDS, 'scalar', 'month');
       if (rule) this._addTriggered(rowIndex, groupLabel, rule);
       cumulTotalStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
     }
     if (summary?.mean != null && (showMin || showAvg || showMax)) {
-      const rule = resolveThreshold(summary.mean * f, cfg.thresholds ?? [], 'summary-scalar', 'day');
+      const rule = resolveThreshold(summary.mean * f, cfg.thresholds ?? EMPTY_THRESHOLDS, 'summary-scalar', 'day');
       if (rule) this._addTriggered(rowIndex, groupLabel, rule);
       cumulSummaryStyle = buildCellStyle(cfg.text_color, cfg.background_color, rule, this._contrast.textFor(rule?.background_color ?? cfg.background_color));
     }

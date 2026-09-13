@@ -5,7 +5,7 @@ import type { EntityConfig, ThresholdRule, ThresholdLegendGroup, CellRole, Thres
 import { rowKey } from '../types/card-config';
 import type { EntityMetadata, ComparisonSeries, ComparisonEntry, MonthlySummary } from '../types/statistics';
 import { localize } from '../localize/localize';
-import { resolveThreshold, buildCellStyle } from '../services/threshold-resolver';
+import { resolveThreshold, buildCellStyle, EMPTY_THRESHOLDS } from '../services/threshold-resolver';
 import { NBSP } from './year-table';
 import { ContrastResolver } from '../services/readable-text';
 import { FrameScheduler } from '../services/frame-scheduler';
@@ -249,7 +249,7 @@ export class MonthComparisonTable extends LitElement {
         ${diffCell(null, null, 'Ø', 'diff-avg', 'comparison.diff_avg')}`;
     }
     const v = entry.value * factor;
-    const rule = resolveThreshold(v, cfg.thresholds ?? [], role, scope);
+    const rule = resolveThreshold(v, cfg.thresholds ?? EMPTY_THRESHOLDS, role, scope);
     if (rule) this._addTriggered(rowIndex, groupLabel, rule);
     const valueStyle = buildCellStyle(
       cfg.text_color, cfg.background_color, rule,
@@ -278,7 +278,7 @@ export class MonthComparisonTable extends LitElement {
       return html`<td class="avg-cell" style=${ifDefined(staticStyle)}>${NBSP}</td>`;
     }
     const v = series.crossYearAvg * factor;
-    const rule = resolveThreshold(v, cfg.thresholds ?? [], summaryRole, scope);
+    const rule = resolveThreshold(v, cfg.thresholds ?? EMPTY_THRESHOLDS, summaryRole, scope);
     if (rule) this._addTriggered(rowIndex, groupLabel, rule);
     const style = buildCellStyle(
       cfg.text_color, cfg.background_color, rule,
