@@ -93,6 +93,7 @@ export class YearTable extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this._layoutFrame.cancel();
+    this._scrollFrame.cancel();
     this._contrast.dispose();
   }
 
@@ -236,22 +237,38 @@ export class YearTable extends LitElement {
 
   private _lastDispatchedGroups: ThresholdLegendGroup[] = [];
 
-  /** Keep the sticky scrollbar and the (scrollbar-less) table container in lockstep. */
-  private _onContainerScroll = (): void => {
-    const container = this.shadowRoot?.querySelector<HTMLElement>('.table-container');
-    const sticky = this.shadowRoot?.querySelector<HTMLElement>('.sticky-scrollbar');
-    if (container && sticky && sticky.scrollLeft !== container.scrollLeft) {
-      sticky.scrollLeft = container.scrollLeft;
-    }
-  };
+  /** Both scroll containers, resolved once — the template never replaces them. */
+  private _container: HTMLElement | null = null;
+  private _sticky: HTMLElement | null = null;
+  private _scrollFrame = new FrameScheduler();
 
-  private _onStickyScroll = (): void => {
-    const container = this.shadowRoot?.querySelector<HTMLElement>('.table-container');
-    const sticky = this.shadowRoot?.querySelector<HTMLElement>('.sticky-scrollbar');
-    if (container && sticky && container.scrollLeft !== sticky.scrollLeft) {
-      container.scrollLeft = sticky.scrollLeft;
-    }
-  };
+  /**
+   * Keeps the sticky scrollbar and the (scrollbar-less) table container in
+   * lockstep. Registered here rather than through a template binding so the
+   * listeners are passive: a non-passive scroll listener on the element being
+   * scrolled blocks the compositor for the whole gesture.
+   */
+  override firstUpdated(): void {
+    const container = this.shadowRoot?.querySelector<HTMLElement>('.table-container') ?? null;
+    const sticky = this.shadowRoot?.querySelector<HTMLElement>('.sticky-scrollbar') ?? null;
+    this._container = container;
+    this._sticky = sticky;
+    if (!container || !sticky) return;
+    container.addEventListener('scroll', () => this._mirrorScroll(container, sticky), { passive: true });
+    sticky.addEventListener('scroll', () => this._mirrorScroll(sticky, container), { passive: true });
+  }
+
+  /**
+   * Mirrors one scroll position onto the other on the next frame. A gesture
+   * fires scroll events faster than the browser paints, and the mirrored write
+   * echoes back as another scroll event, so the work is coalesced into one
+   * frame and skipped once both sides agree.
+   */
+  private _mirrorScroll(from: HTMLElement, to: HTMLElement): void {
+    this._scrollFrame.schedule(() => {
+      if (to.scrollLeft !== from.scrollLeft) to.scrollLeft = from.scrollLeft;
+    });
+  }
 
   private _layoutFrame = new FrameScheduler();
   private _lastLabelWidth = '';
@@ -265,8 +282,8 @@ export class YearTable extends LitElement {
    */
   private _syncWidths(): void {
     const labelCol = this.shadowRoot?.querySelector<HTMLElement>('td.label-column[rowspan]');
-    const container = this.shadowRoot?.querySelector<HTMLElement>('.table-container');
-    const spacer = this.shadowRoot?.querySelector<HTMLElement>('.sticky-scrollbar-spacer');
+    const container = this._container;
+    const spacer = this._sticky?.firstElementChild as HTMLElement | null;
     const labelWidth = labelCol ? `${labelCol.getBoundingClientRect().width}px` : null;
     // The sticky scrollbar's spacer matches the table's scroll width so both
     // scroll areas share the same range (no overflow → scrollbar auto-hides).
@@ -551,7 +568,7 @@ export class YearTable extends LitElement {
     const withYear = this.showYear || (this.monthSegments?.length ?? 0) > 0;
 
     return html`
-      <div class="table-container" @scroll=${this._onContainerScroll}>
+      <div class="table-container">
         <table>
           ${sections.map((sec) => {
             const days = this.daysInMonth(sec.year, sec.month);
@@ -583,7 +600,7 @@ export class YearTable extends LitElement {
           })}
         </table>
       </div>
-      <div class="sticky-scrollbar" @scroll=${this._onStickyScroll}>
+      <div class="sticky-scrollbar">
         <div class="sticky-scrollbar-spacer"></div>
       </div>
     `;
