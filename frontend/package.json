@@ -24,7 +24,7 @@
     "@typescript-eslint/parser": "^8.70.0",
     "@vitest/coverage-v8": "^5.0.0",
     "custom-card-helpers": "^2.0.0",
-    "eslint": "^10.10.0",
+    "eslint": "^10.11.0",
     "happy-dom": "^20.14.5",
     "lit": "^3.3.3",
     "rollup": "^4.63.2",
