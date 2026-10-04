@@ -40,6 +40,14 @@ async function createCard(config: CardConfig = CONFIG, hass?: HomeAssistant): Pr
   return el;
 }
 
+/** Waits until the statistics fetch settled and the monthly tables rendered. */
+async function loaded(card: CalendarStatsCard): Promise<void> {
+  await vi.waitFor(async () => {
+    await card.updateComplete;
+    if (!card.shadowRoot!.querySelector('calendar-stats-year-table')) throw new Error('still loading');
+  }, { timeout: 3000 });
+}
+
 describe('CalendarStatsCard — year/month logic', () => {
   it('defaults to the current year (this_year preset)', async () => {
     const el = await createCard(CONFIG, makeHass());
@@ -910,15 +918,25 @@ describe('CalendarStatsCard — exceedance table', () => {
     }],
   };
 
+  it('is absent while statistics are being fetched', async () => {
+    const never = new Promise<unknown>(() => {});
+    const card = await createCard(withThreshold, makeHass({
+      connection: { sendMessagePromise: vi.fn().mockReturnValue(never) },
+    }));
+    const overlay = card.shadowRoot!.querySelector('calendar-stats-loading-overlay') as HTMLElement & { visible?: boolean };
+    expect(overlay.visible).toBe(true);
+    expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
+  });
+
   it('renders in the monthly view when a rule qualifies', async () => {
     const card = await createCard(withThreshold, makeHass());
-    await card.updateComplete;
+    await loaded(card);
     expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).not.toBeNull();
   });
 
   it('renders after the data tables, inside the card content', async () => {
     const card = await createCard(withThreshold, makeHass());
-    await card.updateComplete;
+    await loaded(card);
     const content = card.shadowRoot!.querySelector('.card-content')!;
     const table = content.querySelector('calendar-stats-exceedance-table');
     expect(table).not.toBeNull();
@@ -930,7 +948,7 @@ describe('CalendarStatsCard — exceedance table', () => {
 
   it('is absent when no rule qualifies', async () => {
     const card = await createCard(CONFIG, makeHass());
-    await card.updateComplete;
+    await loaded(card);
     expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
   });
 
@@ -943,7 +961,7 @@ describe('CalendarStatsCard — exceedance table', () => {
       }],
     };
     const card = await createCard(unnamed, makeHass());
-    await card.updateComplete;
+    await loaded(card);
     expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
   });
 });
@@ -994,7 +1012,7 @@ describe('CalendarStatsCard — exceedance table across views', () => {
 
   it('reports the same counts in the monthly and the yearly view', async () => {
     const card = await createCard(withThreshold, makeHass());
-    await card.updateComplete;
+    await loaded(card);
     const monthly = counts(card);
     card.viewMode = 'yearly';
     await vi.waitFor(async () => {
@@ -1039,7 +1057,7 @@ describe('CalendarStatsCard — exceedance per-year columns', () => {
 
   it('passes no years in the monthly view', async () => {
     const card = await createCard(withThreshold, makeHass());
-    await card.updateComplete;
+    await loaded(card);
     expect(table(card)!.years).toEqual([]);
   });
 
@@ -1061,19 +1079,19 @@ describe('CalendarStatsCard — exceedance table visibility option', () => {
 
   it('renders the table when show_threshold_table is omitted', async () => {
     const card = await createCard({ type: 'custom:calendar-stats-card', entities: [base] }, makeHass());
-    await card.updateComplete;
+    await loaded(card);
     expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).not.toBeNull();
   });
 
   it('renders the table when show_threshold_table is true', async () => {
     const card = await createCard({ type: 'custom:calendar-stats-card', entities: [base], show_threshold_table: true } as CardConfig, makeHass());
-    await card.updateComplete;
+    await loaded(card);
     expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).not.toBeNull();
   });
 
   it('hides the table when show_threshold_table is false', async () => {
     const card = await createCard({ type: 'custom:calendar-stats-card', entities: [base], show_threshold_table: false } as CardConfig, makeHass());
-    await card.updateComplete;
+    await loaded(card);
     expect(card.shadowRoot!.querySelector('calendar-stats-exceedance-table')).toBeNull();
   });
 });

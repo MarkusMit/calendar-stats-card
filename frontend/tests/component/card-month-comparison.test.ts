@@ -63,6 +63,21 @@ async function waitForComparison(el: CalendarStatsCard): Promise<void> {
   }, { timeout: 3000 });
 }
 
+function selectRange(el: CalendarStatsCard, start: { year: number; month: number }, end: { year: number; month: number }): void {
+  const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator')!;
+  nav.dispatchEvent(new CustomEvent('calendar-stats-range-select', {
+    detail: { start, end }, bubbles: true, composed: true,
+  }));
+}
+
+async function clickBack(el: CalendarStatsCard): Promise<void> {
+  el.shadowRoot!.querySelector<HTMLButtonElement>('button.comparison-back')!.click();
+  await vi.waitFor(async () => {
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('button.comparison-back')).toBeNull();
+  }, { timeout: 3000 });
+}
+
 function monthLong(month: number): string {
   return new Intl.DateTimeFormat('en', { month: 'long' }).format(new Date(2020, month - 1, 1));
 }
@@ -111,13 +126,44 @@ describe('CalendarStatsCard — month comparison wiring (spec 014 US1)', () => {
     expect(el.shadowRoot!.querySelector('.comparison-month')?.textContent).toContain(monthLong(7));
   });
 
-  it('hides the range navigator and view-mode toggle while the comparison is open (research D3)', async () => {
+  it('shows the year-granular range navigator but hides the view-mode toggle while open', async () => {
     const el = await createYearlyCard();
-    expect(el.shadowRoot!.querySelector('calendar-stats-range-navigator')).toBeTruthy();
     openComparison(el, 3);
     await waitForComparison(el);
-    expect(el.shadowRoot!.querySelector('calendar-stats-range-navigator')).toBeNull();
+    const nav = el.shadowRoot!.querySelector('.bottom-bar calendar-stats-range-navigator') as (HTMLElement & { granularity: string }) | null;
+    expect(nav).toBeTruthy();
+    expect(nav!.granularity).toBe('year');
     expect(el.shadowRoot!.querySelector('calendar-stats-view-mode-toggle')).toBeNull();
+  });
+
+  it('a range change keeps the comparison open on the same month and fetches the new years', async () => {
+    const hass = makeHass();
+    const el = await createYearlyCard(hass);
+    openComparison(el, 3);
+    await waitForComparison(el);
+    const sendMsg = hass.connection.sendMessagePromise as ReturnType<typeof vi.fn>;
+    const callsBefore = sendMsg.mock.calls.length;
+    selectRange(el, { year: CURRENT_YEAR - 2, month: 1 }, { year: CURRENT_YEAR, month: 12 });
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      expect(el.range.start.year).toBe(CURRENT_YEAR - 2);
+    }, { timeout: 3000 });
+    expect(el.shadowRoot!.querySelector('button.comparison-back')).toBeTruthy();
+    expect(el.shadowRoot!.querySelector('.comparison-month')?.textContent).toContain(monthLong(3));
+    expect(sendMsg.mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+
+  it('prev-range in the comparison steps the years and keeps it open', async () => {
+    const el = await createYearlyCard();
+    openComparison(el, 3);
+    await waitForComparison(el);
+    const nav = el.shadowRoot!.querySelector('calendar-stats-range-navigator')!;
+    nav.dispatchEvent(new CustomEvent('calendar-stats-prev-range', { bubbles: true, composed: true }));
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      expect(el.range.start.year).toBe(CURRENT_YEAR - 1);
+    }, { timeout: 3000 });
+    expect(el.shadowRoot!.querySelector('button.comparison-back')).toBeTruthy();
   });
 
   it('back, month prev/next controls all live in the bottom bar (user revision 3)', async () => {
@@ -288,3 +334,81 @@ describe('CalendarStatsCard — comparison back control (spec 014 US3)', () => {
   });
 });
 
+describe('CalendarStatsCard — comparison back returns to the origin view and range', () => {
+  it('back after a range change inside the comparison restores the yearly origin range', async () => {
+    const el = await createYearlyCard();
+    const rangeBefore = el.range;
+    openComparison(el, 3);
+    await waitForComparison(el);
+    selectRange(el, { year: CURRENT_YEAR - 2, month: 1 }, { year: CURRENT_YEAR, month: 12 });
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      expect(el.range.start.year).toBe(CURRENT_YEAR - 2);
+    }, { timeout: 3000 });
+    await clickBack(el);
+    expect(el.viewMode).toBe('yearly');
+    expect(el.range).toEqual(rangeBefore);
+  });
+});
+
+/** Monthly-view card; clicks the month-name button of the first month section. */
+async function openComparisonFromMonthly(el: CalendarStatsCard, month: number): Promise<void> {
+  let button: HTMLButtonElement | undefined;
+  await vi.waitFor(async () => {
+    await el.updateComplete;
+    const tables = [...el.shadowRoot!.querySelectorAll('calendar-stats-year-table')] as SegmentedYearTable[];
+    expect(tables.length).toBeGreaterThan(0);
+    for (const t of tables) await t.updateComplete;
+    const buttons = tables.flatMap((t) => [...t.shadowRoot.querySelectorAll<HTMLButtonElement>('th.month-name button.month-select')]);
+    button = buttons.find((b) => b.textContent!.includes(monthLong(month)));
+    expect(button).toBeTruthy();
+  }, { timeout: 3000 });
+  button!.click();
+  await waitForComparison(el);
+}
+
+describe('CalendarStatsCard — comparison entry from the monthly view', () => {
+  it('clicking a month name opens the comparison with the range snapped to whole years', async () => {
+    const el = await createCard(makeHass());
+    const rangeBefore = el.range;
+    await openComparisonFromMonthly(el, 1);
+    expect(el.viewMode).toBe('yearly');
+    expect(el.range.start).toEqual({ year: rangeBefore.start.year, month: 1 });
+    expect(el.range.end).toEqual({ year: rangeBefore.end.year, month: 12 });
+    expect(el.shadowRoot!.querySelector('.comparison-month')?.textContent).toContain(monthLong(1));
+  });
+
+  it('back returns to the monthly view with the original range', async () => {
+    const el = await createCard(makeHass());
+    const rangeBefore = el.range;
+    await openComparisonFromMonthly(el, 1);
+    await clickBack(el);
+    expect(el.viewMode).toBe('monthly');
+    expect(el.range).toEqual(rangeBefore);
+    expect(el.shadowRoot!.querySelector('calendar-stats-view-mode-toggle')).toBeTruthy();
+  });
+
+  it('back after a range change inside the comparison still restores the monthly origin range', async () => {
+    const el = await createCard(makeHass());
+    const rangeBefore = el.range;
+    await openComparisonFromMonthly(el, 1);
+    selectRange(el, { year: CURRENT_YEAR - 2, month: 1 }, { year: CURRENT_YEAR, month: 12 });
+    await vi.waitFor(async () => {
+      await el.updateComplete;
+      expect(el.range.start.year).toBe(CURRENT_YEAR - 2);
+    }, { timeout: 3000 });
+    await clickBack(el);
+    expect(el.viewMode).toBe('monthly');
+    expect(el.range).toEqual(rangeBefore);
+  });
+
+  it('the comparison daily table has no selectable month headers', async () => {
+    const el = await createTwoYearCard();
+    openComparison(el, 6);
+    await waitForComparison(el);
+    const table = el.shadowRoot!.querySelector('.comparison-daily calendar-stats-year-table') as SegmentedYearTable;
+    await table.updateComplete;
+    expect(table.shadowRoot.querySelector('th.month-name')).toBeTruthy();
+    expect(table.shadowRoot.querySelector('button.month-select')).toBeNull();
+  });
+});
