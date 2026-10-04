@@ -97,6 +97,9 @@ export interface ViewState {
    *  open (yearly view only); null when no comparison is active. Session-only,
    *  never persisted to the card config (spec 014 FR-013). */
   comparisonMonth: number | null;
+  /** View mode and range active when the comparison opened; Back restores them.
+   *  null while no comparison is active. */
+  comparisonOrigin: { viewMode: ViewMode; range: DateRange } | null;
   earliestDataYear: number | null;
   earliestDataMonth: number | null;
   isLoading: boolean;

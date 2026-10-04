@@ -94,6 +94,8 @@ export class YearTable extends LitElement {
   /** When true, the year is shown alongside each month name (for multi-year ranges). */
   @property({ type: Boolean }) showYear = false;
   @property({ attribute: false }) visibleMonths: number[] = [];
+  /** When true, each month name is a button that opens the month comparison. */
+  @property({ type: Boolean }) monthSelectable = false;
   /** Cross-year section mode (spec 014): overrides year/visibleMonths/dailyValues/
    *  monthlySummaries/entityMetadata; each section's header names month AND year. */
   @property({ attribute: false }) monthSegments: MonthSegment[] | null = null;
@@ -260,6 +262,23 @@ export class YearTable extends LitElement {
       position: sticky;
       left: 0;
       z-index: 1;
+    }
+    .month-header-row th.month-name button.month-select {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      text-decoration: underline dotted;
+      text-underline-offset: 2px;
+      border-radius: 3px;
+    }
+    .month-header-row th.month-name button.month-select:hover,
+    .month-header-row th.month-name button.month-select:focus-visible {
+      outline: none;
+      background: var(--divider-color, rgba(0, 0, 0, 0.12));
     }
     .month-header-row th.pad-cell {
       opacity: 1;
@@ -475,6 +494,22 @@ export class YearTable extends LitElement {
 
   private monthName(month: number): string {
     return monthNameFormatter(this.lang).format(new Date(2020, month - 1, 1));
+  }
+
+  private _renderMonthName(sec: MonthSegment, withYear: boolean) {
+    const name = this.monthName(sec.month);
+    const text = withYear ? `${name} ${sec.year}` : name;
+    if (!this.monthSelectable) return text;
+    const ariaLabel = localize('comparison.compare_month', this.lang).replace('{month}', name);
+    return html`<button class="month-select" aria-label=${ariaLabel} @click=${() => this._onMonthSelect(sec.month)}>${text}</button>`;
+  }
+
+  private _onMonthSelect(month: number): void {
+    this.dispatchEvent(new CustomEvent('calendar-stats-month-select', {
+      bubbles: true,
+      composed: true,
+      detail: { month },
+    }));
   }
 
   private hasCumulative(sections: MonthSegment[]): boolean {
@@ -840,7 +875,7 @@ export class YearTable extends LitElement {
             // makes scrolling cost more the more of the table is on screen.
             return guard([
               sec, mounted, rowCount, hasMeasurement, hasCumulative, withYear,
-              this.lang, this.entityConfigs, this.entityErrors, this._rowHeight,
+              this.monthSelectable, this.lang, this.entityConfigs, this.entityErrors, this._rowHeight,
             ], () => this._renderSection(
               sec, sectionIndex, mounted, dayKeysBySection[sectionIndex]!,
               sections, rowCount, hasMeasurement, hasCumulative, withYear,
@@ -882,7 +917,7 @@ export class YearTable extends LitElement {
     return html`
       <thead>
         <tr class="month-header-row">
-          <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this.monthName(sec.month)}${withYear ? ` ${sec.year}` : ''}</th>
+          <th class="label-column month-name" colspan="${hasMeasurement ? 2 : 1}">${this._renderMonthName(sec, withYear)}</th>
           ${dayHeaders}
           <th class="summary-column">${localize('table.summary', this.lang)}</th>
           ${hasCumulative ? html`<th class="summary-column">${localize('table.total', this.lang)}</th>` : ''}

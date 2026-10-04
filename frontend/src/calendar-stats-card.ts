@@ -54,6 +54,7 @@ export class CalendarStatsCard extends LitElement {
     range: presetToRange('this_year', { year: new Date().getFullYear(), month: new Date().getMonth() + 1 }),
     viewMode: 'monthly',
     comparisonMonth: null,
+    comparisonOrigin: null,
     earliestDataYear: null,
     earliestDataMonth: null,
     isLoading: false,
@@ -99,7 +100,11 @@ export class CalendarStatsCard extends LitElement {
       right: 16px;
       z-index: 5;
       display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
       align-items: center;
+      max-width: calc(100vw - 32px);
+      box-sizing: border-box;
       padding: 4px 8px;
       background: var(--ha-card-background, var(--card-background-color, white));
       border-radius: 24px;
@@ -235,7 +240,7 @@ export class CalendarStatsCard extends LitElement {
     // switching back retains the year-spanning range.
     const range = mode === 'yearly' ? snapRangeToYears(this._viewState.range) : this._viewState.range;
     // A view-mode change closes an open month comparison (spec 014, research D3).
-    this._viewState = { ...this._viewState, viewMode: mode, range, comparisonMonth: null };
+    this._viewState = { ...this._viewState, viewMode: mode, range, comparisonMonth: null, comparisonOrigin: null };
     this.requestUpdate();
     if (mode === 'yearly') void this._fetchRange(range);
   }
@@ -668,17 +673,26 @@ export class CalendarStatsCard extends LitElement {
     return true;
   }
 
+  /** An open comparison stays open and compares the new range's years. */
   private _applyRange(range: DateRange): void {
-    // A range change would silently swap the compared year set — close instead (spec 014, research D3).
-    this._viewState = { ...this._viewState, range, comparisonMonth: null };
+    this._viewState = { ...this._viewState, range };
     this.requestUpdate();
     void this._fetchRange(range);
   }
 
+  /** Opens the comparison; from the monthly view it switches to the yearly mode over whole years. */
   private _onMonthSelect(e: CustomEvent<{ month: number }>): void {
-    if (this._viewState.viewMode !== 'yearly') return;
-    this._viewState = { ...this._viewState, comparisonMonth: e.detail.month };
+    const { viewMode, range } = this._viewState;
+    const comparisonRange = viewMode === 'yearly' ? range : snapRangeToYears(range);
+    this._viewState = {
+      ...this._viewState,
+      viewMode: 'yearly',
+      range: comparisonRange,
+      comparisonMonth: e.detail.month,
+      comparisonOrigin: { viewMode, range },
+    };
     this.requestUpdate();
+    if (comparisonRange !== range) void this._fetchRange(comparisonRange);
   }
 
   private _stepComparisonMonth(step: number): void {
@@ -688,9 +702,19 @@ export class CalendarStatsCard extends LitElement {
     this.requestUpdate();
   }
 
+  /** Back: returns to the view mode and range the comparison was opened from. */
   private _closeComparison(): void {
-    this._viewState = { ...this._viewState, comparisonMonth: null };
+    const origin = this._viewState.comparisonOrigin;
+    if (!origin) return;
+    this._viewState = {
+      ...this._viewState,
+      viewMode: origin.viewMode,
+      range: origin.range,
+      comparisonMonth: null,
+      comparisonOrigin: null,
+    };
     this.requestUpdate();
+    void this._fetchRange(origin.range);
   }
 
   private _onPrevRange = (): void => {
@@ -1044,7 +1068,7 @@ export class CalendarStatsCard extends LitElement {
     const yearSegments = this._yearSegments(range, now, earliest);
     const showYear = yearSegments.length > 1;
     const comparisonOpen = this._viewState.viewMode === 'yearly' && this._viewState.comparisonMonth !== null;
-    const exceedanceGroups = config && !comparisonOpen && config.show_threshold_table !== false
+    const exceedanceGroups = !isLoading && config && !comparisonOpen && config.show_threshold_table !== false
       ? this._exceedanceGroups(config.entities, yearSegments)
       : [];
 
@@ -1082,7 +1106,9 @@ export class CalendarStatsCard extends LitElement {
                       .entityConfigs=${config.entities}
                       .entityErrors=${this._viewState.entityErrors}
                       .lang=${lang}
+                      monthSelectable
                       @thresholds-applied=${this._onThresholdsApplied}
+                      @calendar-stats-month-select=${this._onMonthSelect}
                     ></calendar-stats-year-table>`
                   : yearSegments.map((seg) => {
                     const yearStats = this._viewState.statisticsByYear.get(seg.year);
@@ -1095,7 +1121,9 @@ export class CalendarStatsCard extends LitElement {
                       .entityMetadata=${yearStats?.entityMetadata ?? this._emptyEntityMetadata}
                       .entityErrors=${this._viewState.entityErrors}
                       .lang=${lang}
+                      monthSelectable
                       @thresholds-applied=${this._onThresholdsApplied}
+                      @calendar-stats-month-select=${this._onMonthSelect}
                     ></calendar-stats-year-table>`;
                   }))
             : ''}
@@ -1114,8 +1142,10 @@ export class CalendarStatsCard extends LitElement {
                 .mode=${this._viewState.viewMode}
                 .lang=${lang}
                 @calendar-stats-view-mode-select=${this._onViewModeSelect}
-              ></calendar-stats-view-mode-toggle>
-              <calendar-stats-range-navigator
+              ></calendar-stats-view-mode-toggle>`
+            : ''}
+          ${config
+            ? html`<calendar-stats-range-navigator
                 .range=${range}
                 .now=${now}
                 .earliest=${earliest}

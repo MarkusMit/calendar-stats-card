@@ -66,6 +66,45 @@ describe('YearTable — showYear month header', () => {
   });
 });
 
+describe('YearTable — selectable month header', () => {
+  it('by default the month header holds no button', async () => {
+    const el = await renderYearTable();
+    expect(el.shadowRoot!.querySelector('th.month-name button')).toBeNull();
+  });
+
+  it('monthSelectable → the header button dispatches calendar-stats-month-select with its month', async () => {
+    const el = await renderYearTable();
+    el.visibleMonths = [1, 2];
+    el.monthSelectable = true;
+    await el.updateComplete;
+    const buttons = [...el.shadowRoot!.querySelectorAll<HTMLButtonElement>('th.month-name button.month-select')];
+    expect(buttons.length).toBe(2);
+    expect(buttons[1]!.getAttribute('aria-label')).toBe('Compare February across years');
+    const handler = vi.fn();
+    document.body.addEventListener('calendar-stats-month-select', handler);
+    buttons[1]!.click();
+    document.body.removeEventListener('calendar-stats-month-select', handler);
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect((handler.mock.calls[0]![0] as CustomEvent).detail).toEqual({ month: 2 });
+  });
+
+  it('monthSelectable in cross-year section mode → button keeps the year in the header', async () => {
+    const el = await renderYearTable();
+    el.monthSegments = [
+      { year: 2024, month: 11, dailyValues: dailyIndex(), monthlySummaries: new Map(), entityMetadata: new Map([[ENTITY_ID, tempMeta]]) },
+      { year: 2025, month: 1, dailyValues: dailyIndex(), monthlySummaries: new Map(), entityMetadata: new Map([[ENTITY_ID, tempMeta]]) },
+    ];
+    el.monthSelectable = true;
+    await el.updateComplete;
+    const buttons = [...el.shadowRoot!.querySelectorAll<HTMLButtonElement>('th.month-name button.month-select')];
+    expect(buttons.map((b) => b.textContent!.trim())).toEqual(['November 2024', 'January 2025']);
+    const handler = vi.fn();
+    el.addEventListener('calendar-stats-month-select', handler);
+    buttons[0]!.click();
+    expect((handler.mock.calls[0]![0] as CustomEvent).detail).toEqual({ month: 11 });
+  });
+});
+
 describe('YearTable — measurement sub-label column', () => {
   it('measurement entity → 3 td.sub-label cells with min/avg/max text (EN)', async () => {
     const el = await renderYearTable();
