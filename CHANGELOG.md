@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Consistent page loading behaviour.
+- bumped dependencies.
 
 ## [0.8.2] - 2026-09-13
 
