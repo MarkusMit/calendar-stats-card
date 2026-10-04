@@ -13,12 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Clicking a month name in the monthly view opens the month comparison over the current range expanded to whole years.
+- The month comparison can now also be opened from the month view by clicking a month's name, and now also shows the range selector.
 
 ### Changed
 
-- The month comparison shows the range navigator; changing the range keeps the comparison open on the same month.
-- Back in the month comparison returns to the view and range it was opened from.
+- Consistent page loading behaviour.
 
 ## [0.8.2] - 2026-09-13
 
