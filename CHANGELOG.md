@@ -19,8 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Consistent page loading behaviour.
-- bumped dependencies.
+- Bumped dependencies.
+
+### Fixed
+
+- Consistent page loading behaviour: the threshold days table no longer appears before the data tables have loaded.
 
 ## [0.8.2] - 2026-09-13
 
